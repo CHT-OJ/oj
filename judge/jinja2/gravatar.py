@@ -2,6 +2,7 @@ import hashlib
 
 from django.contrib.auth.models import AbstractUser
 from django.utils.http import urlencode
+from django.conf import settings
 
 from judge.models import Profile
 from judge.utils.unicode import utf8bytes
@@ -13,13 +14,15 @@ def gravatar(email, size=80, default=None):
     if isinstance(email, Profile):
         if default is None:
             default = email.mute
-        email = email.user.email
+        #email = email.user.email
+        user_id = email.user.id
     elif isinstance(email, AbstractUser):
-        email = email.email
+        #email = email.email
+        user_id = email.id
 
-    gravatar_url = 'https://www.gravatar.com/avatar/' + hashlib.md5(utf8bytes(email.strip().lower())).hexdigest() + '?'
+    '''gravatar_url = 'https://www.gravatar.com/avatar/' + hashlib.md5(utf8bytes(email.strip().lower())).hexdigest() + '?'
     args = {'d': 'identicon', 's': str(size)}
     if default:
         args['f'] = 'y'
-    gravatar_url += urlencode(args)
-    return gravatar_url
+    gravatar_url += urlencode(args)'''
+    return f"/avatar/{user_id}.png"

@@ -487,10 +487,12 @@ def edit_profile(request):
     if request.profile.mute:
         return generic_message(request, _("Can't edit profile"), _('Your part is silent, little toad.'), status=403)
     if request.method == 'POST':
-        form = ProfileForm(request.POST, instance=request.profile, user=request.user)
+        form = ProfileForm(request.POST, request.FILES, instance=request.profile, user=request.user)
         form_user = UserForm(request.POST, instance=request.user)
+        # print(form.data)
         if form.is_valid() and form_user.is_valid():
             with revisions.create_revision(atomic=True):
+                # print(request.FILES, request.POST)
                 form_user.save()
                 form.save()
                 revisions.set_user(request.user)
