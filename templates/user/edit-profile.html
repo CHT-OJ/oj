@@ -269,7 +269,7 @@
 
 {% block body %}
     <div class="centered-form">
-        <form id="edit-form" action="" method="post" class="form-area">
+        <form id="edit-form" enctype="multipart/form-data" action="" method="post" class="form-area">
             {% if form.errors or form_user.errors %}
                 <div class="alert alert-danger alert-dismissable">
                     <a href="#" class="close">x</a>
@@ -362,8 +362,9 @@
                             </label>
                         </td></tr>
                         <tr><td>
-                            <a href="https://www.gravatar.com/" target="_blank" class="inline-header" rel="noopener">
-                                {{ _('Change your avatar') }}
+                            <div class="inline-header grayed">Change avatar</div>
+                            {{ form.avt_url }}
+                            {{ _('Change your avatar') }}
                             </a>
                         </td></tr>
                         <tr><td>

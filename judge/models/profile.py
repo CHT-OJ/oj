@@ -3,6 +3,8 @@ import hmac
 import json
 import secrets
 import struct
+import os
+import forms
 
 import pyotp
 import webauthn
@@ -130,6 +132,9 @@ class Badge(models.Model):
     def __str__(self):
         return self.name
 
+def user_directory_path(instance, filename):
+    ext = filename.split('.')[-1]
+    return os.path.join('avatar', f'{instance.id}.png')
 
 class Profile(models.Model):
     user = models.OneToOneField(User, verbose_name=_('user associated'), on_delete=models.CASCADE)
@@ -195,6 +200,7 @@ class Profile(models.Model):
     data_last_downloaded = models.DateTimeField(verbose_name=_('last data download time'), null=True, blank=True)
     username_display_override = models.CharField(max_length=100, blank=True, verbose_name=_('display name override'),
                                                  help_text=_('Name displayed in place of username.'))
+    avt_url = models.FileField(upload_to=user_directory_path, blank=True, null=True)
 
     @cached_property
     def organization(self):
