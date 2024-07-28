@@ -8,6 +8,7 @@
 *~
 *.swp
 dmoj/local_settings.py
+dmoj/settings.py
 dmoj-site.pid
 dmoj-site.sock
 uwsgi.ini

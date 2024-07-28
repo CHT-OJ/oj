@@ -29,4 +29,4 @@ def gravatar(email, size=80, default=None):
         gravatar_url += urlencode(args)
         return gravatar_url
     else:
-        return f"/avatar/{user_id}.png"
+        return f"/{Profile.objects.get(id=user_id).avt_url}"
