@@ -4,7 +4,6 @@ import json
 import secrets
 import struct
 import os
-import forms
 
 import pyotp
 import webauthn
