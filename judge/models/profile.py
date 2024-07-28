@@ -131,7 +131,7 @@ class Badge(models.Model):
     def __str__(self):
         return self.name
 
-def user_directory_path(instance):
+def user_directory_path(instance,_):
     return os.path.join('avatar', f'{instance.id}.png')
 
 class Profile(models.Model):
