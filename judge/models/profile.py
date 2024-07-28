@@ -132,7 +132,6 @@ class Badge(models.Model):
         return self.name
 
 def user_directory_path(instance, filename):
-    ext = filename.split('.')[-1]
     return os.path.join('avatar', f'{instance.id}.png')
 
 class Profile(models.Model):
