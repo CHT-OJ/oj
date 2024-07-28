@@ -39,4 +39,5 @@ db.json
 tmp.sh
 *.sql
 fc_*
-local_urls.py
+local_urls.
+judge/migrations/*
