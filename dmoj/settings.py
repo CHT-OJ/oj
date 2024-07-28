@@ -69,7 +69,7 @@ VNOJ_HOMEPAGE_TOP_USERS_COUNT = 5
 VNOJ_DISPLAY_RANKS = (
     ('user', _('Normal User')),
     ('setter', _('Problem Setter')),
-    ('daor', _('Bedao Team')),
+    ('capoo', _('Capoo')),
     ('staff', _('Staff')),
     ('banned', _('Banned User')),
     ('admin', _('Admin')),
@@ -723,7 +723,7 @@ SOCIAL_AUTH_SLUGIFY_USERNAMES = True
 SOCIAL_AUTH_SLUGIFY_FUNCTION = 'judge.social_auth.slugify_username'
 SOCIAL_AUTH_PROTECTED_USER_FIELDS = ['first_name', 'last_name']
 
-MOSS_API_KEY = None
+MOSS_API_KEY = 815537379
 
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 
