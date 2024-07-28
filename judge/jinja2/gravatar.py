@@ -20,7 +20,7 @@ def gravatar(email, size=80, default=None):
         user_id = email.id
         email = email.email
 
-    if Profile.objects.get(id=user_id).avt_url == "":
+    if Profile.objects.get(id=user_id).avt_url == None:
         gravatar_url = 'https://www.gravatar.com/avatar/' + hashlib.md5(utf8bytes(email.strip().lower())).hexdigest() + '?'
         args = {'d': 'identicon', 's': str(size)}
         if default:
