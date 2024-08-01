@@ -31,4 +31,4 @@ def gravatar(email, size=80, default=None):
         gravatar_url += urlencode(args)
         return gravatar_url
     else:
-        return f"avatar{Profile.objects.get(id=user_id).avt_url.thumbnail[f'{size}x{size}']}"
+        return f"/avatar{Profile.objects.get(id=user_id).avt_url.thumbnail[f'{size}x{size}']}"

@@ -820,7 +820,7 @@ class ProblemCreate(PermissionRequiredMixin, TitleMixin, CreateView):
         initial = super(ProblemCreate, self).get_initial()
         initial = initial.copy()
         initial['description'] = misc_config(self.request)['misc_config']['description_example']
-        initial['memory_limit'] = 262144  # 256 MB
+        initial['memory_limit'] = 1048576 # 1GB
         initial['partial'] = True
         try:
             initial['group'] = ProblemGroup.objects.get(name='Uncategorized').pk
