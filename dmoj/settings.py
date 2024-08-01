@@ -69,7 +69,7 @@ VNOJ_HOMEPAGE_TOP_USERS_COUNT = 5
 VNOJ_DISPLAY_RANKS = (
     ('user', _('Normal User')),
     ('setter', _('Problem Setter')),
-    ('daor', _('Bedao Team')),
+    ('capoo', _('Capoo')),
     ('staff', _('Staff')),
     ('banned', _('Banned User')),
     ('admin', _('Admin')),
@@ -283,7 +283,7 @@ INLINE_JQUERY = True
 INLINE_FONTAWESOME = True
 JQUERY_JS = '//ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js'
 FONTAWESOME_CSS = '//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css'
-DMOJ_CANONICAL = 'oj.vnoi.info'
+DMOJ_CANONICAL = 'oj.thptchuyenhatinh.edu.vn'
 
 # Application definition
 
@@ -724,8 +724,6 @@ SOCIAL_AUTH_FACEBOOK_SCOPE = ['email']
 SOCIAL_AUTH_SLUGIFY_USERNAMES = True
 SOCIAL_AUTH_SLUGIFY_FUNCTION = 'judge.social_auth.slugify_username'
 SOCIAL_AUTH_PROTECTED_USER_FIELDS = ['first_name', 'last_name']
-
-MOSS_API_KEY = None
 
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 

@@ -24,13 +24,22 @@
     content: "🔥";
 }
 
-.daor a, .daor {
-    color: #ff0066 !important;
+.capoo a, .capoo {
     font-weight: bold !important;
+    color: #81a1c1 !important;
 }
 
-.daor a::before {
-    content: "🌸";
+.capoo a::before {
+    content: "☄️ ";
+}
+
+.capoo a::after {
+    content: " 🌌";
+}
+
+.setter a, .setter {
+    color: #15F5BA !important;
+    font-weight: bold !important;
 }
 
 .teacher a::before {
