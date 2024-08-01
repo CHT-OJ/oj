@@ -18,6 +18,9 @@ from django.utils.encoding import force_bytes
 from django.utils.functional import cached_property
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
+from django.forms import forms
+from django.template.defaultfilters import filesizeformat
+from versatileimagefield.fields import VersatileImageField
 from fernet_fields import EncryptedCharField
 from pyotp.utils import strings_equal
 from sortedm2m.fields import SortedManyToManyField
@@ -30,6 +33,25 @@ from judge.utils.two_factor import webauthn_decode
 
 __all__ = ['Organization', 'Profile', 'OrganizationRequest', 'WebAuthnCredential']
 
+
+class ContentTypeRestrictedFileField(VersatileImageField):
+    def __init__(self, *args, **kwargs):
+        self.content_types = kwargs.pop("content_types", [])
+        self.max_upload_size = kwargs.pop("max_upload_size", 0)
+
+        super(ContentTypeRestrictedFileField, self).__init__(*args, **kwargs)
+
+    def clean(self, *args, **kwargs):
+        data = super(ContentTypeRestrictedFileField, self).clean(*args, **kwargs)
+
+        file = data.file
+        try:
+            if file._size > self.max_upload_size:
+                raise forms.ValidationError(_('Please keep filesize under %s. Current filesize %s') % (filesizeformat(self.max_upload_size), filesizeformat(file._size)))
+        except AttributeError:
+            pass
+
+        return data
 
 class EncryptedNullCharField(EncryptedCharField):
     def get_prep_value(self, value):
@@ -132,7 +154,7 @@ class Badge(models.Model):
         return self.name
 
 def user_directory_path(instance,_):
-    return os.path.join('avatar', f'{instance.id}.png')
+    return os.path.join('avatar', f'{instance.id}.jpg')
 
 class Profile(models.Model):
     user = models.OneToOneField(User, verbose_name=_('user associated'), on_delete=models.CASCADE)
@@ -198,7 +220,7 @@ class Profile(models.Model):
     data_last_downloaded = models.DateTimeField(verbose_name=_('last data download time'), null=True, blank=True)
     username_display_override = models.CharField(max_length=100, blank=True, verbose_name=_('display name override'),
                                                  help_text=_('Name displayed in place of username.'))
-    avt_url = models.FileField(upload_to=user_directory_path, blank=True, null=True)
+    avt_url = ContentTypeRestrictedFileField(upload_to=user_directory_path,content_types=["image/*"],max_upload_size=500,blank=True, null=True)
 
     @cached_property
     def organization(self):

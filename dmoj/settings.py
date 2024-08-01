@@ -287,7 +287,9 @@ DMOJ_CANONICAL = 'oj.vnoi.info'
 
 # Application definition
 
-INSTALLED_APPS = ()
+INSTALLED_APPS = (
+    "versatileimagefield",
+)
 
 try:
     import wpadmin
