@@ -5,6 +5,8 @@ from collections import defaultdict, namedtuple
 from datetime import date, datetime, time, timedelta
 from functools import partial
 from operator import attrgetter, itemgetter
+from requests import get as get_requests
+from bs4 import BeautifulSoup
 
 from django import forms
 from django.conf import settings
@@ -33,6 +35,7 @@ from django.views.generic.edit import CreateView, UpdateView
 from django.views.generic.list import BaseListView
 from icalendar import Calendar as ICalendar, Event
 from reversion import revisions
+from django.http import JsonResponse
 
 from judge.comments import CommentedDetailView
 from judge.contest_format import ICPCContestFormat
@@ -53,7 +56,7 @@ from judge.utils.views import DiggPaginatorMixin, QueryStringSortMixin, SingleOb
 __all__ = ['ContestList', 'ContestDetail', 'ContestRanking', 'ContestJoin', 'ContestLeave', 'ContestCalendar',
            'ContestClone', 'ContestStats', 'ContestMossView', 'ContestMossDelete',
            'ContestParticipationList', 'ContestParticipationDisqualify', 'get_contest_ranking_list',
-           'base_contest_ranking_list']
+           'base_contest_ranking_list','CalculateMoss']
 
 
 def _find_contest(request, key, private_check=True):
@@ -1210,6 +1213,30 @@ class ContestMossDelete(ContestMossMixin, SingleObjectMixin, View):
         ContestMoss.objects.filter(contest=self.object).delete()
         return HttpResponseRedirect(reverse('contest_moss', args=(self.object.key,)))
 
+class CalculateMoss(ContestMixin,PermissionRequiredMixin, View):
+    permission_required = 'judge.moss_contest'
+    permission_denied_message = _('You are not allowed to run MOSS.')
+    
+    def post(self, request, *args, **kwargs):
+        data = json.loads(self.request.body)
+        lang = ['c','cpp','java','pascal','python']
+        for problem in data:
+            moss = problem['moss']
+            for check in lang:
+                req = get_requests(problem[check]).content if problem[check]!="No submission" else None
+                if req:
+                    soup = BeautifulSoup(req,'html.parser')
+                    data_tds = soup.find_all('a')[6:]
+                    for i in data_tds:
+                        data_split = i.text.split()
+                        number = ''.join(filter(str.isdigit,data_split[1]))
+                        if number >= moss:
+                            profile = Profile.objects.get(user__username=data_split[0])
+                            profile.warn += 1
+                            profile.last_warned = timezone.now()
+                            profile.save()                            
+
+            return JsonResponse({'Result':data})
 
 class ContestTagDetailAjax(DetailView):
     model = ContestTag

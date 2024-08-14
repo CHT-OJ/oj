@@ -221,6 +221,8 @@ class Profile(models.Model):
     username_display_override = models.CharField(max_length=100, blank=True, verbose_name=_('display name override'),
                                                  help_text=_('Name displayed in place of username.'))
     avt_url = ContentTypeRestrictedFileField(upload_to=user_directory_path,content_types=["image/*"],max_upload_size=500,blank=True, null=True)
+    warn = models.IntegerField(default=0)
+    last_warned = models.DateTimeField(default=None, null=True)
 
     @cached_property
     def organization(self):
