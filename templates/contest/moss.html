@@ -30,6 +30,38 @@
                 return confirm('{{ _('Are you sure you want to delete the MOSS results?') }}');
             });
         });
+        function Calculate_moss(){
+            if(confirm('{{ _('Do you want to count the results (this will cause some accounts to be locked if the number of copies is exceeded)?') }}')){
+                const rows = document.querySelectorAll('.table.striped tbody tr');
+                data = [];
+                rows.forEach(row => {
+                
+                    const cells = row.querySelectorAll('td');
+                    const rowData = {
+                        problem: cells[0].innerText.trim(),
+                        c: cells[1].querySelector('a') ? cells[1].querySelector('a').href : "No submission",
+                        cpp: cells[2].querySelector('a') ? cells[2].querySelector('a').href : "No submission",
+                        java: cells[3].querySelector('a') ? cells[3].querySelector('a').href : "No submission",
+                        python: cells[4].querySelector('a') ? cells[4].querySelector('a').href : "No submission",
+                        pascal: cells[5].querySelector('a') ? cells[5].querySelector('a').href : "No submission",
+                        moss: cells[6].querySelector('input').value.trim() 
+                    };
+                    data.push(rowData);
+                });
+                var csrftoken = '{{ csrf_token }}';
+                fetch("moss/calculate", {
+                  method: 'POST',
+                  headers: {
+                    'X-CSRFToken': csrftoken,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(data => alert('Tính điểm thành công'))
+                .catch((error) => alert('Tính điểm thất bại'));
+            }
+        }
     </script>
 {% endblock %}
 {% block body %}
@@ -41,6 +73,7 @@
                 {% for lang in languages %}
                     <th class="header">{{ lang }}</th>
                 {% endfor %}
+                <th>% MOSS</th>
             </tr>
             </thead>
             <tbody>
@@ -62,10 +95,12 @@
                                 {% endif %}
                             </td>
                         {% endfor %}
+                        <td><input type="number" value="100"></td>
                     </tr>
                 {% endfor %}
             </tbody>
         </table>
+
     {% endif %}
     <div class="panes">
         <div class="pane">
@@ -83,6 +118,9 @@
                            value="{{ _('Delete MOSS results') }}">
                 </form>
             </div>
+            <div class="pane">
+                <button class="unselectable button full caculate_copy" style="padding: 10px;" onclick="Calculate_moss()">Calculate copy</button>
+            </div>            
         {% endif %}
     </div>
 {% endblock %}

@@ -9,7 +9,7 @@ from django.utils.translation import gettext as _
 
 from . import registry
 
-
+@registry.function
 def localtime_wrapper(func):
     @functools.wraps(func)
     def wrapper(datetime, *args, **kwargs):
@@ -21,7 +21,7 @@ def localtime_wrapper(func):
 
 
 registry.filter(localtime_wrapper(date))
-registry.filter(localtime_wrapper(time))
+registry.filter((time))
 
 
 @registry.function

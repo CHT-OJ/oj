@@ -220,7 +220,7 @@
     <!-- DO NOT MODIFY -->
     <!-- End Facebook Pixel Code -->
 </head>
-<body>
+<body>z
     <script>
         fbq('track', 'ViewContent');
     </script>
@@ -352,6 +352,23 @@
     </noscript>
     <br>
     <main id="content">
+        {% if request.profile.last_warned != None and request.user.is_authenticated %}
+        <div style="
+        font-size: 1rem;
+        font-weight: 400;
+        line-height: 1.5;
+        text-align: left;
+        box-sizing: border-box;
+        position: relative;
+        padding: .75rem 1.25rem;
+        margin-bottom: 1rem;
+        border: 1px solid transparent;
+        border-radius: .25rem;
+        color: #721c24;
+        background-color: #f8d7da;
+        border-color: #7000093b;
+        margin-top: 1rem;">Bạn đã có <strong>{{ request.profile.warn }}</strong> lần thực hiện hành vi chép code gần đây! <strong style='text-transform: uppercase'>nếu bạn còn tiếp tục thực hiện hành vi trên thì tài khoản của bạn sẽ bị khóa vĩnh viễn!</strong></div>
+        {% endif %}
         {% if misc_config.top_notification %}
             {{ render_django(misc_config.top_notification) }}
         {% endif %}
