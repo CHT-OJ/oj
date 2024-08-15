@@ -1,4 +1,0 @@
-INFO 2024-08-15 02:43:51,474 judge_handler Judge connected from: ('127.0.0.1', 51786)
-INFO 2024-08-15 02:43:51,481 judge_handler Judge authenticated: ('127.0.0.1', 51786) (relax)
-INFO 2024-08-15 03:06:22,766 judge_handler Judge connected from: ('127.0.0.1', 35710)
-INFO 2024-08-15 03:06:22,829 judge_handler Judge authenticated: ('127.0.0.1', 35710) (relax)
