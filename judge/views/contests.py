@@ -1249,9 +1249,10 @@ class ExportMoss(ContestMossMixin, SingleObjectMixin,PermissionRequiredMixin, Vi
         data = json.loads(self.request.body)
         workbook = Workbook()
         workbook.remove(workbook['Sheet'])
-
+        user_list = []
         lang = ['c','cpp','java','pascal','python']
         for problem in data:
+            user_list.clear()
             workbook.create_sheet(problem['problem'])
             sheet = workbook[problem['problem']]
             sheet.append(("TÊN NGƯỜI DÙNG","% MOSS"))
@@ -1265,7 +1266,9 @@ class ExportMoss(ContestMossMixin, SingleObjectMixin,PermissionRequiredMixin, Vi
                     for i in data_tds:
                         data_split = i.text.split()
                         number = ''.join(filter(str.isdigit,data_split[1]))
-                        sheet.append((data_split[0],number))
+                        if(data_split[0] not in user_list):
+                            sheet.append((data_split[0],number))
+                            user_list.append(data_split[0])
 
             for row in range(2,sheet.max_row+1):
                 cell = sheet.cell(row=row,column=2)
@@ -1274,8 +1277,8 @@ class ExportMoss(ContestMossMixin, SingleObjectMixin,PermissionRequiredMixin, Vi
                 else:
                     cell.fill = PatternFill(start_color="34eb43", end_color="34eb43", fill_type="solid")
             
-            workbook.save(f"{settings.MOSS_RESULTS_FOLDER}/{contest_name}.xlsx")
-            return JsonResponse({'Result':f'{contest_name}.xlsx'})
+        workbook.save(f"{settings.MOSS_RESULTS_FOLDER}/{contest_name}.xlsx")
+        return JsonResponse({'Result':f'{contest_name}.xlsx'})
 
 class ContestTagDetailAjax(DetailView):
     model = ContestTag
