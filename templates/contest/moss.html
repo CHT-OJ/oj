@@ -49,7 +49,7 @@
                     data.push(rowData);
                 });
                 var csrftoken = '{{ csrf_token }}';
-                fetch("moss/calculate", {
+                fetch(`moss/calcutlate`, {
                   method: 'POST',
                   headers: {
                     'X-CSRFToken': csrftoken,
@@ -60,6 +60,42 @@
                 .then(response => response.json())
                 .then(data => alert('Tính điểm thành công'))
                 .catch((error) => alert('Tính điểm thất bại'));
+            }
+        }
+        function Export_moss(){
+            if(confirm('{{ _('Do you want to export MOSS results?') }}')){
+                const rows = document.querySelectorAll('.table.striped tbody tr');
+                data = [];
+                rows.forEach(row => {
+                
+                    const cells = row.querySelectorAll('td');
+                    const rowData = {
+                        problem: cells[0].innerText.trim(),
+                        c: cells[1].querySelector('a') ? cells[1].querySelector('a').href : "No submission",
+                        cpp: cells[2].querySelector('a') ? cells[2].querySelector('a').href : "No submission",
+                        java: cells[3].querySelector('a') ? cells[3].querySelector('a').href : "No submission",
+                        python: cells[4].querySelector('a') ? cells[4].querySelector('a').href : "No submission",
+                        pascal: cells[5].querySelector('a') ? cells[5].querySelector('a').href : "No submission",
+                        moss: cells[6].querySelector('input').value.trim() 
+                    };
+                    data.push(rowData);
+                });
+                var csrftoken = '{{ csrf_token }}';
+                fetch(`moss/export`, {
+                  method: 'POST',
+                  headers: {
+                    'X-CSRFToken': csrftoken,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    alert('Xuất kết quả thành công')
+                    console.log(data.Result)
+                    window.location.href = `/moss/${data.Result}`
+                })
+                .catch((error) => alert('Xuất kết quả thất bại'));
             }
         }
     </script>
@@ -119,8 +155,11 @@
                 </form>
             </div>
             <div class="pane">
-                <button class="unselectable button full caculate_copy" style="padding: 10px;" onclick="Calculate_moss()">Calculate copy</button>
-            </div>            
+                <button class="unselectable button full calculate_copy" style="padding: 10px;" onclick="Calculate_moss()">Calculate copy</button>
+            </div>       
+            <div class="pane">
+                <button class="unselectable button full calculate_copy" style="padding: 10px;" onclick="Export_moss()">Export as excel</button>
+            </div>        
         {% endif %}
     </div>
 {% endblock %}
