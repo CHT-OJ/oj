@@ -49,7 +49,7 @@
                     data.push(rowData);
                 });
                 var csrftoken = '{{ csrf_token }}';
-                fetch(`moss/calcutlate`, {
+                fetch(`moss/calculate`, {
                   method: 'POST',
                   headers: {
                     'X-CSRFToken': csrftoken,
