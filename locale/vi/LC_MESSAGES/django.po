@@ -5347,6 +5347,10 @@ msgstr "Bạn có chắc muốn xóa kết quả MOSS?"
 msgid "Do you want to count the results (this will cause some accounts to be locked if the number of copies is exceeded)?"
 msgstr "bạn có muốn tính kết quả (điều này sẽ khiến 1 số tài khoản bị khóa nếu vượt quá số lần chép)?"
 
+#: templates/contest/moss.html:66
+msgid "Do you want to export MOSS results?"
+msgstr "bạn có muốn xuất file kết quả moss không?"
+
 #: templates/contest/moss.html:55
 #, python-format
 msgid "%(count)s submission"
