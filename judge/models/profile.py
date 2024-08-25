@@ -222,7 +222,7 @@ class Profile(models.Model):
                                                  help_text=_('Name displayed in place of username.'))
     avt_url = ContentTypeRestrictedFileField(upload_to=user_directory_path,content_types=["image/*"],max_upload_size=500,blank=True, null=True)
     warn = models.IntegerField(default=0)
-    last_warned = models.DateTimeField(default=None, null=True)
+    last_warned = models.DateTimeField(default=None, null=True, blank=True)
 
     @cached_property
     def organization(self):
