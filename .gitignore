@@ -42,3 +42,4 @@ tmp.sh
 fc_*
 local_urls.
 judge/migrations/*
+<desired bridge log path>
