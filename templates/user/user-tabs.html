@@ -28,7 +28,8 @@
     {% if perms.judge.change_profile %}
         {{ make_tab('admin', 'fa-edit', url('admin:judge_profile_change', user.id), _('Admin Profile')) }}
     {% endif %}
-    {% if user.user == request.user %}
+    {% if user.user == request.user or request.user.is_superuser%}
         {{ make_tab('edit', 'fa-edit', url('user_edit_profile'), _('Edit profile')) }}
+        {{ make_tab('warning', 'fa-eye',url('user_warninglogs',user.user.username),_('Warning logs')) }}
     {% endif %}
 {% endblock %}

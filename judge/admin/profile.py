@@ -56,7 +56,11 @@ class WebAuthnInline(admin.TabularInline):
 
     def has_add_permission(self, request, obj=None):
         return False
-
+    
+class WarningLogAdmin(VersionAdmin):
+    fields = ('offender', 'judge', 'reason', 'timestamp')
+    list_display = ('offender', 'judge', 'reason', 'timestamp')
+    readonly_fields = ['timestamp']
 
 class ProfileAdmin(NoBatchDeleteMixin, VersionAdmin):
     fields = ('user', 'display_rank', 'badges', 'display_badge', 'about', 'organizations', 'vnoj_points', 'timezone',

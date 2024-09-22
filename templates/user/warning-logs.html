@@ -1,0 +1,53 @@
+{% extends "user/user-base.html" %}
+
+{% block user_js_media %}
+    <script type="text/javascript">
+        window.show_pp_base = 1;
+        window.currently_requesting_pp = false;
+        window.load_more_pp = function () {
+            if (window.currently_requesting_pp) return;
+            window.currently_requesting_pp = true;
+
+            $.get('{{ url('user_pp_ajax', user.user.username) }}', {
+                start: window.show_pp_base * 10,
+                end: (window.show_pp_base + 1) * 10
+            }).done(function (data) {
+                var results = $(data['results']);
+                $('.pp-table').append(results);
+                register_time(results.find('.time-with-rel'));
+                window.show_pp_base++;
+                if (!data['has_more']) {
+                    $("#pp-load-link-wrapper").hide();
+                }
+                window.currently_requesting_pp = false;
+            });
+        };
+    </script>
+{% endblock %}
+
+{% block title_ruler %}{% endblock %}
+
+{% block title_row %}
+    {% set tab = 'warning' %}
+    {% include "user/user-tabs.html" %}
+{% endblock %}
+
+{% block user_content %}
+<table id="judge-status" class="table striped" style="padding-left: 8px;overflow-x: auto;">
+    <thead>
+    <tr>
+        <th>Lý do</th>
+        <th>Thời gian phát hiện</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for data in warning_history %}
+    <tr>   
+        <td>{{data.reason}}</td> 
+        <td>{{data.timestamp}}</td>
+    </tr>
+
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

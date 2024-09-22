@@ -14,7 +14,7 @@ from registration.signals import user_registered
 
 from judge.caching import finished_submission
 from judge.models import BlogPost, Comment, Contest, ContestAnnouncement, ContestSubmission, EFFECTIVE_MATH_ENGINES, \
-    Judge, Language, License, MiscConfig, Organization, Problem, Profile, Submission, WebAuthnCredential
+    Judge, Language, License, MiscConfig, Organization, Problem, Profile, Submission, WebAuthnCredential, WarningLog
 from judge.tasks import on_new_comment
 from judge.views.register import RegistrationView
 
@@ -32,8 +32,31 @@ def unlink_if_exists(file):
     except OSError as e:
         if e.errno != errno.ENOENT:
             raise
-
-
+    
+@receiver(post_save, sender=WarningLog)
+def warning_update(sender, instance, **kwargs):
+    profile = instance.offender.profile
+    profile.warn = WarningLog.objects.filter(offender=instance.offender).count()
+    profile.last_warned = WarningLog.objects.filter(offender=instance.offender).order_by('-id')[0].timestamp
+    if int(profile.warn) >= 5:
+        reason = f"Tài khoản của bạn đã vi phạm quá 5 lần trên hệ thống CHTOJ. Nếu chúng tôi có sai sót hãy tạo ticket trong server discord hoặc nhắn tin fanpage Facebook của CLB Lập trình trường THPT Chuyên Hà Tĩnh để nhận được sự hỗ trợ."
+        profile.ban_user(reason=reason)
+    profile.save()  
+    
+@receiver(post_delete, sender=WarningLog)
+def update_warn_count_on_delete(sender, instance, **kwargs):
+    profile = instance.offender.profile
+    profile.warn = WarningLog.objects.filter(offender=instance.offender).count()
+    if int(profile.warn) <= 0:
+        profile.last_warned = None
+    else:
+        profile.last_warned = WarningLog.objects.filter(offender=instance.offender).order_by('-id')[0].timestamp
+    
+    if int(profile.warn) < 5:
+        profile.unban_user()
+        
+    profile.save()  
+    
 @receiver(post_save, sender=Problem)
 def problem_update(sender, instance, **kwargs):
     if hasattr(instance, '_updating_stats_only'):

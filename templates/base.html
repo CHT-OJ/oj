@@ -38,7 +38,6 @@
     <meta property="og:site_name" content="{{ SITE_LONG_NAME }}">
     <meta property="og:url"
           content="{{ DMOJ_SCHEME }}://{{ DMOJ_CANONICAL|default(site.domain) }}{{ request.get_full_path() }}">
-
     {% block meta %}{% endblock %}
     {% if not INLINE_FONTAWESOME %}
         <link rel="stylesheet" href="{{ FONTAWESOME_CSS }}">
@@ -220,10 +219,7 @@
     <!-- DO NOT MODIFY -->
     <!-- End Facebook Pixel Code -->
 </head>
-<body>z
-    <script>
-        fbq('track', 'ViewContent');
-    </script>
+<body>
 <svg width="0" height="0" style="display: block">
     <defs>
         <clipPath id="rating-clip"><circle cx="8" cy="8" r="7"/></clipPath>
@@ -367,7 +363,7 @@
         color: #721c24;
         background-color: #f8d7da;
         border-color: #7000093b;
-        margin-top: 1rem;">Bạn đã có <strong>{{ request.profile.warn }}</strong> lần thực hiện hành vi chép code gần đây! <strong style='text-transform: uppercase'>nếu bạn còn tiếp tục thực hiện hành vi trên thì tài khoản của bạn sẽ bị khóa vĩnh viễn!</strong></div>
+        margin-top: 1rem;">Tài khoản {{ request.user.username }} đã có <strong>{{ request.profile.warn }}</strong> lần cảnh báo từ hệ thống <strong>CHTOJ</strong>, xem chi tiết tại <a href="http://{{ request.get_host() }}/user/{{ request.user.username }}/warning/">bấm vào đây. </a><strong style='text-transform: uppercase'>nếu bạn còn tiếp tục thực hiện hành vi trên 5 lần thì tài khoản của bạn sẽ bị khóa vĩnh viễn!</strong></div>
         {% endif %}
         {% if misc_config.top_notification %}
             {{ render_django(misc_config.top_notification) }}

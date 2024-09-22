@@ -8,11 +8,12 @@ from operator import attrgetter, itemgetter
 from requests import get as get_requests
 from bs4 import BeautifulSoup
 from openpyxl import Workbook, load_workbook
-from openpyxl.styles import PatternFill
+from openpyxl.styles import PatternFill, Border, Side
 
 from django import forms
 from django.conf import settings
 from django.contrib.auth.context_processors import PermWrapper
+from django.contrib.auth.models import User as UserModel
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured, ObjectDoesNotExist, PermissionDenied
@@ -44,7 +45,7 @@ from judge.contest_format import ICPCContestFormat
 from judge.forms import ContestAnnouncementForm, ContestCloneForm, ContestDownloadDataForm, ContestForm, \
     ProposeContestProblemFormSet
 from judge.models import Contest, ContestAnnouncement, ContestMoss, ContestParticipation, ContestProblem, ContestTag, \
-    Organization, Problem, ProblemClarification, Profile, Submission
+    Organization, Problem, ProblemClarification, Profile, Submission, WarningLog
 from judge.tasks import on_new_contest, prepare_contest_data, run_moss
 from judge.utils.celery import redirect_to_task_status, task_status_by_id, task_status_url_by_id
 from judge.utils.cms import parse_csv_ranking
@@ -1215,12 +1216,13 @@ class ContestMossDelete(ContestMossMixin, SingleObjectMixin, View):
         ContestMoss.objects.filter(contest=self.object).delete()
         return HttpResponseRedirect(reverse('contest_moss', args=(self.object.key,)))
 
-class CalculateMoss(ContestMixin,PermissionRequiredMixin, View):
+class CalculateMoss(ContestMixin, SingleObjectMixin, PermissionRequiredMixin, View):
     permission_required = 'judge.moss_contest'
     permission_denied_message = _('You are not allowed to run MOSS.')
     
     def post(self, request, *args, **kwargs):
         data = json.loads(self.request.body)
+        user_set = []
         lang = ['c','cpp','java','pascal','python']
         for problem in data:
             moss = problem['moss']
@@ -1232,50 +1234,75 @@ class CalculateMoss(ContestMixin,PermissionRequiredMixin, View):
                     for i in data_tds:
                         data_split = i.text.split()
                         number = ''.join(filter(str.isdigit,data_split[1]))
-                        if number >= moss:
-                            profile = Profile.objects.get(user__username=data_split[0])
+                        if int(number) >= int(moss):
+                            '''profile = Profile.objects.get(user__username=data_split[0])
                             profile.warn += 1
                             profile.last_warned = timezone.now()
-                            profile.save()                            
+                            profile.save()'''
+                            user_set.append(data_split[0]) if not data_split[0] in user_set else None        
 
-            return JsonResponse({'Result':data})
+        for i in user_set:
+            try:
+                new_record = WarningLog()
+                new_record.offender= UserModel.objects.get(username=i)
+                new_record.judge = UserModel.objects.get(username=request.user.username)
+                new_record.reason = f"Hành vi chép bài tại contest #{self.get_object()}"
+                new_record.save()
+            except Exception as error:
+                print(f"Đã xảy ra lỗi khi thực hiện ghi lịch sử vi phạm {error}")
+                pass
+
+        return JsonResponse({'Result':user_set})    
 
 class ExportMoss(ContestMossMixin, SingleObjectMixin,PermissionRequiredMixin, View):
     permission_required = 'judge.moss_contest'
     permission_denied_message = _('You are not allowed to run MOSS.')
     
     def post(self, request, *args, **kwargs):
-        contest_name = self.get_object()
+        contest_name=self.get_object()
         data = json.loads(self.request.body)
         workbook = Workbook()
         workbook.remove(workbook['Sheet'])
-        user_list = []
         lang = ['c','cpp','java','pascal','python']
+        thin_border = Border(left=Side(style='thin'), 
+                             right=Side(style='thin'), 
+                             top=Side(style='thin'), 
+                             bottom=Side(style='thin'))
         for problem in data:
-            user_list.clear()
             workbook.create_sheet(problem['problem'])
             sheet = workbook[problem['problem']]
-            sheet.append(("TÊN NGƯỜI DÙNG","% MOSS"))
+            sheet.append(("NGƯỜI VI PHẠM 1","% MOSS","NGƯỜI VI PHẠM 2","LINK MOSS"))
             sheet.column_dimensions['A'].width = 20
+            sheet.column_dimensions['C'].width = 20
+            sheet.column_dimensions['D'].width = 60
             moss = problem['moss']
+            for col in range(1, 5): 
+                cell = sheet.cell(row=1, column=col)
+                cell.border = thin_border
             for check in lang:
                 req = get_requests(problem[check]).content if problem[check]!="No submission" else None
                 if req:
                     soup = BeautifulSoup(req,'html.parser')
                     data_tds = soup.find_all('a')[6:]
-                    for i in data_tds:
-                        data_split = i.text.split()
-                        number = ''.join(filter(str.isdigit,data_split[1]))
-                        if(data_split[0] not in user_list):
-                            sheet.append((data_split[0],number))
-                            user_list.append(data_split[0])
+                    hrefs = [a['href'] for a in data_tds if 'href' in a.attrs]
+                    data_split_1 = data_tds[0].text.split()
+                    number = ''.join(filter(str.isdigit,data_split_1[1]))
+                    user_1 = data_split_1[0]
+                    data_split_2 = data_tds[1].text.split()
+                    user_2 = data_split_2[0]
 
-            for row in range(2,sheet.max_row+1):
-                cell = sheet.cell(row=row,column=2)
-                if(int(cell.value)>int(problem['moss'])):
-                    cell.fill = PatternFill(start_color="ff0d00", end_color="ff0d00", fill_type="solid")
-                else:
-                    cell.fill = PatternFill(start_color="34eb43", end_color="34eb43", fill_type="solid")
+                    sheet.append((user_1,number,user_2,hrefs[0]))
+
+            for row in range(2, sheet.max_row + 1):
+                    for col in range(1, sheet.max_column + 1):
+                        cell = sheet.cell(row=row, column=col)
+                        cell.border = thin_border
+
+                    cell = sheet.cell(row=row, column=2)
+                    if int(cell.value) > int(problem['moss']):
+                        cell.fill = PatternFill(start_color="ff0d00", end_color="ff0d00", fill_type="solid")
+                    else:
+                        cell.fill = PatternFill(start_color="34eb43", end_color="34eb43", fill_type="solid")
             
         workbook.save(f"{settings.MOSS_RESULTS_FOLDER}/{contest_name}.xlsx")
         return JsonResponse({'Result':f'{contest_name}.xlsx'})
