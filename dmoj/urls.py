@@ -205,6 +205,7 @@ urlpatterns = [
             path('', user.UserProblemsPage.as_view(), name='user_problems'),
             path('ajax', user.UserPerformancePointsAjax.as_view(), name='user_pp_ajax'),
         ])),
+        path('/warning/', paged_list_view(user.UserWarningPage,'user_warninglogs')),
         path('/submissions/', paged_list_view(submission.AllUserSubmissions, 'all_user_submissions_old')),
         path('/submissions/', lambda _, user:
              HttpResponsePermanentRedirect(reverse('all_user_submissions', args=[user]))),

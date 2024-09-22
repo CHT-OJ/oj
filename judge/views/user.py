@@ -35,8 +35,7 @@ from reversion import revisions
 
 from judge.forms import CustomAuthenticationForm, ProfileForm, UserBanForm, UserDownloadDataForm, UserForm, \
     newsletter_id
-from judge.models import BlogPost, Organization, Profile, Submission
-from judge.models import Comment
+from judge.models import BlogPost, Organization, Profile, Submission, Comment, WarningLog
 from judge.performance_points import get_pp_breakdown
 from judge.ratings import rating_class, rating_progress
 from judge.tasks import prepare_user_data
@@ -361,8 +360,34 @@ class UserProblemsPage(UserPage):
         context['pp_has_more'] = has_more
 
         return context
+    
+class UserWarningPage(UserPage):
+    template_name = 'user/warning-logs.html'
 
+    def get_context_data(self, **kwargs):
+        context = super(UserWarningPage, self).get_context_data(**kwargs)
+        result = WarningLog.objects.all().filter(offender__username=self.object.username)
 
+        formatted_result = []
+        for warning in result:
+            formatted_result.append({
+                'timestamp': warning.timestamp.strftime('%Y/%m/%d %H:%M:%S'),
+                'reason': warning.reason,
+            })
+
+        context['warning_history'] = formatted_result
+
+        return context
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_staff or request.user.is_superuser:
+            pass
+        
+        elif not request.user.username == kwargs['user']:
+            raise PermissionDenied()
+        
+        return super().dispatch(request, *args, **kwargs)
+    
 class UserPerformancePointsAjax(UserProblemsPage):
     template_name = 'user/pp-table-body.html'
 

@@ -8,7 +8,7 @@ from judge.admin.contest import ContestAdmin, ContestParticipationAdmin, Contest
 from judge.admin.interface import BlogPostAdmin, FlatPageAdmin, LicenseAdmin, LogEntryAdmin, NavigationBarAdmin
 from judge.admin.organization import OrganizationAdmin, OrganizationRequestAdmin
 from judge.admin.problem import ProblemAdmin
-from judge.admin.profile import ProfileAdmin, UserAdmin
+from judge.admin.profile import ProfileAdmin, UserAdmin, WarningLogAdmin
 from judge.admin.runtime import JudgeAdmin, LanguageAdmin
 from judge.admin.submission import SubmissionAdmin
 from judge.admin.tag import TagAdmin, TagGroupAdmin, TagProblemAdmin
@@ -17,8 +17,9 @@ from judge.admin.ticket import TicketAdmin
 from judge.models import Badge, BlogPost, Comment, CommentLock, Contest, ContestParticipation, \
     ContestTag, Judge, Language, License, MiscConfig, NavigationBar, Organization, \
     OrganizationRequest, Problem, ProblemGroup, ProblemType, Profile, Submission, Tag, \
-    TagGroup, TagProblem, Ticket
+    TagGroup, TagProblem, Ticket, WarningLog
 
+admin.site.register(WarningLog, WarningLogAdmin)
 admin.site.register(BlogPost, BlogPostAdmin)
 admin.site.register(Comment, CommentAdmin)
 admin.site.register(CommentLock)
