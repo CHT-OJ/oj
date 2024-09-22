@@ -1259,50 +1259,37 @@ class ExportMoss(ContestMossMixin, SingleObjectMixin,PermissionRequiredMixin, Vi
     permission_denied_message = _('You are not allowed to run MOSS.')
     
     def post(self, request, *args, **kwargs):
-        contest_name=self.get_object()
+        contest_name = self.get_object()
         data = json.loads(self.request.body)
         workbook = Workbook()
         workbook.remove(workbook['Sheet'])
+        user_list = []
         lang = ['c','cpp','java','pascal','python']
-        thin_border = Border(left=Side(style='thin'), 
-                             right=Side(style='thin'), 
-                             top=Side(style='thin'), 
-                             bottom=Side(style='thin'))
         for problem in data:
+            user_list.clear()
             workbook.create_sheet(problem['problem'])
             sheet = workbook[problem['problem']]
-            sheet.append(("NGƯỜI VI PHẠM 1","% MOSS","NGƯỜI VI PHẠM 2","LINK MOSS"))
+            sheet.append(("TÊN NGƯỜI DÙNG","% MOSS"))
             sheet.column_dimensions['A'].width = 20
-            sheet.column_dimensions['C'].width = 20
-            sheet.column_dimensions['D'].width = 60
             moss = problem['moss']
-            for col in range(1, 5): 
-                cell = sheet.cell(row=1, column=col)
-                cell.border = thin_border
             for check in lang:
                 req = get_requests(problem[check]).content if problem[check]!="No submission" else None
                 if req:
                     soup = BeautifulSoup(req,'html.parser')
                     data_tds = soup.find_all('a')[6:]
-                    hrefs = [a['href'] for a in data_tds if 'href' in a.attrs]
-                    data_split_1 = data_tds[0].text.split()
-                    number = ''.join(filter(str.isdigit,data_split_1[1]))
-                    user_1 = data_split_1[0]
-                    data_split_2 = data_tds[1].text.split()
-                    user_2 = data_split_2[0]
+                    for i in data_tds:
+                        data_split = i.text.split()
+                        number = ''.join(filter(str.isdigit,data_split[1]))
+                        if(data_split[0] not in user_list):
+                            sheet.append((data_split[0],number))
+                            user_list.append(data_split[0])
 
-                    sheet.append((user_1,number,user_2,hrefs[0]))
-
-            for row in range(2, sheet.max_row + 1):
-                    for col in range(1, sheet.max_column + 1):
-                        cell = sheet.cell(row=row, column=col)
-                        cell.border = thin_border
-
-                    cell = sheet.cell(row=row, column=2)
-                    if int(cell.value) > int(problem['moss']):
-                        cell.fill = PatternFill(start_color="ff0d00", end_color="ff0d00", fill_type="solid")
-                    else:
-                        cell.fill = PatternFill(start_color="34eb43", end_color="34eb43", fill_type="solid")
+            for row in range(2,sheet.max_row+1):
+                cell = sheet.cell(row=row,column=2)
+                if(int(cell.value)>int(problem['moss'])):
+                    cell.fill = PatternFill(start_color="ff0d00", end_color="ff0d00", fill_type="solid")
+                else:
+                    cell.fill = PatternFill(start_color="34eb43", end_color="34eb43", fill_type="solid")
             
         workbook.save(f"{settings.MOSS_RESULTS_FOLDER}/{contest_name}.xlsx")
         return JsonResponse({'Result':f'{contest_name}.xlsx'})
