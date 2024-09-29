@@ -388,6 +388,7 @@ class UserWarningPage(UserPage):
         
         return super().dispatch(request, *args, **kwargs)
     
+    
 class UserPerformancePointsAjax(UserProblemsPage):
     template_name = 'user/pp-table-body.html'
 

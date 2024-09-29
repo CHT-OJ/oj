@@ -288,7 +288,7 @@ DMOJ_CANONICAL = 'oj.thptchuyenhatinh.edu.vn'
 # Application definition
 
 INSTALLED_APPS = (
-    "versatileimagefield",
+    'versatileimagefield',
 )
 
 try:

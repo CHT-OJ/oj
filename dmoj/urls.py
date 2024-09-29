@@ -55,8 +55,8 @@ register_patterns = [
     path('password/change/', user.CustomPasswordChangeView.as_view(), name='password_change'),
     path('password/change/done/', auth_views.PasswordChangeDoneView.as_view(
         template_name='registration/password_change_done.html',
-        title=_('Password change successful'),
-    ), name='password_change_done'),
+        title=_('Password change successful'),), 
+        name='password_change_done'),
     path('password/reset/', user.CustomPasswordResetView.as_view(), name='password_reset'),
     re_path(r'^password/reset/confirm/(?P<uidb64>[0-9A-Za-z]+)-(?P<token>.+)/$',
             auth_views.PasswordResetConfirmView.as_view(
@@ -120,7 +120,7 @@ urlpatterns = [
     path('problem/<str:problem>', include([
         path('', problem.ProblemDetail.as_view(), name='problem_detail'),
         path('/edit', problem.ProblemEdit.as_view(), name='problem_edit'),
-        path('/raw-testcase',problem.return_raw_testcase,name='return raw testcase'),
+        path('/raw-testcase', problem.return_raw_testcase, name='return raw testcase'),
         path('/editorial', problem.ProblemSolution.as_view(), name='problem_editorial'),
         path('/raw', xframe_options_sameorigin(problem.ProblemRaw.as_view()), name='problem_raw'),
         path('/pdf', problem.ProblemPdfView.as_view(), name='problem_pdf'),
@@ -129,7 +129,7 @@ urlpatterns = [
         path('/submit', problem.ProblemSubmit.as_view(), name='problem_submit'),
         path('/resubmit/<int:submission>', problem.ProblemSubmit.as_view(), name='problem_submit'),
         path('/update-polygon', problem.ProblemUpdatePolygon.as_view(), name='problem_update_polygon'),
-        path('/testcase',problem.ProblemViewPublicTestcase.as_view(),name='view_public_testcase'),
+        path('/testcase', problem.ProblemViewPublicTestcase.as_view(), name='view_public_testcase'),
         path('/rank/', paged_list_view(ranked_submission.RankedSubmissions, 'ranked_submissions')),
         path('/submissions/', paged_list_view(submission.ProblemSubmissions, 'chronological_submissions')),
         path('/submissions/<str:user>/', paged_list_view(submission.UserProblemSubmissions, 'user_submissions')),
@@ -206,7 +206,7 @@ urlpatterns = [
             path('', user.UserProblemsPage.as_view(), name='user_problems'),
             path('ajax', user.UserPerformancePointsAjax.as_view(), name='user_pp_ajax'),
         ])),
-        path('/warning/', paged_list_view(user.UserWarningPage,'user_warninglogs')),
+        path('/warning/', paged_list_view(user.UserWarningPage, 'user_warninglogs')),
         path('/submissions/', paged_list_view(submission.AllUserSubmissions, 'all_user_submissions_old')),
         path('/submissions/', lambda _, user:
              HttpResponsePermanentRedirect(reverse('all_user_submissions', args=[user]))),

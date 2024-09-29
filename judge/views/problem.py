@@ -1059,7 +1059,7 @@ class ProblemViewPublicTestcase(ProblemMixin, TitleMixin, UpdateView):
             public_testcases.append({
                 'input': test.input_file,
                 'output': test.output_file,
-                'href':f"/problem/{self.object.code}/raw-testcase?file="
+                'href':f"/problem/{self.object.code}/raw-testcase?file=",
             })
         data['public_testcases'] = public_testcases
 
