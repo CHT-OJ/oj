@@ -6124,6 +6124,22 @@ msgstr "Đề xuất"
 msgid "View as PDF"
 msgstr "Xem dạng PDF"
 
+#: templates/problem/problem.html:164
+msgid "View testcase"
+msgstr "Xem các test mẫu"
+
+#: judge/views/problem.py:1049
+msgid "Public test cases of {0}"
+msgstr "Test mẫu của {0}"
+
+#: templates/problem/data.html:270
+msgid "Public all testcases ?"
+msgstr "Công khai toàn bộ test ?"
+
+#: templates/problem/data.html:742
+msgid "Public?"
+msgstr "Công khai?"
+
 #: templates/problem/problem.html:129 templates/problem/problem.html:139
 #: templates/problem/problem.html:144
 msgid "Submit solution"
@@ -6170,7 +6186,7 @@ msgstr "Các báo cáo của tôi"
 
 #: templates/problem/problem.html:191
 msgid "Manage submissions"
-msgstr "Quản lí submissions"
+msgstr "Quản lí các bài nộp"
 
 #: templates/problem/problem.html:204
 msgid "Points:"

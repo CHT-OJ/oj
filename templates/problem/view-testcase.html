@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block body %}
+{% if data_file == "" %}
+    <table id="judge-status" class="table striped" style="padding-left: 8px;overflow-x: auto;">
+        <thead>
+        <tr>
+            <th>{{ _('Input file') }}</th>
+            <th>{{ _('Output file') }}</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for testcase in public_testcases %}
+        <tr>   
+            <td><a href="{{ testcase.href }}{{ testcase.input }}">{{testcase.input}}</a></td> 
+            <td><a href="{{ testcase.href }}{{ testcase.output }}">{{testcase.output}}</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table> 
+{% endif %}
+{% endblock %}

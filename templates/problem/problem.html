@@ -159,6 +159,11 @@
                 <a href="{{ url('user_submissions', problem.code, request.user.username) }}">{{ _('My submissions') }}</a>
             </div>
         {% endif %}
+        {% if request.user.is_authenticated %}
+        <div>
+            <a href="{{ url('view_public_testcase',problem.code) }}">{{ _('View testcase') }}</a>
+        </div>
+        {% endif %}
         <div><a href="{{ url('chronological_submissions', problem.code) }}">{{ _('All submissions') }}</a></div>
         <div><a href="{{ url('ranked_submissions', problem.code) }}">{{ _('Best submissions') }}</a></div>
     {% endif %}

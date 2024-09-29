@@ -129,6 +129,7 @@ class ProblemTestCase(models.Model):
     generator_args = models.TextField(verbose_name=_('generator arguments'), blank=True)
     points = models.IntegerField(verbose_name=_('point value'), blank=True, null=True)
     is_pretest = models.BooleanField(verbose_name=_('case is pretest?'))
+    public = models.BooleanField(verbose_name=_('public test'), default=False)
     output_prefix = models.IntegerField(verbose_name=_('output prefix length'), blank=True, null=True)
     output_limit = models.IntegerField(verbose_name=_('output limit length'), blank=True, null=True)
     checker = models.CharField(max_length=10, verbose_name=_('checker'), choices=CHECKERS, blank=True)

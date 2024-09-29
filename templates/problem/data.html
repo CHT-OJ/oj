@@ -260,7 +260,23 @@
                 style: "display: inherit",
                 id: "submit-button",
             }).appendTo($file_test.parent());
-
+            $("<br>").appendTo($file_test.parent());
+            $("<input/>", {
+                type: "checkbox",
+                id: "public-tests"
+            }).appendTo($file_test.parent());
+            $("<label/>", {
+                for: "public-tests",
+                text: "{{ _('Public all testcases ?') }}",
+            }).appendTo($file_test.parent());
+            $("#public-tests").change(function() {
+                const _checked = this.checked;
+                const cases = $("table#case-table > tbody > tr > td > input[type=checkbox][id$='-public']").each(function() {
+                    if (_checked)
+                        this.setAttribute("checked", _checked);
+                    else this.removeAttribute("checked");
+                });
+            });
             function swap_row($a, $b) {
                 var $a_order = $a.find('input[id$=order]'), $b_order = $b.find('input[id$=order]');
                 var order = $a_order.val();
@@ -723,6 +739,7 @@
                 <th>{{ _('Output file') }}</th>
                 <th>{{ _('Points') }}</th>
                 <th>{{ _('Pretest?') }}</th>
+                <th>{{ _('Public?') }}</th>
                 <!-- <th class="generator-args">{{ _('Generator args') }}</th> -->
                 {% if cases_formset.can_delete %}
                     <th>{{ _('Delete?') }}
@@ -757,6 +774,7 @@
                     </td>
                     <td>{{ form.points.errors }}{{ form.points }}</td>
                     <td>{{ form.is_pretest.errors }}{{ form.is_pretest }}</td>
+                    <td>{{ form.public.errors }}{{ form.public }}</td>
                     <!-- <td class="generator-args">{{ form.generator_args.errors }}{{ form.generator_args }}
                         <a href="javascript:void(0)" class="edit-generator-args">
                             <i class="fa fa-pencil"></i>
