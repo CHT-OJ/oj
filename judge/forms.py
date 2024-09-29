@@ -63,7 +63,7 @@ class ProfileForm(ModelForm):
             'language': Select2Widget(attrs={'style': 'width:200px'}),
             'ace_theme': Select2Widget(attrs={'style': 'width:200px'}),
             'site_theme': Select2Widget(attrs={'style': 'width:200px'}),
-            'avt_url': forms.FileInput(attrs={'accept': 'image/*'})
+            'avt_url': forms.FileInput(attrs={'accept': 'image/*'}),
         }
 
         # Make sure that users cannot change their `about` in contest mode

@@ -1,9 +1,9 @@
 import base64
 import hmac
 import json
+import os
 import secrets
 import struct
-import os
 
 import pyotp
 import webauthn
@@ -12,18 +12,18 @@ from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models import F, Max, Sum
+from django.forms import forms
+from django.template.defaultfilters import filesizeformat
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.functional import cached_property
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
-from django.forms import forms
-from django.template.defaultfilters import filesizeformat
-from versatileimagefield.fields import VersatileImageField
 from fernet_fields import EncryptedCharField
 from pyotp.utils import strings_equal
 from sortedm2m.fields import SortedManyToManyField
+from versatileimagefield.fields import VersatileImageField
 
 from judge.models.choices import ACE_THEMES, MATH_ENGINES_CHOICES, SITE_THEMES, TIMEZONE
 from judge.models.runtime import Language
@@ -36,8 +36,8 @@ __all__ = ['Organization', 'Profile', 'OrganizationRequest', 'WebAuthnCredential
 
 class ContentTypeRestrictedFileField(VersatileImageField):
     def __init__(self, *args, **kwargs):
-        self.content_types = kwargs.pop("content_types", [])
-        self.max_upload_size = kwargs.pop("max_upload_size", 0)
+        self.content_types = kwargs.pop('content_types', [])
+        self.max_upload_size = kwargs.pop('max_upload_size', 0)
 
         super(ContentTypeRestrictedFileField, self).__init__(*args, **kwargs)
 
@@ -232,7 +232,7 @@ class Profile(models.Model):
     username_display_override = models.CharField(max_length=100, blank=True,
                                                  verbose_name=_('display name override'),
                                                  help_text=_('Name displayed in place of username.'))
-    avt_url = ContentTypeRestrictedFileField(upload_to=user_directory_path, content_types=["image/*"],
+    avt_url = ContentTypeRestrictedFileField(upload_to=user_directory_path, content_types=['image/*'],
                                              max_upload_size=500,
                                              blank=True, null=True)
     warn = models.IntegerField(default=0)

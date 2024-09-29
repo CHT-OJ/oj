@@ -13,8 +13,9 @@ from registration.models import RegistrationProfile
 from registration.signals import user_registered
 
 from judge.caching import finished_submission
-from judge.models import BlogPost, Comment, Contest, ContestAnnouncement, ContestSubmission, EFFECTIVE_MATH_ENGINES, \
-    Judge, Language, License, MiscConfig, Organization, Problem, Profile, Submission, WebAuthnCredential, WarningLog
+from judge.models import BlogPost, Comment, Contest, ContestAnnouncement, \
+    ContestSubmission, EFFECTIVE_MATH_ENGINES, Judge, Language, License, MiscConfig, \
+    Organization, Problem, Profile, Submission, WarningLog, WebAuthnCredential
 from judge.tasks import on_new_comment
 from judge.views.register import RegistrationView
 

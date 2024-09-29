@@ -5,23 +5,20 @@ from collections import defaultdict, namedtuple
 from datetime import date, datetime, time, timedelta
 from functools import partial
 from operator import attrgetter, itemgetter
-from requests import get as get_requests
-from bs4 import BeautifulSoup
-from openpyxl import Workbook
-from openpyxl.styles import PatternFill
 
+from bs4 import BeautifulSoup
 from django import forms
 from django.conf import settings
 from django.contrib.auth.context_processors import PermWrapper
-from django.contrib.auth.models import User as UserModel
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.models import User as UserModel
 from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured, ObjectDoesNotExist, PermissionDenied
 from django.db import IntegrityError
 from django.db.models import BooleanField, Case, Count, F, FloatField, IntegerField, Max, Min, Q, Sum, Value, When
 from django.db.models.expressions import CombinedExpression
 from django.db.models.query import Prefetch
-from django.http import Http404, HttpResponse, HttpResponseForbidden, HttpResponseRedirect
+from django.http import Http404, HttpResponse, HttpResponseForbidden, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.defaultfilters import date as date_filter, floatformat
 from django.template.loader import get_template
@@ -37,8 +34,10 @@ from django.views.generic.detail import DetailView, SingleObjectMixin
 from django.views.generic.edit import CreateView, UpdateView
 from django.views.generic.list import BaseListView
 from icalendar import Calendar as ICalendar, Event
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill
+from requests import get as get_requests
 from reversion import revisions
-from django.http import JsonResponse
 
 from judge.comments import CommentedDetailView
 from judge.contest_format import ICPCContestFormat
@@ -1228,7 +1227,7 @@ class CalculateMoss(ContestMixin, SingleObjectMixin, PermissionRequiredMixin, Vi
         for problem in data:
             moss = problem['moss']
             for check in lang:
-                req = get_requests(problem[check]).content if problem[check] != "No submission" else None
+                req = get_requests(problem[check]).content if problem[check] != 'No submission' else None
                 if req:
                     soup = BeautifulSoup(req, 'html.parser')
                     data_tds = soup.find_all('a')[6:]
@@ -1236,10 +1235,10 @@ class CalculateMoss(ContestMixin, SingleObjectMixin, PermissionRequiredMixin, Vi
                         data_split = i.text.split()
                         number = ''.join(filter(str.isdigit, data_split[1]))
                         if int(number) >= int(moss):
-                            '''profile = Profile.objects.get(user__username=data_split[0])
+                            """profile = Profile.objects.get(user__username=data_split[0])
                             profile.warn += 1
                             profile.last_warned = timezone.now()
-                            profile.save()'''
+                            profile.save()"""
                             user_set.append(data_split[0]) if not data_split[0] in user_set else None
 
         for i in user_set:
@@ -1247,10 +1246,10 @@ class CalculateMoss(ContestMixin, SingleObjectMixin, PermissionRequiredMixin, Vi
                 new_record = WarningLog()
                 new_record.offender = UserModel.objects.get(username=i)
                 new_record.judge = UserModel.objects.get(username=request.user.username)
-                new_record.reason = f"Hành vi chép bài tại contest #{self.get_object()}"
+                new_record.reason = f'Hành vi chép bài tại contest #{self.get_object()}'
                 new_record.save()
             except Exception as error:
-                print(f"Đã xảy ra lỗi khi thực hiện ghi lịch sử vi phạm {error}")
+                print(f'Đã xảy ra lỗi khi thực hiện ghi lịch sử vi phạm {error}')
                 pass
 
         return JsonResponse({'Result': user_set})
@@ -1271,10 +1270,10 @@ class ExportMoss(ContestMossMixin, SingleObjectMixin, PermissionRequiredMixin, V
             user_list.clear()
             workbook.create_sheet(problem['problem'])
             sheet = workbook[problem['problem']]
-            sheet.append(("TÊN NGƯỜI DÙNG", "% MOSS"))
+            sheet.append(('TÊN NGƯỜI DÙNG", "% MOSS'))
             sheet.column_dimensions['A'].width = 20
             for check in lang:
-                req = get_requests(problem[check]).content if problem[check] != "No submission" else None
+                req = get_requests(problem[check]).content if problem[check] != 'No submission' else None
                 if req:
                     soup = BeautifulSoup(req, 'html.parser')
                     data_tds = soup.find_all('a')[6:]
@@ -1287,10 +1286,10 @@ class ExportMoss(ContestMossMixin, SingleObjectMixin, PermissionRequiredMixin, V
             for row in range(2, sheet.max_row + 1):
                 cell = sheet.cell(row=row, column=2)
                 if (int(cell.value) > int(problem['moss'])):
-                    cell.fill = PatternFill(start_color="ff0d00", end_color="ff0d00", fill_type="solid")
+                    cell.fill = PatternFill(start_color='ff0d00', end_color='ff0d00', fill_type='solid')
                 else:
-                    cell.fill = PatternFill(start_color="34eb43", end_color="34eb43", fill_type="solid")
-        workbook.save(f"{settings.MOSS_RESULTS_FOLDER}/{contest_name}.xlsx")
+                    cell.fill = PatternFill(start_color='34eb43', end_color='34eb43', fill_type='solid')
+        workbook.save(f'{settings.MOSS_RESULTS_FOLDER}/{contest_name}.xlsx')
         return JsonResponse({'Result': f'{contest_name}.xlsx'})
 
 

@@ -30,9 +30,9 @@ from reversion import revisions
 from judge.comments import CommentedDetailView
 from judge.forms import LanguageLimitFormSet, ProblemCloneForm, ProblemEditForm, ProblemImportPolygonForm, \
     ProblemImportPolygonStatementFormSet, ProblemSubmitForm, ProposeProblemSolutionFormSet
-from judge.models import ContestSubmission, Judge, Language, Problem, ProblemGroup, \
-    ProblemTranslation, ProblemType, RuntimeVersion, Solution, Submission, SubmissionSource, ProblemTestCase, \
-    ProblemData
+from judge.models import ContestSubmission, Judge, Language, Problem, ProblemData, \
+    ProblemGroup, ProblemTestCase, ProblemTranslation, ProblemType, RuntimeVersion, \
+    Solution, Submission, SubmissionSource
 from judge.tasks import on_new_problem
 from judge.template_context import misc_config
 from judge.utils.codeforces_polygon import ImportPolygonError, PolygonImporter
@@ -1024,7 +1024,7 @@ class ProblemEdit(ProblemMixin, TitleMixin, UpdateView):
 
 def return_raw_testcase(request, problem):
     try:
-        name_file = request.GET.get("file", "")
+        name_file = request.GET.get('file', '')
         get_problem = ProblemData.objects.get(problem__code=problem)
         get_testcases = ProblemTestCase.objects.get(dataset__code=problem, input_file=name_file)
         if not get_testcases.exists():
@@ -1035,7 +1035,7 @@ def return_raw_testcase(request, problem):
         response['Content-Disposition'] = f'attachment; filename="{name_file}"'
         return response
     except Exception:
-        return HttpResponse("File không tồn tại hoặc đã xảy ra lỗi khi truy xuất")
+        return HttpResponse('File không tồn tại hoặc đã xảy ra lỗi khi truy xuất')
 
 
 class ProblemViewPublicTestcase(ProblemMixin, TitleMixin, UpdateView):
@@ -1049,13 +1049,13 @@ class ProblemViewPublicTestcase(ProblemMixin, TitleMixin, UpdateView):
     def get_context_data(self, **kwargs):
         data = super().get_context_data(**kwargs)
         public_testcases = []
-        data['data_file'] = ""
+        data['data_file'] = ''
         raw_data = ProblemTestCase.objects.filter(dataset__code=self.object.code, public=True)
         for test in raw_data:
             public_testcases.append({
                 'input': test.input_file,
                 'output': test.output_file,
-                'href': f"/problem/{self.object.code}/raw-testcase?file=",
+                'href': f'/problem/{self.object.code}/raw-testcase?file=',
             })
         data['public_testcases'] = public_testcases
 
