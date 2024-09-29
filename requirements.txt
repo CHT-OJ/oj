@@ -44,3 +44,5 @@ django-admin-sortable2<2
 icalendar
 # This is a celery dependency whose latest major version is breaking everything.
 importlib-metadata<5
+django-versatileimagefield==3.1
+beautifulsoup4==4.12.3
