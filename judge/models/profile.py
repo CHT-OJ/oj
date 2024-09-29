@@ -31,7 +31,7 @@ from judge.ratings import rating_class
 from judge.utils.float_compare import float_compare_equal
 from judge.utils.two_factor import webauthn_decode
 
-__all__ = ['Organization', 'Profile', 'OrganizationRequest', 'WebAuthnCredential','WarningLog']
+__all__ = ['Organization', 'Profile', 'OrganizationRequest', 'WebAuthnCredential', 'WarningLog']
 
 
 class ContentTypeRestrictedFileField(VersatileImageField):
@@ -47,11 +47,13 @@ class ContentTypeRestrictedFileField(VersatileImageField):
         file = data.file
         try:
             if file._size > self.max_upload_size:
-                raise forms.ValidationError(_('Please keep filesize under %s. Current filesize %s') % (filesizeformat(self.max_upload_size), filesizeformat(file._size)))
+                raise forms.ValidationError(_('Please keep filesize under %s. Current filesize %s')
+                                            % (filesizeformat(self.max_upload_size), filesizeformat(file._size)))
         except AttributeError:
             pass
 
         return data
+
 
 class EncryptedNullCharField(EncryptedCharField):
     def get_prep_value(self, value):
@@ -153,14 +155,17 @@ class Badge(models.Model):
     def __str__(self):
         return self.name
 
-def user_directory_path(instance,_):
+
+def user_directory_path(instance, _):
     return os.path.join('avatar', f'{instance.id}.jpg')
 
+
 class WarningLog(models.Model):
-    offender = models.ForeignKey(User, on_delete=models.CASCADE,  related_name='warning_log_user')
-    judge = models.ForeignKey(User, on_delete=models.CASCADE,  related_name='warning_log_sender')
-    reason = models.TextField(null=False,blank=False)
+    offender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='warning_log_user')
+    judge = models.ForeignKey(User, on_delete=models.CASCADE, related_name='warning_log_sender')
+    reason = models.TextField(null=False, blank=False)
     timestamp = models.DateTimeField(auto_now_add=True)
+
 
 class Profile(models.Model):
     user = models.OneToOneField(User, verbose_name=_('user associated'), on_delete=models.CASCADE)
@@ -224,12 +229,15 @@ class Profile(models.Model):
     notes = models.TextField(verbose_name=_('internal notes'), null=True, blank=True,
                              help_text=_('Notes for administrators regarding this user.'))
     data_last_downloaded = models.DateTimeField(verbose_name=_('last data download time'), null=True, blank=True)
-    username_display_override = models.CharField(max_length=100, blank=True, verbose_name=_('display name override'),
+    username_display_override = models.CharField(max_length=100, blank=True,
+                                                 verbose_name=_('display name override'),
                                                  help_text=_('Name displayed in place of username.'))
-    avt_url = ContentTypeRestrictedFileField(upload_to=user_directory_path, content_types=["image/*"], max_upload_size=500, blank=True, null=True)
+    avt_url = ContentTypeRestrictedFileField(upload_to=user_directory_path, content_types=["image/*"],
+                                             max_upload_size=500,
+                                             blank=True, null=True)
     warn = models.IntegerField(default=0)
     last_warned = models.DateTimeField(default=None, null=True, blank=True)
-    
+
     @cached_property
     def organization(self):
         # We do this to take advantage of prefetch_related

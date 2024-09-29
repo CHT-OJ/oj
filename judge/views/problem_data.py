@@ -96,7 +96,7 @@ class ProblemCaseForm(ModelForm):
         model = ProblemTestCase
         fields = ('order', 'type', 'input_file', 'output_file', 'points',
                   'is_pretest',  # 'output_limit', 'output_prefix',
-                  'checker', 'checker_args', 'generator_args','public',)
+                  'checker', 'checker_args', 'generator_args', 'public',)
         widgets = {
             'generator_args': HiddenInput,
             'type': Select(attrs={'style': 'width: 100%'}),

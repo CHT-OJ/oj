@@ -55,7 +55,7 @@ register_patterns = [
     path('password/change/', user.CustomPasswordChangeView.as_view(), name='password_change'),
     path('password/change/done/', auth_views.PasswordChangeDoneView.as_view(
         template_name='registration/password_change_done.html',
-        title=_('Password change successful'),), 
+        title=_('Password change successful')),
         name='password_change_done'),
     path('password/reset/', user.CustomPasswordResetView.as_view(), name='password_reset'),
     re_path(r'^password/reset/confirm/(?P<uidb64>[0-9A-Za-z]+)-(?P<token>.+)/$',

@@ -32,17 +32,21 @@ def unlink_if_exists(file):
     except OSError as e:
         if e.errno != errno.ENOENT:
             raise
-    
+
+
 @receiver(post_save, sender=WarningLog)
 def warning_update(sender, instance, **kwargs):
     profile = instance.offender.profile
     profile.warn = WarningLog.objects.filter(offender=instance.offender).count()
     profile.last_warned = WarningLog.objects.filter(offender=instance.offender).order_by('-id')[0].timestamp
     if int(profile.warn) >= 5:
-        reason = f"Tài khoản của bạn đã vi phạm quá 5 lần trên hệ thống CHTOJ. Nếu chúng tôi có sai sót hãy tạo ticket trong server discord hoặc nhắn tin fanpage Facebook của CLB Lập trình trường THPT Chuyên Hà Tĩnh để nhận được sự hỗ trợ."
+        reason = """Tài khoản của bạn đã vi phạm quá 5 lần trên hệ thống CHTOJ.
+                Nếu chúng tôi có sai sót hãy tạo ticket trong server discord hoặc nhắn tin fanpage Facebook
+                của CLB Lập trình trường THPT Chuyên Hà Tĩnh để nhận được sự hỗ trợ."""
         profile.ban_user(reason=reason)
-    profile.save()  
-    
+    profile.save()
+
+
 @receiver(post_delete, sender=WarningLog)
 def update_warn_count_on_delete(sender, instance, **kwargs):
     profile = instance.offender.profile
@@ -51,17 +55,15 @@ def update_warn_count_on_delete(sender, instance, **kwargs):
         profile.last_warned = None
     else:
         profile.last_warned = WarningLog.objects.filter(offender=instance.offender).order_by('-id')[0].timestamp
-    
     if int(profile.warn) < 5:
         profile.unban_user()
-        
-    profile.save()  
-    
+    profile.save()
+
+
 @receiver(post_save, sender=Problem)
 def problem_update(sender, instance, **kwargs):
     if hasattr(instance, '_updating_stats_only'):
         return
-
     cache.delete_many([
         make_template_fragment_key('submission_problem', (instance.id,)),
         make_template_fragment_key('problem_feed', (instance.id,)),
@@ -72,7 +74,6 @@ def problem_update(sender, instance, **kwargs):
     cache.delete_many([make_template_fragment_key('problem_authors', (instance.id, lang))
                        for lang, _ in settings.LANGUAGES])
     cache.delete_many(['generated-meta-problem:%s:%d' % (lang, instance.id) for lang, _ in settings.LANGUAGES])
-
     for lang, _ in settings.LANGUAGES:
         cached_pdf_filename = get_pdf_path('%s.%s.pdf' % (instance.code, lang))
         if cached_pdf_filename is not None:

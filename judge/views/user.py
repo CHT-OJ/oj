@@ -360,7 +360,8 @@ class UserProblemsPage(UserPage):
         context['pp_has_more'] = has_more
 
         return context
-    
+
+
 class UserWarningPage(UserPage):
     template_name = 'user/warning-logs.html'
 
@@ -382,13 +383,11 @@ class UserWarningPage(UserPage):
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_staff or request.user.is_superuser:
             pass
-        
         elif not request.user.username == kwargs['user']:
             raise PermissionDenied()
-        
         return super().dispatch(request, *args, **kwargs)
-    
-    
+
+
 class UserPerformancePointsAjax(UserProblemsPage):
     template_name = 'user/pp-table-body.html'
 

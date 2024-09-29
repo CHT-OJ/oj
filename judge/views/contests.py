@@ -7,8 +7,8 @@ from functools import partial
 from operator import attrgetter, itemgetter
 from requests import get as get_requests
 from bs4 import BeautifulSoup
-from openpyxl import Workbook, load_workbook
-from openpyxl.styles import PatternFill, Border, Side
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill
 
 from django import forms
 from django.conf import settings
@@ -59,7 +59,7 @@ from judge.utils.views import DiggPaginatorMixin, QueryStringSortMixin, SingleOb
 __all__ = ['ContestList', 'ContestDetail', 'ContestRanking', 'ContestJoin', 'ContestLeave', 'ContestCalendar',
            'ContestClone', 'ContestStats', 'ContestMossView', 'ContestMossDelete',
            'ContestParticipationList', 'ContestParticipationDisqualify', 'get_contest_ranking_list',
-           'base_contest_ranking_list','CalculateMoss','ExportMoss']
+           'base_contest_ranking_list', 'CalculateMoss', 'ExportMoss']
 
 
 def _find_contest(request, key, private_check=True):
@@ -1216,35 +1216,36 @@ class ContestMossDelete(ContestMossMixin, SingleObjectMixin, View):
         ContestMoss.objects.filter(contest=self.object).delete()
         return HttpResponseRedirect(reverse('contest_moss', args=(self.object.key,)))
 
+
 class CalculateMoss(ContestMixin, SingleObjectMixin, PermissionRequiredMixin, View):
     permission_required = 'judge.moss_contest'
     permission_denied_message = _('You are not allowed to run MOSS.')
-    
+
     def post(self, request, *args, **kwargs):
         data = json.loads(self.request.body)
         user_set = []
-        lang = ['c','cpp','java','pascal','python']
+        lang = ['c', 'cpp', 'java', 'pascal', 'python']
         for problem in data:
             moss = problem['moss']
             for check in lang:
-                req = get_requests(problem[check]).content if problem[check]!="No submission" else None
+                req = get_requests(problem[check]).content if problem[check] != "No submission" else None
                 if req:
-                    soup = BeautifulSoup(req,'html.parser')
+                    soup = BeautifulSoup(req, 'html.parser')
                     data_tds = soup.find_all('a')[6:]
                     for i in data_tds:
                         data_split = i.text.split()
-                        number = ''.join(filter(str.isdigit,data_split[1]))
+                        number = ''.join(filter(str.isdigit, data_split[1]))
                         if int(number) >= int(moss):
                             '''profile = Profile.objects.get(user__username=data_split[0])
                             profile.warn += 1
                             profile.last_warned = timezone.now()
                             profile.save()'''
-                            user_set.append(data_split[0]) if not data_split[0] in user_set else None        
+                            user_set.append(data_split[0]) if not data_split[0] in user_set else None
 
         for i in user_set:
             try:
                 new_record = WarningLog()
-                new_record.offender= UserModel.objects.get(username=i)
+                new_record.offender = UserModel.objects.get(username=i)
                 new_record.judge = UserModel.objects.get(username=request.user.username)
                 new_record.reason = f"Hành vi chép bài tại contest #{self.get_object()}"
                 new_record.save()
@@ -1252,47 +1253,46 @@ class CalculateMoss(ContestMixin, SingleObjectMixin, PermissionRequiredMixin, Vi
                 print(f"Đã xảy ra lỗi khi thực hiện ghi lịch sử vi phạm {error}")
                 pass
 
-        return JsonResponse({'Result':user_set})    
+        return JsonResponse({'Result': user_set})
 
-class ExportMoss(ContestMossMixin, SingleObjectMixin,PermissionRequiredMixin, View):
+
+class ExportMoss(ContestMossMixin, SingleObjectMixin, PermissionRequiredMixin, View):
     permission_required = 'judge.moss_contest'
     permission_denied_message = _('You are not allowed to run MOSS.')
-    
+
     def post(self, request, *args, **kwargs):
         contest_name = self.get_object()
         data = json.loads(self.request.body)
         workbook = Workbook()
         workbook.remove(workbook['Sheet'])
         user_list = []
-        lang = ['c','cpp','java','pascal','python']
+        lang = ['c', 'cpp', 'java', 'pascal', 'python']
         for problem in data:
             user_list.clear()
             workbook.create_sheet(problem['problem'])
             sheet = workbook[problem['problem']]
-            sheet.append(("TÊN NGƯỜI DÙNG","% MOSS"))
+            sheet.append(("TÊN NGƯỜI DÙNG", "% MOSS"))
             sheet.column_dimensions['A'].width = 20
-            moss = problem['moss']
             for check in lang:
-                req = get_requests(problem[check]).content if problem[check]!="No submission" else None
+                req = get_requests(problem[check]).content if problem[check] != "No submission" else None
                 if req:
-                    soup = BeautifulSoup(req,'html.parser')
+                    soup = BeautifulSoup(req, 'html.parser')
                     data_tds = soup.find_all('a')[6:]
                     for i in data_tds:
                         data_split = i.text.split()
-                        number = ''.join(filter(str.isdigit,data_split[1]))
-                        if(data_split[0] not in user_list):
-                            sheet.append((data_split[0],number))
+                        number = ''.join(filter(str.isdigit, data_split[1]))
+                        if (data_split[0] not in user_list):
+                            sheet.append((data_split[0], number))
                             user_list.append(data_split[0])
-
-            for row in range(2,sheet.max_row+1):
-                cell = sheet.cell(row=row,column=2)
-                if(int(cell.value)>int(problem['moss'])):
+            for row in range(2, sheet.max_row + 1):
+                cell = sheet.cell(row=row, column=2)
+                if (int(cell.value) > int(problem['moss'])):
                     cell.fill = PatternFill(start_color="ff0d00", end_color="ff0d00", fill_type="solid")
                 else:
                     cell.fill = PatternFill(start_color="34eb43", end_color="34eb43", fill_type="solid")
-            
         workbook.save(f"{settings.MOSS_RESULTS_FOLDER}/{contest_name}.xlsx")
-        return JsonResponse({'Result':f'{contest_name}.xlsx'})
+        return JsonResponse({'Result': f'{contest_name}.xlsx'})
+
 
 class ContestTagDetailAjax(DetailView):
     model = ContestTag

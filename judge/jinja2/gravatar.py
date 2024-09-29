@@ -5,7 +5,6 @@ from django.utils.http import urlencode
 
 from judge.models import Profile
 from judge.utils.unicode import utf8bytes
-from django.conf import settings
 from . import registry
 
 
@@ -21,7 +20,7 @@ def gravatar(email, size=80, default=None):
     elif isinstance(email, AbstractUser):
         user_id = email.id
         email = email.email
-    try: 
+    try:
         prof = Profile.objects.get(id=user_id)
         if not prof.avt_url:
             return fallback(email, size, default)
@@ -29,6 +28,7 @@ def gravatar(email, size=80, default=None):
             return f"/avatar{prof.avt_url.thumbnail[f'{size}x{size}']}"
     except Profile.DoesNotExist:
         return fallback(email, size, default)
+
 
 def fallback(email, size, default):
     gravatar_url = 'https://www.gravatar.com/avatar/' + hashlib.md5(utf8bytes(email.strip().lower())).hexdigest() + '?'

@@ -138,7 +138,7 @@ class ProblemSolution(SolvedProblemMixin, ProblemMixin, TitleMixin, CommentedDet
         return generic_message(self.request, _('No such editorial'),
                                _('Could not find an editorial with the code "%s".') % code, status=404)
 
-    
+
 class ProblemRaw(ProblemMixin, TitleMixin, TemplateResponseMixin, SingleObjectMixin, View):
     context_object_name = 'problem'
     template_name = 'problem/raw.html'
@@ -822,7 +822,7 @@ class ProblemCreate(PermissionRequiredMixin, TitleMixin, CreateView):
         initial = super(ProblemCreate, self).get_initial()
         initial = initial.copy()
         initial['description'] = misc_config(self.request)['misc_config']['description_example']
-        initial['memory_limit'] = 1048576 # 1GB
+        initial['memory_limit'] = 1048576  # 1GB
         initial['partial'] = True
         try:
             initial['group'] = ProblemGroup.objects.get(name='Uncategorized').pk
@@ -1021,45 +1021,41 @@ class ProblemEdit(ProblemMixin, TitleMixin, UpdateView):
             return generic_message(request, _("Can't edit problem"),
                                    _('You are not allowed to edit this problem.'), status=403)
 
-def return_raw_testcase(request,problem):
+
+def return_raw_testcase(request, problem):
     try:
-        name_file = request.GET.get("file","")
+        name_file = request.GET.get("file", "")
         get_problem = ProblemData.objects.get(problem__code=problem)
         get_testcases = ProblemTestCase.objects.get(dataset__code=problem, input_file=name_file)
-        
         if not get_testcases.exists():
             get_testcases = ProblemTestCase.objects.get(dataset__code=problem, output_file=name_file)
-            
-        print(get_testcases)
         archive = ZipFile(f'{settings.DMOJ_PROBLEM_DATA_ROOT}/{get_problem.zipfile}', 'r')
-        file_data = archive.read(name_file) 
-        response = HttpResponse(file_data,  content_type='application/octet-stream')
+        file_data = archive.read(name_file)
+        response = HttpResponse(file_data, content_type='application/octet-stream')
         response['Content-Disposition'] = f'attachment; filename="{name_file}"'
         return response
-    except Exception as error:
-        print(error)
+    except Exception:
         return HttpResponse("File không tồn tại hoặc đã xảy ra lỗi khi truy xuất")
-    
+
+
 class ProblemViewPublicTestcase(ProblemMixin, TitleMixin, UpdateView):
     template_name = 'problem/view-testcase.html'
     model = Problem
     form_class = ProblemEditForm
 
     def get_title(self):
-        return _('Public test cases of {0}').format(self.object.name)   
+        return _('Public test cases of {0}').format(self.object.name)
 
     def get_context_data(self, **kwargs):
         data = super().get_context_data(**kwargs)
-
         public_testcases = []
         data['data_file'] = ""
-
         raw_data = ProblemTestCase.objects.filter(dataset__code=self.object.code, public=True)
         for test in raw_data:
             public_testcases.append({
                 'input': test.input_file,
                 'output': test.output_file,
-                'href':f"/problem/{self.object.code}/raw-testcase?file=",
+                'href': f"/problem/{self.object.code}/raw-testcase?file=",
             })
         data['public_testcases'] = public_testcases
 
