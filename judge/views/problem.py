@@ -1026,9 +1026,10 @@ def return_raw_testcase(request, problem):
     try:
         name_file = request.GET.get('file', '')
         get_problem = ProblemData.objects.get(problem__code=problem)
-        get_testcases = ProblemTestCase.objects.get(dataset__code=problem, input_file=name_file)
-        if not get_testcases.exists():
-            get_testcases = ProblemTestCase.objects.get(dataset__code=problem, output_file=name_file)
+        get_testcases = ProblemTestCase.objects.filter(dataset__code=problem, input_file=name_file)
+        if len(get_testcases.exists()) == 0:
+            get_testcases = ProblemTestCase.objects.filter(dataset__code=problem, output_file=name_file)
+        get_testcases = get_testcases[0]
         archive = ZipFile(f'{settings.DMOJ_PROBLEM_DATA_ROOT}/{get_problem.zipfile}', 'r')
         file_data = archive.read(name_file)
         response = HttpResponse(file_data, content_type='application/octet-stream')

@@ -6128,7 +6128,7 @@ msgstr "Xem dạng PDF"
 msgid "View testcase"
 msgstr "Xem các test mẫu"
 
-#: judge/views/problem.py:1049
+#: judge/views/problem.py:1048
 msgid "Public test cases of {0}"
 msgstr "Test mẫu của {0}"
 
