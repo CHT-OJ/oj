@@ -146,6 +146,7 @@
     {% endif %}
 
     <hr style="padding-bottom: 0.3em">
+    <div><a href="{{ url('view_public_testcase',problem.code) }}">{{ _('View testcase') }}</a></div>
     {% if request.in_contest and contest_problem %}
         {% set contest = contest_problem.contest %}
         <div><a href="{{ url('contest_user_submissions', contest.key, request.user.username, problem.code) }}">{{ _('My submissions') }}</a></div>
@@ -160,9 +161,6 @@
             </div>
         {% endif %}
         {% if request.user.is_authenticated %}
-        <div>
-            <a href="{{ url('view_public_testcase',problem.code) }}">{{ _('View testcase') }}</a>
-        </div>
         {% endif %}
         <div><a href="{{ url('chronological_submissions', problem.code) }}">{{ _('All submissions') }}</a></div>
         <div><a href="{{ url('ranked_submissions', problem.code) }}">{{ _('Best submissions') }}</a></div>
