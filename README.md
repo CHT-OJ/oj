@@ -1,8 +1,8 @@
-# VNOJ: VNOI Online Judge [![Build Status](https://github.com/VNOI-Admin/OJ/workflows/build/badge.svg)](https://github.com/VNOI-Admin/OJ/actions/) [![AGPL License](https://img.shields.io/badge/license-AGPLv3.0-blue.svg)](http://www.gnu.org/licenses/agpl-3.0) [![Discord link](https://img.shields.io/discord/660930260405190688?color=%237289DA&label=Discord&logo=Discord)](https://discord.com/invite/TDyYVyd)
+# CHTOJ: CHUYÊN HÀ TĨNH Online Judge [![Build Status](https://github.com/CHT-OJ/OJ/workflows/build/badge.svg)](https://github.com/VNOI-Admin/OJ/actions/) [![AGPL License](https://img.shields.io/badge/license-AGPLv3.0-blue.svg)](http://www.gnu.org/licenses/agpl-3.0) [![Discord link](https://img.shields.io/discord/1243196002446606417?color=%237289DA&label=Discord&logo=Discord)](https://discord.gg/a79kKjFcnq)
 
-As a fork of [DMOJ](https://github.com/DMOJ/online-judge), VNOJ serves as [VNOI](https://team.vnoi.info/)'s official online judge and hosts its programming contests.
+As a fork of [DMOJ](https://github.com/DMOJ/online-judge), CHTOJ serves as [CHTOJ](https://www.facebook.com/chtojteam)'s official online judge and hosts its programming contests.
 
-See it live at [oj.vnoi.info](https://oj.vnoi.info/)!
+See it live at [oj.thptchuyenhatinh.edu.vn](https://oj.thptchuyenhatinh.edu.vn/)!
 
 ## Features
 
