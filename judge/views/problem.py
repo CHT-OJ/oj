@@ -1027,7 +1027,7 @@ def return_raw_testcase(request, problem):
         name_file = request.GET.get('file', '')
         get_problem = ProblemData.objects.get(problem__code=problem)
         get_testcases = ProblemTestCase.objects.filter(dataset__code=problem, input_file=name_file)
-        if len(get_testcases.exists()) == 0:
+        if len(get_testcases) == 0:
             get_testcases = ProblemTestCase.objects.filter(dataset__code=problem, output_file=name_file)
         get_testcases = get_testcases[0]
         archive = ZipFile(f'{settings.DMOJ_PROBLEM_DATA_ROOT}/{get_problem.zipfile}', 'r')
