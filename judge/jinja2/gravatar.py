@@ -10,16 +10,16 @@ from . import registry
 
 @registry.function
 def gravatar(email, size=80, default=None):
-
     if isinstance(email, Profile):
         if default is None:
             default = email.mute
         user_id = email.user.id
         email = email.user.email
-
     elif isinstance(email, AbstractUser):
         user_id = email.id
         email = email.email
+    else:
+        return fallback(email, size, default)
     try:
         prof = Profile.objects.get(id=user_id)
         if not prof.avt_url:
