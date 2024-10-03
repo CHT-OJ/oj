@@ -18,6 +18,9 @@ def gravatar(email, size=80, default=None):
     elif isinstance(email, AbstractUser):
         user_id = email.id
         email = email.email
+    elif isinstance(email, str):
+        prof = Profile.objects.get(user__email=email)
+        return f"/avatar{prof.avt_url.thumbnail[f'{size}x{size}']}"
     else:
         return fallback(email, size, default)
     try:
