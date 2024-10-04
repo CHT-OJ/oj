@@ -160,7 +160,7 @@ class UserSearchSelect2View(BaseListView):
                 {
                     'text': username_override or username,
                     'id': username,
-                    'gravatar_url': gravatar(email, self.gravatar_size, self.gravatar_default),
+                    'gravatar_url': gravatar(username, self.gravatar_size, self.gravatar_default),
                     'display_rank': display_rank,
                 } for pk, username, email, display_rank, username_override in context['object_list']],
             'more': context['page_obj'].has_next(),

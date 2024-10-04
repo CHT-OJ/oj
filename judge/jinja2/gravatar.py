@@ -19,12 +19,12 @@ def gravatar(email, size=80, default=None):
         user_id = email.id
         email = email.email
     elif isinstance(email, str):
-        prof = Profile.objects.get(user__email=email)
-        return f"/avatar{prof.avt_url.thumbnail[f'{size}x{size}']}"
+        user_id = Profile.objects.get(user__username=email).user_id
     else:
         return fallback(email, size, default)
     try:
         prof = Profile.objects.get(id=user_id)
+        print(prof.avt_url)
         if not prof.avt_url:
             return fallback(email, size, default)
         else:
