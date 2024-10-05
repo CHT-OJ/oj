@@ -638,7 +638,7 @@ MARTOR_UPLOAD_SAFE_EXTS = {
     # Spreadsheet
     '.xls', '.xlsx', '.csv',
     # PowerPoint
-    '.ppt', '.pptx',
+    '.ppt', '.pptx', '.ppsx',
     # Text
     '.txt',
     # Zip
