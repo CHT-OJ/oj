@@ -37,17 +37,17 @@ def rejudge_submission(request):
     return HttpResponseRedirect(redirect) if redirect else HttpResponse('success', content_type='text/plain')
 
 
-def django_uploader(image):
-    ext = os.path.splitext(image.name)[1]
+def django_uploader(file):
+    ext = os.path.splitext(file.name)[1]
     if ext not in settings.MARTOR_UPLOAD_SAFE_EXTS:
-        ext = '.png'
+        return json.dumps({'status': 200, 'name': 'đã xảy ra lỗi', 'link': 'Định dang không được hỗ trợ'})
     name = str(uuid.uuid4()) + ext
-    default_storage.save(os.path.join(settings.MARTOR_UPLOAD_MEDIA_DIR, name), image)
+    default_storage.save(os.path.join(settings.MARTOR_UPLOAD_MEDIA_DIR, name), file)
     url_base = getattr(settings, 'MARTOR_UPLOAD_URL_PREFIX',
                        urljoin(settings.MEDIA_URL, settings.MARTOR_UPLOAD_MEDIA_DIR))
     if not url_base.endswith('/'):
         url_base += '/'
-    return json.dumps({'status': 200, 'name': '', 'link': urljoin(url_base, name)})
+    return json.dumps({'status': 200, 'name': 'đổi tên tại đây', 'link': urljoin(url_base, name)})
 
 
 def pdf_statement_uploader(statement):
