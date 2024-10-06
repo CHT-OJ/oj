@@ -58,7 +58,7 @@ from judge.utils.views import DiggPaginatorMixin, QueryStringSortMixin, SingleOb
 __all__ = ['ContestList', 'ContestDetail', 'ContestRanking', 'ContestJoin', 'ContestLeave', 'ContestCalendar',
            'ContestClone', 'ContestStats', 'ContestMossView', 'ContestMossDelete',
            'ContestParticipationList', 'ContestParticipationDisqualify', 'get_contest_ranking_list',
-           'base_contest_ranking_list', 'CalculateMoss', 'ExportMoss']
+           'base_contest_ranking_list', 'CalculateMoss', 'ExportMoss', 'return_scss']
 
 
 def _find_contest(request, key, private_check=True):
@@ -1515,6 +1515,8 @@ class ContestPrepareData(ContestDataMixin, TitleMixin, SingleObjectMixin, FormVi
             raise PermissionDenied('You are not allowed to prepare new data.')
         return super().post(request, *args, **kwargs)
 
+def return_scss(request):
+    return render(request, 'contest/media-scss.html')
 
 class ContestDownloadData(ContestDataMixin, SingleObjectMixin, View):
     def get(self, request, *args, **kwargs):
