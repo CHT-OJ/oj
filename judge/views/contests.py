@@ -1515,8 +1515,10 @@ class ContestPrepareData(ContestDataMixin, TitleMixin, SingleObjectMixin, FormVi
             raise PermissionDenied('You are not allowed to prepare new data.')
         return super().post(request, *args, **kwargs)
 
+
 def return_scss(request):
     return render(request, 'contest/media-scss.html')
+
 
 class ContestDownloadData(ContestDataMixin, SingleObjectMixin, View):
     def get(self, request, *args, **kwargs):

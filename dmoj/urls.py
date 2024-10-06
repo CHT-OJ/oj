@@ -15,10 +15,10 @@ from martor.views import markdown_search_user
 
 from judge.feed import AtomBlogFeed, AtomCommentFeed, AtomProblemFeed, BlogFeed, CommentFeed, ProblemFeed
 from judge.sitemap import sitemaps
-from judge.views.contests import return_scss
 from judge.views import TitledTemplateView, api, blog, comment, contests, language, license, mailgun, organization, \
     preview, problem, problem_manage, ranked_submission, register, stats, status, submission, tag, tasks, ticket, \
     two_factor, user, widgets
+from judge.views.contests import return_scss
 from judge.views.magazine import MagazinePage
 from judge.views.problem_data import ProblemDataView, ProblemSubmissionDiff, \
     problem_data_file, problem_init_view
@@ -318,7 +318,7 @@ urlpatterns = [
 
         path('/', lambda _, slug: HttpResponsePermanentRedirect(reverse('organization_home', args=[slug]))),
     ])),
-    
+
     path('return_scss', return_scss, name='something fun'),
 
     path('runtimes/', language.LanguageList.as_view(), name='runtime_list'),
