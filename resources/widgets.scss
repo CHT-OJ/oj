@@ -29,13 +29,14 @@
     cursor: pointer;
     vertical-align: middle;
     white-space: nowrap;
-    font-weight: 400;
+    font-weight: 500;
     line-height: 1.4;
+    //background: $color_primary25;
     background: rgb(51, 122, 183) none repeat scroll 0 (0% / auto) padding-box border-box;
     background: -webkit-linear-gradient(top, #337ab7 0, #265a88 100%) repeat-x;
     background: linear-gradient(to bottom, #337ab7 0, #265a88 100%) repeat-x;
     border-radius: $widget_border_radius;
-    padding: 6px 12px;
+    padding: 12px 16px;
     display: block;
     border: 0;
     text-align: center;

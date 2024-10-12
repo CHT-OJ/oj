@@ -111,7 +111,7 @@ body {
     font-size: $base_font_size;
     line-height: 1.231;
     background: $color_primary5;
-    font-family: "Segoe UI", "Lucida Grande", Arial, sans-serif;
+    font-family: $font-family, sans-serif !important;
     color: $color_primary100;
     height: 100%;
 }
@@ -127,6 +127,7 @@ h1 {
     padding: 0;
     line-height: 1em;
 }
+* {}
 
 b {
     font-weight: bold;
