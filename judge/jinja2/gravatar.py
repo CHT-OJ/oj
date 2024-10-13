@@ -23,8 +23,7 @@ def gravatar(email, size=80, default=None):
     else:
         return fallback(email, size, default)
     try:
-        prof = Profile.objects.get(id=user_id)
-        print(prof.avt_url)
+        prof = Profile.objects.get(user__id=user_id)
         if not prof.avt_url:
             return fallback(email, size, default)
         else:
