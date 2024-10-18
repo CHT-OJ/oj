@@ -1270,19 +1270,19 @@ class ExportMoss(ContestMossMixin, SingleObjectMixin, PermissionRequiredMixin, V
             user_list.clear()
             workbook.create_sheet(problem['problem'])
             sheet = workbook[problem['problem']]
-            sheet.append(('TÊN NGƯỜI DÙNG", "% MOSS'))
-            sheet.column_dimensions['A'].width = 20
+            sheet.append(('Người vi phạm 1', '% MOSS', 'Người vi phạm 2'))
+            sheet.column_dimensions['A'].width = 30
+            sheet.column_dimensions['C'].width = 30
             for check in lang:
                 req = get_requests(problem[check]).content if problem[check] != 'No submission' else None
                 if req:
                     soup = BeautifulSoup(req, 'html.parser')
                     data_tds = soup.find_all('a')[6:]
-                    for i in data_tds:
-                        data_split = i.text.split()
-                        number = ''.join(filter(str.isdigit, data_split[1]))
-                        if (data_split[0] not in user_list):
-                            sheet.append((data_split[0], number))
-                            user_list.append(data_split[0])
+                    for i in range(0,len(data_tds),2):
+                        data_split_1 = data_tds[i].text.split()
+                        data_split_2 = data_tds[i+1].text.split()
+                        number = ''.join(filter(str.isdigit, data_split_1[1]))
+                        sheet.append((data_split_1[0], number, data_split_2[0]))
             for row in range(2, sheet.max_row + 1):
                 cell = sheet.cell(row=row, column=2)
                 if (int(cell.value) > int(problem['moss'])):
