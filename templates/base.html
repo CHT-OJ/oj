@@ -171,6 +171,7 @@
                 id: '{{ request.user.id|escapejs }}',
                 name: '{{ request.user.username|escapejs }}'
             };
+            localStorage.setItem('user_id',{{ request.user.id|escapejs }});
         </script>
     {% else %}
         <script>window.user = {};</script>
