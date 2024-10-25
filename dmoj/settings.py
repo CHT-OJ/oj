@@ -629,6 +629,8 @@ MARTOR_UPLOAD_URL_PREFIX = '/martor'
 # Directory under MEDIA_ROOT to use to store image uploaded through martor.
 MARTOR_UPLOAD_MEDIA_DIR = 'martor'
 MARTOR_UPLOAD_SAFE_EXTS = {
+    # Code
+    '.cpp', '.pas', '.py'
     # Image
     '.jpg', '.jpeg', '.png', '.gif', '.svg', '.bmp', '.tiff', '.webp',
     # PDF

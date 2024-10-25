@@ -191,6 +191,7 @@ class Contest(models.Model):
                                            help_text=_('An optional code to view the contest ranking. '
                                                        'Leave it blank to disable.'),
                                            blank=True, default='', max_length=255)
+    block_internet = models.BooleanField(verbose_name=_('Block internet'),blank=False, default=False)
 
     @cached_property
     def format_class(self):
