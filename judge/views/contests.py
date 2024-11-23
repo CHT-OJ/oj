@@ -1278,9 +1278,9 @@ class ExportMoss(ContestMossMixin, SingleObjectMixin, PermissionRequiredMixin, V
                 if req:
                     soup = BeautifulSoup(req, 'html.parser')
                     data_tds = soup.find_all('a')[6:]
-                    for i in range(0,len(data_tds),2):
+                    for i in range(0, len(data_tds), 2):
                         data_split_1 = data_tds[i].text.split()
-                        data_split_2 = data_tds[i+1].text.split()
+                        data_split_2 = data_tds[i + 1].text.split()
                         number = ''.join(filter(str.isdigit, data_split_1[1]))
                         sheet.append((data_split_1[0], number, data_split_2[0]))
             for row in range(2, sheet.max_row + 1):
