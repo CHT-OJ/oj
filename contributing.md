@@ -1,4 +1,4 @@
-# Contributing to VNOJ
+# Contributing to CHTOJ
 
 ## Issues found
 
