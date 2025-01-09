@@ -166,13 +166,6 @@ class WarningLog(models.Model):
     reason = models.TextField(null=False, blank=False)
     timestamp = models.DateTimeField(auto_now_add=True)
 
-    class Meta:
-        db_table = 'judge_warninglog'
-        constraints = [
-            models.UniqueConstraint(fields=['offender', 'reason'], name='unique_warning_log'),
-        ]
-
-
 class Profile(models.Model):
     user = models.OneToOneField(User, verbose_name=_('user associated'), on_delete=models.CASCADE)
     about = models.TextField(verbose_name=_('self-description'), null=True, blank=True)
