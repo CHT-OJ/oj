@@ -97,8 +97,9 @@ class ContestMiddleware(object):
             profile.update_contest()
             request.participation = profile.current_contest
             request.in_contest = request.participation is not None
-            contest = request.profile.current_contest.contest
-            if contest:
+            contest = request.profile.current_contest
+            if hasattr(contest,'contest'):
+                contest = request.profile.current_contest.contest
                 CONTEST_ID = contest.id
                 CONTEST_ID_HASH = hashlib.md5(str(CONTEST_ID).encode('utf-8')).hexdigest()
                 USER_AGENT = request.META['HTTP_USER_AGENT'].split(';')[-1]
