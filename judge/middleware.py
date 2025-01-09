@@ -98,12 +98,13 @@ class ContestMiddleware(object):
             request.participation = profile.current_contest
             request.in_contest = request.participation is not None
             contest = request.profile.current_contest.contest
-            CONTEST_ID = contest.id
-            CONTEST_ID_HASH = hashlib.md5(str(CONTEST_ID).encode('utf-8')).hexdigest()
-            USER_AGENT = request.META['HTTP_USER_AGENT'].split(';')[-1]
-            if contest.allow_seb and USER_AGENT != CONTEST_ID_HASH:
-                return HttpResponseForbidden('''Bạn tham gia 1 kỳ thi có sử dụng SEB.
-                                            Yêu cầu bạn không thoát khỏi phần mềm SEB.''')
+            if contest:
+                CONTEST_ID = contest.id
+                CONTEST_ID_HASH = hashlib.md5(str(CONTEST_ID).encode('utf-8')).hexdigest()
+                USER_AGENT = request.META['HTTP_USER_AGENT'].split(';')[-1]
+                if contest.allow_seb and USER_AGENT != CONTEST_ID_HASH:
+                    return HttpResponseForbidden('''Bạn tham gia 1 kỳ thi có sử dụng SEB.
+                                                Yêu cầu bạn không thoát khỏi phần mềm SEB.''')
         else:
             request.in_contest = False
             request.participation = None
