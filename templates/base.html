@@ -325,7 +325,8 @@
     {% set current_contest = request.participation.contest %}
     <div id="contest-info">
         <a href="{{ url('contest_view', current_contest.key) }}">
-            {{ current_contest.name }} -
+            {{ current_contest.name }}
+            
             {% if request.participation.spectate %}
                 {{ _('spectating') }}
             {% elif request.participation.end_time %}

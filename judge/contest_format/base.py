@@ -40,7 +40,7 @@ class BaseContestFormat(metaclass=ABCMeta):
     def update_participation(self, participation):
         """
         Updates a ContestParticipation object's score, cumtime, and format_data fields based on this contest format.
-        Implementations should call ContestParticipation.save().
+        Implementations should call .save().
 
         :param participation: A ContestParticipation object.
         :return: None
