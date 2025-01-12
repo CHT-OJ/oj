@@ -12,6 +12,15 @@
         #problem-table th {
             padding: 0;
         }
+        .rectangle {
+            display: inline-block; 
+            padding: 2px 15px; 
+            border: 0px solid #000; 
+            border-radius: 20px;
+            background-color: #87ee00;
+            color: #87c500;
+            float: right;
+        }
     </style>
 {% endblock %}
 
@@ -224,6 +233,16 @@
                         </td>
                         <td class="problem-name">
                             <a href="{{ url('problem_detail', problem.code) }}">{{ problem.i18n_name or problem.name }}</a>
+                            <div class="rectangle" 
+                                {% if problem.difficulty == 'easy' %} 
+                                style="background-color: #00ff6a5d; color: #00ff00;"
+                                {% elif problem.difficulty == 'medium' %}
+                                    style="background-color: #2700945d; color: #0011ff;" 
+                                {% elif problem.difficulty == 'hard' %}
+                                    style="background-color: #ff00005d; color: #f10000;" 
+                                {% endif %}>
+                                {{ problem.difficulty|capfirst }}
+                            </div>
                         </td>
                         <td class="category">{{ problem.group.full_name }}</td>
                         {% if show_types %}

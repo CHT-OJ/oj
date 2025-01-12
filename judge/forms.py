@@ -205,7 +205,7 @@ class ProblemEditForm(ModelForm):
         content = self.files.get('statement_file', None)
         if content is not None:
             if content.size > settings.PDF_STATEMENT_MAX_FILE_SIZE:
-                raise forms.ValidationError(_('File size is too big! Maximum file size is %s') %
+                raise forms.ValidationError(_('File size is too big! Maximum file size is %s') % 
                                             filesizeformat(settings.PDF_STATEMENT_MAX_FILE_SIZE),
                                             'big_file_size')
             if self.user and not self.user.has_perm('judge.upload_file_statement'):
@@ -222,10 +222,16 @@ class ProblemEditForm(ModelForm):
                                         % settings.VNOJ_PROBLEM_TIMELIMIT_LIMIT,
                                         'problem_timelimit_too_long')
         return self.cleaned_data['time_limit']
+    
+    # def clean_difficulty(self):
+    #     difficulty = self.cleaned_data.get('difficulty')
+    #     if difficulty and difficulty not in ['easy', 'medium', 'hard']:
+    #         raise forms.ValidationError(_('Invalid difficulty level. Please choose from Easy, Medium, or Hard.'))
+    #     return difficulty
 
     class Meta:
         model = Problem
-        fields = ['is_public', 'code', 'name', 'time_limit', 'memory_limit', 'points', 'partial',
+        fields = ['is_public', 'code', 'name', 'time_limit', 'memory_limit', 'points', 'difficulty', 'partial',
                   'statement_file', 'source', 'types', 'group', 'submission_source_visibility_mode',
                   'testcase_visibility_mode', 'description', 'testers']
         widgets = {
@@ -250,12 +256,14 @@ class ProblemEditForm(ModelForm):
             'points': _('Points awarded for problem completion. From 0 to 2. '
                         'You can approximate: 0.5 is as hard as Problem 1 of VOI; 1 = Problem 2 of VOI; '
                         '1.5 = Problem 3 of VOI.'),
+            'difficulty': _('Difficulty level of the problem: Easy, Medium, or Hard.')
         }
         error_messages = {
             'code': {
                 'invalid': _('Only accept alphanumeric characters (a-z, 0-9) and underscore (_)'),
             },
         }
+
 
 
 class ProblemImportPolygonForm(Form):
