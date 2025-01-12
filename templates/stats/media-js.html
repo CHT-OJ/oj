@@ -1,272 +1,110 @@
 <script type="text/javascript" src="{{ static('libs/chart.js/Chart.js') }}"></script>
 <script type="text/javascript">
-    function draw_pie_chart(data, $chart) {
-        var ctx = $chart.find('canvas')[0].getContext('2d');
-        var chart = new Chart(ctx, {
-            type: 'pie',
-            data: data,
-            options: {
-                maintainAspectRatio: false,
-                responsive: false,
-                animation: false,
-                legend: {
-                    position: 'right',
-                    labels: {
-                        fontColor: 'black',
-                        boxWidth: 20,
-                    },
-                },
+  function draw_pie_chart(data, $chart) {
+    var ctx = $chart.find('canvas')[0].getContext('2d');
+    var chart = new Chart(ctx, {
+      type: 'pie',
+      data: data,
+      options: {
+        maintainAspectRatio: false,
+        responsive: false,
+        animation: false,
+        legend: {
+          position: 'right',
+          labels: {
+            fontColor: 'black',
+            boxWidth: 20,
+          },
+        },
+      },
+    });
+  }
+
+  function draw_bar_chart(data, $chart) {
+    var ctx = $chart.find('canvas')[0].getContext('2d');
+    ctx.canvas.height = 20 * data.labels.length + 100;
+    var chart = new Chart(ctx, {
+      type: 'horizontalBar',
+      data: data,
+      options: {
+        maintainAspectRatio: false,
+        legend: {
+          display: false,
+        },
+        tooltips: {
+          callbacks: {
+            label: function(tooltipItem, data) {
+              return (Math.round(tooltipItem.value * 100) / 100) + '%';
             },
-        });
-        return chart;
-    }
+          },
+        },
+      },
+    });
+  }
 
-    function draw_bar_chart(data, $chart, show_percentage = true) {
-        var orig_data = JSON.parse(JSON.stringify(data));
-        var ctx = $chart.find('canvas')[0].getContext('2d');
-        ctx.canvas.height = 20 * data.labels.length + 100;
-        var chart = new Chart(ctx, {
-            type: 'horizontalBar',
-            data: data,
-            options: {
-                maintainAspectRatio: false,
-                legend: {
-                    display: false,
-                },
-                tooltips: {
-                    callbacks: {
-                        label: function(tooltipItem, data) {
-                            return show_percentage ? ((Math.round(tooltipItem.value * 100) / 100) + '%') : tooltipItem.value;
-                        },
-                    },
-                },
-                scales: {
-                    xAxes: [{
-                        ticks: {
-                            min: 0,
-                        },
-                    }],
-                },
-                onClick: function (e) {
-                    let nearest = chart.getElementsAtEventForMode(e, 'nearest', {intersect: false, axis: 'y'});
-                    if (nearest.length) {
-                        var bar = nearest[0];
-                        var datasetIndex = bar._datasetIndex, index = bar._index;
-                        chart.data.datasets[datasetIndex].data[index] = !bar.hidden ? 0 : orig_data.datasets[datasetIndex].data[index];
-                        bar.hidden = !bar.hidden;
-                        chart.update();
-                    }
-                },
+  function draw_stacked_bar_chart(data, $chart) {
+    var ctx = $chart.find('canvas')[0].getContext('2d');
+    ctx.canvas.height = 20 * data.labels.length + 100;
+    var chart = new Chart(ctx, {
+      type: 'horizontalBar',
+      data: data,
+      options: {
+        maintainAspectRatio: false,
+        tooltips: {
+          mode: 'index',
+          intersect: false,
+        },
+        scales: {
+          xAxes: [{
+            stacked: true,
+          }],
+          yAxes: [{
+            stacked: true,
+          }],
+        },
+      },
+    });
+  }
+  function draw_histogram(data, $chart) {
+    var ctx = $chart.find('canvas')[0].getContext('2d');
+    ctx.canvas.height = 20 * data.labels.length + 100;
+    var chart = new Chart(ctx, {
+      type: 'bar',
+      data: data,
+      options: {
+        maintainAspectRatio: false,
+        legend: {
+          display: false,
+        },
+        tooltips: {
+          callbacks: {
+            label: function(tooltipItem, data) {
+              return tooltipItem.value;
             },
-        });
-        return chart;
-    }
+          },
+        },
+      },
+    });
+    return chart;
+  }
 
-    function draw_vertical_bar_chart(data, $chart) {
-        var ctx = $chart.find('canvas')[0].getContext('2d');
-        var chart = new Chart(ctx, {
-            type: 'bar',
-            data: data,
-            options: {
-                maintainAspectRatio: false,
-                legend: {
-                    display: false,
-                },
-                scales: {
-                    xAxes: [{
-                        ticks: {
-                            min: 0,
-                        },
-                    }],
-                },
-            },
-        });
-        return chart;
-    }
-
-    function draw_stacked_bar_chart(data, $chart) {
-        var ctx = $chart.find('canvas')[0].getContext('2d');
-        ctx.canvas.height = 20 * data.labels.length + 100;
-        var chart = new Chart(ctx, {
-            type: 'horizontalBar',
-            data: data,
-            options: {
-                maintainAspectRatio: false,
-                tooltips: {
-                    mode: 'index',
-                    intersect: false,
-                    callbacks: {
-                        footer: function(tooltipItems) {
-                            var total = 0;
-                            for (var i = 0; i < tooltipItems.length; ++i) {
-                                total += tooltipItems[i].xLabel;
-                            }
-                            return 'Total: ' + total;
-                        },
-                    },
-                },
-                legend: {
-                    labels: {
-                        generateLabels: function(chart) {
-                            var data = chart.data;
-                            if (!Array.isArray(data.datasets)) {
-                                return [];
-                            }
-
-                            var total = 0;
-                            data.datasets.forEach(function(dataset, i) {
-                                if (chart.isDatasetVisible(i)) {
-                                    total += dataset.data.reduce(function(a, b) {
-                                        return a + b;
-                                    }, 0);
-                                }
-                            });
-
-                            var labels = data.datasets.map(function(dataset, i) {
-                                return {
-                                    text: dataset.label,
-                                    fillStyle: (!Array.isArray(dataset.backgroundColor) ? dataset.backgroundColor : dataset.backgroundColor[0]),
-                                    hidden: !chart.isDatasetVisible(i),
-                                    lineCap: dataset.borderCapStyle,
-                                    lineDash: dataset.borderDash,
-                                    lineDashOffset: dataset.borderDashOffset,
-                                    lineJoin: dataset.borderJoinStyle,
-                                    lineWidth: dataset.borderWidth,
-                                    strokeStyle: dataset.borderColor,
-                                    pointStyle: dataset.pointStyle,
-                                    datasetIndex: i,
-                                };
-                            }, this);
-
-                            labels.push({
-                                text: 'Total: ' + total,
-                                fillStyle: 'transparent',
-                                strokeStyle: 'transparent',
-                                datasetIndex: -1,
-                            });
-
-                            return labels;
-                        },
-                    },
-                    onClick: function(e, legendItem) {
-                        var index = legendItem.datasetIndex;
-                        if (index == -1) return;
-                        var ci = this.chart;
-                        var meta = ci.getDatasetMeta(index);
-
-                        meta.hidden = meta.hidden === null ? !ci.data.datasets[index].hidden : null;
-
-                        ci.update();
-                    },
-                },
-                scales: {
-                    xAxes: [{
-                        stacked: true,
-                        ticks: {
-                            min: 0,
-                        },
-                    }],
-                    yAxes: [{
-                        stacked: true,
-                    }],
-                },
-            },
-        });
-        return chart;
-    }
-
-    function draw_vertical_stacked_bar_chart(data, $chart, display_y_right_axis = false) {
-        var ctx = $chart.find('canvas')[0].getContext('2d');
-        ctx.canvas.height = 20 * data.labels.length + 100;
-        var chart = new Chart(ctx, {
-            type: 'bar',
-            data: data,
-            options: {
-                maintainAspectRatio: false,
-                tooltips: {
-                    mode: 'index',
-                    intersect: false,
-                    callbacks: {
-                        footer: function(tooltipItems) {
-                            var total = 0;
-                            for (var i = 0; i < tooltipItems.length; ++i) {
-                                total += tooltipItems[i].yLabel;
-                            }
-                            return 'Total: ' + total;
-                        },
-                    },
-                },
-                legend: {
-                    labels: {
-                        generateLabels: function(chart) {
-                            var data = chart.data;
-                            if (!Array.isArray(data.datasets)) {
-                                return [];
-                            }
-
-                            var total = 0;
-                            data.datasets.forEach(function(dataset, i) {
-                                if (chart.isDatasetVisible(i)) {
-                                    total += dataset.data.reduce(function(a, b) {
-                                        return a + b;
-                                    }, 0);
-                                }
-                            });
-
-                            var labels = data.datasets.map(function(dataset, i) {
-                                return {
-                                    text: dataset.label,
-                                    fillStyle: (!Array.isArray(dataset.backgroundColor) ? dataset.backgroundColor : dataset.backgroundColor[0]),
-                                    hidden: !chart.isDatasetVisible(i),
-                                    lineCap: dataset.borderCapStyle,
-                                    lineDash: dataset.borderDash,
-                                    lineDashOffset: dataset.borderDashOffset,
-                                    lineJoin: dataset.borderJoinStyle,
-                                    lineWidth: dataset.borderWidth,
-                                    strokeStyle: dataset.borderColor,
-                                    pointStyle: dataset.pointStyle,
-                                    datasetIndex: i,
-                                };
-                            }, this);
-
-                            labels.push({
-                                text: 'Total: ' + total,
-                                fillStyle: 'transparent',
-                                strokeStyle: 'transparent',
-                                datasetIndex: -1,
-                            });
-
-                            return labels;
-                        },
-                    },
-                    onClick: function(e, legendItem) {
-                        var index = legendItem.datasetIndex;
-                        if (index == -1) return;
-                        var ci = this.chart;
-                        var meta = ci.getDatasetMeta(index);
-
-                        meta.hidden = meta.hidden === null ? !ci.data.datasets[index].hidden : null;
-
-                        ci.update();
-                    },
-                },
-                scales: {
-                    xAxes: [{
-                        stacked: true,
-                        ticks: {
-                            min: 0,
-                        },
-                    }],
-                    yAxes: [{
-                        stacked: true,
-                    }, {
-                        id: 'yRightAxis',
-                        position: 'right',
-                        display: display_y_right_axis,
-                    }],
-                },
-            },
-        });
-        return chart;
-    }
+  function draw_timeline(data, $chart) {
+    var ctx = $chart.find('canvas')[0].getContext('2d');
+    var chart = new Chart(ctx, {
+      type: 'line',
+      data: data,
+      options: {
+        maintainAspectRatio: false,
+        legend: {
+          display: false,
+        },
+        scales: {
+          xAxes: [{
+            type: 'time',
+          }]
+        },
+      },
+    });
+    return chart;
+  }
 </script>
