@@ -98,7 +98,7 @@ class ContestMiddleware(object):
             request.participation = profile.current_contest
             request.in_contest = request.participation is not None
             contest = request.profile.current_contest
-            if hasattr(contest,'contest'):
+            if hasattr(contest, 'contest'):
                 contest = request.profile.current_contest.contest
                 CONTEST_ID = contest.id
                 CONTEST_ID_HASH = hashlib.md5(str(CONTEST_ID).encode('utf-8')).hexdigest()
