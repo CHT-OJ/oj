@@ -11,6 +11,7 @@
     {% endif %}
     <meta id="viewport" name="viewport" content="width=device-width, initial-scale=1">
     <!-- Favicons-->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <link rel="apple-touch-icon" sizes="57x57" href="/apple-touch-icon-57x57.png">
     <link rel="apple-touch-icon" sizes="60x60" href="/apple-touch-icon-60x60.png">
     <link rel="apple-touch-icon" sizes="72x72" href="/apple-touch-icon-72x72.png">
@@ -237,6 +238,24 @@
                 {% for node in mptt_tree(nav_bar) recursive %}
                     <li>
                         <a href="{{ node.path }}" class="nav-{{ node.key }}{% if node.key in nav_tab %} active{% endif %}">
+                            <span class="nav-fa-icon">
+                                
+                                {% if node.key == "problems" %}
+                                    <i class="fas fa-bars"></i>
+                                {% endif %}
+                                {% if node.key == "submit" %}
+                                    <i class="fas fa-book"></i>
+                                {% endif %}
+                                {% if node.key == "user" %}
+                                    <i class="fas fa-users"></i>
+                                {% endif %}
+                                {% if node.key == "contest" %}
+                                    <i class="fa fa-trophy"></i>
+                                {% endif %}
+                                {% if node.key == "about" %}
+                                    <i class="fas fa-hashtag"></i>
+                                {% endif %}
+                            </span>
                             {{ _(node.label) }}
                             {% if not node.is_leaf_node() %}
                                 <div class="nav-expand">&gt;</div>
@@ -248,23 +267,23 @@
                     </li>
                 {% endfor %}
             {% else %}
-                {% macro make_navbar_item(key, url, text) %}
+                {% macro make_navbar_item(key, url, text, icon) %}
                     <li>
-                        <a href="{{ url }}" class="nav-{{ key }}"><span>
-                            {{ text }}
+                        <a href="{{ url }}" class="nav-{{ key }}">
+                            <i class="{{ icon }}"></i> 
+                            <span>{{ text }}</span>
                         </a>
                     </li>
                 {% endmacro %}
                 {% set org = request.organization %}
                 <li class="home-nav-element"><a href="{{ url('organization_home', org.slug) }}">{% include "site-logo-fragment.html" %}</a></li>
                 <li class="home-nav-element"><span class="nav-divider"></span></li>
-                {{ make_navbar_item('problem-list', url('problem_list_organization', org.slug), _('PRoblems')) }}
-                {{ make_navbar_item('submission-list', url('submission_list_organization', org.slug), _('Submissions')) }}
-                {{ make_navbar_item('contest-list',  url('contest_list_organization', org.slug), _('Contests')) }}
-                {{ make_navbar_item('users',org.get_users_url(), _('Users')) }}
+                {{ make_navbar_item('problem-list', url('problem_list_organization', org.slug), _('Problems'), 'fa-solid fa-bars') }}
+                {{ make_navbar_item('submission-list', url('submission_list_organization', org.slug), _('Submissions'), 'fa fa-paperclip') }}
+                {{ make_navbar_item('contest-list', url('contest_list_organization', org.slug), _('Contests'), 'fa fa-trophy') }}
+                {{ make_navbar_item('users', org.get_users_url(), _('Users'), 'fa fa-users') }}
             {% endif %}
         </ul>
-
         <span id="user-links">
             <a href=
                 {% if request.resolver_match.view_name == "problem_detail" and problem %}
