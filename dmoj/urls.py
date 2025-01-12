@@ -458,7 +458,7 @@ if settings.VNOJ_ENABLE_API:
             path('contest/<str:contest>', api.api_v2.APIContestDetail.as_view()),
             path('problems', api.api_v2.APIProblemList.as_view()),
             path('problem/<str:problem>', api.api_v2.APIProblemDetail.as_view()),
-            path('users', api.api_v2.APIUsNerList.as_view()),
+            path('users', api.api_v2.APIUserList.as_view()),
             path('user/<str:user>', api.api_v2.APIUserDetail.as_view()),
             path('submissions', api.api_v2.APISubmissionList.as_view()),
             path('submission/<int:submission>', api.api_v2.APISubmissionDetail.as_view()),
