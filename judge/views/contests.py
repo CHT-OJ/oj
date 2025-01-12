@@ -565,17 +565,14 @@ class ContestJoin(LoginRequiredMixin, ContestMixin, SingleObjectMixin, View):
 
         profile = request.profile
         
-        if contest.allow_seb:
-            CONTEST_ID = contest.id
-            CONTEST_ID_HASH = hashlib.md5(str(CONTEST_ID).encode('utf-8')).hexdigest()
-            USER_AGENT = request.META['HTTP_USER_AGENT'].split(';')[-1]
-
-            print("id hash",CONTEST_ID_HASH)
-            print('agent',USER_AGENT)
-            
-            if USER_AGENT != CONTEST_ID_HASH:
-                return generic_message(request, _('Không phát hiện SEB đang hoạt động'),
-                           _('Yêu cầu thí sinh khởi động phần mềm SEB để bắt đầu vào thi'))
+        #if contest.allow_seb:
+        #    CONTEST_ID = contest.id
+        #    CONTEST_ID_HASH = hashlib.md5(str(CONTEST_ID).encode('utf-8')).hexdigest()
+        #    USER_AGENT = request.META['HTTP_USER_AGENT'].split(';')[-1]
+        #    
+        #    if USER_AGENT != CONTEST_ID_HASH:
+        #        return generic_message(request, _('Không phát hiện SEB đang hoạt động'),
+        #                   _('Yêu cầu thí sinh khởi động phần mềm SEB để bắt đầu vào thi'))
 
         if not request.user.is_superuser and contest.banned_users.filter(id=profile.id).exists():
             return generic_message(request, _('Banned from joining'),
