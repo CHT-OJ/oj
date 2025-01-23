@@ -52,6 +52,7 @@ from judge.utils.cms import parse_csv_ranking
 from judge.utils.opengraph import generate_opengraph
 from judge.utils.problems import _get_result_data, user_attempted_ids, user_completed_ids
 from judge.utils.ranker import ranker
+from judge.utils.seb import is_valid_seb_env
 from judge.utils.stats import get_bar_chart, get_pie_chart, get_stacked_bar_chart
 from judge.utils.views import DiggPaginatorMixin, QueryStringSortMixin, SingleObjectFormView, TitleMixin, \
     add_file_response, generic_message
@@ -548,6 +549,7 @@ class ContestJoin(LoginRequiredMixin, ContestMixin, SingleObjectMixin, View):
 
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
+
         try:
             return self.join_contest(request)
         except ContestAccessDenied:
@@ -558,6 +560,9 @@ class ContestJoin(LoginRequiredMixin, ContestMixin, SingleObjectMixin, View):
 
     def join_contest(self, request, access_code=None):
         contest = self.object
+        if contest.enforce_seb and not is_valid_seb_env(request, contest):
+            return generic_message(request, 'Không phát hiện SEB đang hoạt động',
+                                   'Yêu cầu thí sinh khởi động phần mềm SEB để bắt đầu vào thi')
 
         if not contest.can_join and not (self.is_editor or self.is_tester):
             return generic_message(request, _('Contest not ongoing'),
