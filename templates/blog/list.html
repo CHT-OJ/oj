@@ -148,6 +148,25 @@
             {% if top_contrib %}
                 {% include "blog/top-contrib.html" %}
             {% endif %}
+            <style>
+                
+                .no-padding-bottom{
+                    padding-bottom: 0 !important;
+                }
+            </style>
+            <div class="blog-sidebox sidebox no-padding-bottom">
+                <h3>{{ _('CHTOJ Discord') }}</h3>
+            </div>
+            <div class=".blog-sidebar">
+                <iframe 
+                    src="https://discord.com/widget?id=1243196002446606417&theme=dark" 
+                    allowtransparency="true" 
+                    width="363"
+                    height="350" 
+                    frameborder="1" 
+                    sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+                ></iframe>
+            </div>
             <div class="blog-sidebox sidebox">
                 <h3 style="display: flex; justify-content: space-between; white-space: nowrap;">
                     <span style="margin-right: 10px;">
@@ -194,25 +213,6 @@
                         <a href="{{ url('problem_atom') }}">Atom</a>
                     </span>
                 </div>
-            </div>
-            <style>
-                
-                .no-padding-bottom{
-                    padding-bottom: 0 !important;
-                }
-            </style>
-            <div class="blog-sidebox sidebox no-padding-bottom">
-                <h3>{{ _('CHTOJ Discord') }}</h3>
-            </div>
-            <div class=".blog-sidebar">
-                <iframe 
-                    src="https://discord.com/widget?id=1243196002446606417&theme=dark" 
-                    allowtransparency="true" 
-                    width="363"
-                    height="350" 
-                    frameborder="1" 
-                    sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
-                ></iframe>
             </div>
         </div>
     </div>
