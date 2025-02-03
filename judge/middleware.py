@@ -18,6 +18,8 @@ from django.core.exceptions import PermissionDenied
 from django.http import HttpResponseForbidden
 
 from judge.models import MiscConfig, Organization
+from judge.utils.seb import is_valid_seb_env
+from judge.utils.views import generic_message
 
 try:
     import uwsgi
@@ -97,6 +99,11 @@ class ContestMiddleware(object):
             profile.update_contest()
             request.participation = profile.current_contest
             request.in_contest = request.participation is not None
+            if request.in_contest and profile.current_contest.contest.enforce_seb:
+                request.official_contest_mode = True
+                if not is_valid_seb_env(request, profile.current_contest.contest):
+                    return generic_message(request, 'Không phát hiện SEB đang hoạt động',
+                                           'Yêu cầu thí sinh khởi động phần mềm SEB để bắt đầu vào thi')
         else:
             request.in_contest = False
             request.participation = None
