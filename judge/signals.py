@@ -69,7 +69,7 @@ def problem_update(sender, instance, **kwargs):
         make_template_fragment_key('submission_problem', (instance.id,)),
         make_template_fragment_key('problem_feed', (instance.id,)),
         'problem_tls:%s' % instance.id, 'problem_mls:%s' % instance.id,
-    ])
+        ])
     cache.delete_many([make_template_fragment_key('problem_html', (instance.id, engine, lang))
                        for lang, _ in settings.LANGUAGES for engine in EFFECTIVE_MATH_ENGINES])
     cache.delete_many([make_template_fragment_key('problem_authors', (instance.id, lang))
@@ -138,7 +138,7 @@ def post_update(sender, instance, **kwargs):
         make_template_fragment_key('post_summary', (instance.id,)),
         'blog_slug:%d' % instance.id,
         'blog_feed:%d' % instance.id,
-    ])
+        ])
     cache.delete_many([make_template_fragment_key('post_content', (instance.id, engine))
                        for engine in EFFECTIVE_MATH_ENGINES])
 
@@ -185,7 +185,10 @@ def misc_config_delete(sender, instance, **kwargs):
 
 @receiver(post_save, sender=ContestSubmission)
 def contest_submission_update(sender, instance, **kwargs):
+    # TODO: monitor whether this may lead to perf spike or not
     Submission.objects.filter(id=instance.submission_id).update(contest_object_id=instance.participation.contest_id)
+    participation = instance.participation
+    participation.recompute_results()
 
 
 @receiver(post_save, sender=FlatPage)
