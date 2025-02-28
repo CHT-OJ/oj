@@ -169,9 +169,8 @@ class WarningLog(models.Model):
     class Meta:
         db_table = 'judge_warninglog'
         constraints = [
-            models.UniqueConstraint(fields=['offender', 'reason'], name='unique_warning_log'),
+            models.UniqueConstraint(fields=['reason'], name='unique_warning_log'),
         ]
-
 
 class Profile(models.Model):
     user = models.OneToOneField(User, verbose_name=_('user associated'), on_delete=models.CASCADE)

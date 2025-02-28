@@ -689,7 +689,7 @@ EVENT_DAEMON_CONTEST_KEY = '&w7hB-.9WnY2Jj^Qm+|?o6a<!}_2Wiw+?(_Yccqq{uR;:kWQP+3R
 # https://docs.djangoproject.com/en/3.2/topics/i18n/
 
 # Whatever you do, this better be one of the entries in `LANGUAGES`.
-LANGUAGE_CODE = 'en'
+LANGUAGE_CODE = 'vi'
 TIME_ZONE = 'UTC'
 DEFAULT_USER_TIME_ZONE = 'America/Toronto'
 USE_I18N = True
