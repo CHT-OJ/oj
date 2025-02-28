@@ -1244,9 +1244,9 @@ class CalculateMoss(ContestMixin, SingleObjectMixin, PermissionRequiredMixin, Vi
         for i in user_set:
             try:
                 new_record = WarningLog()
-                new_record.offender = UserModel.objects.get(username=i)
-                new_record.judge = UserModel.objects.get(username=request.user.username)
-                new_record.reason = f'Hành vi chép bài tại contest #{self.get_object()}'
+                new_record.offender = UserModel.objects.get(user__username=i)
+                new_record.judge = UserModel.objects.get(user__username=request.user.username)
+                new_record.reason = f'thí sinh {request.user.username} đã có hành vi chép bài tại contest #{self.get_object()}'
                 new_record.save()
             except Exception as error:
                 print(f'Đã xảy ra lỗi khi thực hiện ghi lịch sử vi phạm {error}')
