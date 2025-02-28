@@ -367,7 +367,7 @@ class UserWarningPage(UserPage):
 
     def get_context_data(self, **kwargs):
         context = super(UserWarningPage, self).get_context_data(**kwargs)
-        result = WarningLog.objects.all().filter(offender__username=self.object.username)
+        result = WarningLog.objects.all().filter(offender__user__username=self.object.user.username)
 
         formatted_result = []
         for warning in result:
