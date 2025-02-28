@@ -37,7 +37,7 @@ def unlink_if_exists(file):
 
 @receiver(post_save, sender=WarningLog)
 def warning_update(sender, instance, **kwargs):
-    profile = instance.offender.profile
+    profile = instance.offender
     profile.warn = WarningLog.objects.filter(offender=instance.offender).count()
     profile.last_warned = WarningLog.objects.filter(offender=instance.offender).order_by('-id')[0].timestamp
     if int(profile.warn) >= 5:
@@ -50,7 +50,7 @@ def warning_update(sender, instance, **kwargs):
 
 @receiver(post_delete, sender=WarningLog)
 def update_warn_count_on_delete(sender, instance, **kwargs):
-    profile = instance.offender.profile
+    profile = instance.offender
     profile.warn = WarningLog.objects.filter(offender=instance.offender).count()
     if int(profile.warn) <= 0:
         profile.last_warned = None

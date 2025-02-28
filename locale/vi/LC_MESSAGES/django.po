@@ -1730,10 +1730,9 @@ msgstr "cấu hình"
 msgid "miscellaneous configuration"
 msgstr "cấu hình khác"
 
-#: judge/models/profile.py: warninglog
-
+#: judge/models/interface.py: warninglog
 msgid "Warning logs"
-msgstr "lịch sử cảnh báo"
+msgstr "Lịch sử vi phạm"
 
 #: judge/models/interface.py:39
 msgid "navigation item"
