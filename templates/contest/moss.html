@@ -30,8 +30,8 @@
                 return confirm('{{ _('Are you sure you want to delete the MOSS results?') }}');
             });
         });
-        function Calculate_moss(){
-            if(confirm('{{ _('Do you want to count the results (this will cause some accounts to be locked if the number of copies is exceeded)?') }}')){
+        function Compute_moss(){
+            if(confirm('Bạn có chắc muốn cảnh cáo các tài khoản vi phạm? (Có thể khiến tài khoản bị khóa nếu vượt quá 5 lần vi phạm)')){
                 const rows = document.querySelectorAll('.table.striped tbody tr');
                 data = [];
                 rows.forEach(row => {
@@ -155,10 +155,10 @@
                 </form>
             </div>
             <div class="pane">
-                <button class="unselectable button full calculate_copy" style="padding: 10px;" onclick="Calculate_moss()">Calculate copy</button>
+                <button class="unselectable button full" style="padding: 10px;" onclick="Compute_moss()">Cảnh cáo gian lận</button>
             </div>       
             <div class="pane">
-                <button class="unselectable button full calculate_copy" style="padding: 10px;" onclick="Export_moss()">Export as excel</button>
+                <button class="unselectable button full" style="padding: 10px;" onclick="Export_moss()">Export as excel</button>
             </div>        
         {% endif %}
     </div>

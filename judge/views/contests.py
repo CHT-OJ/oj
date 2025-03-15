@@ -58,7 +58,7 @@ from judge.utils.views import DiggPaginatorMixin, QueryStringSortMixin, SingleOb
 __all__ = ['ContestList', 'ContestDetail', 'ContestRanking', 'ContestJoin', 'ContestLeave', 'ContestCalendar',
            'ContestClone', 'ContestStats', 'ContestMossView', 'ContestMossDelete',
            'ContestParticipationList', 'ContestParticipationDisqualify', 'get_contest_ranking_list',
-           'base_contest_ranking_list', 'CalculateMoss', 'ExportMoss']
+           'base_contest_ranking_list', 'ComputeMoss', 'ExportMoss']
 
 
 def _find_contest(request, key, private_check=True):
@@ -1216,7 +1216,7 @@ class ContestMossDelete(ContestMossMixin, SingleObjectMixin, View):
         return HttpResponseRedirect(reverse('contest_moss', args=(self.object.key,)))
 
 
-class CalculateMoss(ContestMixin, SingleObjectMixin, PermissionRequiredMixin, View):
+class ComputeMoss(ContestMixin, SingleObjectMixin, PermissionRequiredMixin, View):
     permission_required = 'judge.moss_contest'
     permission_denied_message = _('You are not allowed to run MOSS.')
 
