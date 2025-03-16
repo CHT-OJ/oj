@@ -319,7 +319,7 @@ class ContestAdmin(NoBatchDeleteMixin, VersionAdmin):
             if not author in submissions:
                 submissions[author] = {}
             if not submission.problem_id in submissions[author] or (
-                    submissions[author][prob].submission.date < submission.submission.date
+                    submissions[author][prob].submission.date > submission.submission.date
                     if submissions[author][prob].points == submission.points
                     else submissions[author][prob].points < submission.points):
                 submissions[author][prob] = submission
