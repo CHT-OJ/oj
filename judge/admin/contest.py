@@ -299,6 +299,8 @@ class ContestAdmin(NoBatchDeleteMixin, VersionAdmin):
         ] + super(ContestAdmin, self).get_urls()
 
     def export_submissions(self, request, id):
+        if not request.user.is_staff:
+            raise PermissionDenied()
         contest = get_object_or_404(Contest, id=id)
         if not contest.ended:
             raise Http404()
