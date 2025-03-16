@@ -4,7 +4,7 @@ from django.core.exceptions import PermissionDenied
 from django.db import connection, transaction
 from django.db.models import Q, TextField
 from django.forms import ModelForm, ModelMultipleChoiceField
-from django.http import Http404, HttpResponseRedirect
+from django.http import Http404, HttpResponseRedirect, FileResponse
 from django.shortcuts import get_object_or_404
 from django.urls import path, reverse, reverse_lazy
 from django.utils import timezone
@@ -19,6 +19,9 @@ from judge.utils.views import NoBatchDeleteMixin
 from judge.widgets import AdminHeavySelect2MultipleWidget, AdminHeavySelect2Widget, AdminMartorWidget, \
     AdminSelect2MultipleWidget, AdminSelect2Widget
 
+import zipfile
+from io import BytesIO
+from django.core.files import File
 
 class AdminHeavySelect2Widget(AdminHeavySelect2Widget):
     @property
@@ -217,7 +220,7 @@ class ContestAdmin(NoBatchDeleteMixin, VersionAdmin):
         # We need this flag because `save_related` deals with the inlines, but does not know if we have already rescored
         self._rescored = False
         if form.changed_data and any(
-            f in form.changed_data for f in ('frozen_last_minutes', 'format_config', 'format_name')
+                f in form.changed_data for f in ('frozen_last_minutes', 'format_config', 'format_name')
         ):
             self._rescore(obj.key)
             self._rescored = True
@@ -289,10 +292,44 @@ class ContestAdmin(NoBatchDeleteMixin, VersionAdmin):
         return [
             path('rate/all/', self.rate_all_view, name='judge_contest_rate_all'),
             path('<int:id>/rate/', self.rate_view, name='judge_contest_rate'),
+            path('<int:id>/export_submissions/', self.export_submissions, name='judge_contest_export_submissions'),
             path('<int:contest_id>/rejudge/<int:problem_id>/', self.rejudge_view, name='judge_contest_rejudge'),
             path('<int:contest_id>/rescore/<int:problem_id>/', self.rescore_view, name='judge_contest_rescore'),
             path('<int:contest_id>/resend/<int:announcement_id>/', self.resend_view, name='judge_contest_resend'),
         ] + super(ContestAdmin, self).get_urls()
+
+    def export_submissions(self, request, id):
+        contest = get_object_or_404(Contest, id=id)
+        if not contest.ended:
+            raise Http404()
+        submissions: dict[str, dict[str, ContestSubmission]] = {}
+        queryset = ContestSubmission.objects.filter(participation__contest_id=id,
+                                                    participation__virtual=0).select_related(
+            'submission__user__user').select_related('submission__problem').select_related('submission__language').only(
+            'submission__user__user__username',
+            'submission__points',
+            'submission__date',
+            'submission__problem__code',
+            'submission__language__extension').defer('submission__source')
+        for submission in queryset:
+            author = submission.submission.user.user.username
+            prob = submission.submission.problem.code
+            if not author in submissions:
+                submissions[author] = {}
+            if not submission.problem_id in submissions[author] or (
+                    submissions[author][prob].submission.date < submission.submission.date
+                    if submissions[author][prob].points == submission.points
+                    else submissions[author][prob].points < submission.points):
+                submissions[author][prob] = submission
+
+        buf = BytesIO()
+        zfile = zipfile.ZipFile(buf, 'w')
+        for handle, usr_submissions in submissions.items():
+            for prob, submission in usr_submissions.items():
+                zfile.writestr(f'{handle}/{prob}.{submission.submission.language.extension}', submission.submission.source.source)
+        zfile.close()
+        buf.seek(0)
+        return FileResponse(File(buf), filename=f'{contest.key}.zip')
 
     def rejudge_view(self, request, contest_id, problem_id):
         contest = get_object_or_404(Contest, id=contest_id)
