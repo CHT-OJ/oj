@@ -395,7 +395,49 @@
 
                     return '"' + text + '"';
                 }
+                (function() {
+    'use strict';
+    function e() {
+        var a = [];
+        $('#ranking-table thead tr').first().find('th').each(function() {
+            var t = $(this);
+            var s = t.find('.problem-code').text();
+            if (s === '') {
+                s = t.text();
+            }
+            s = s.trim();
+            if (s !== '' && !(t.hasClass('rank') || t.hasClass('username') || t.hasClass('rating-column'))) {
+                a.push(s);
+            }
+        });
+        a.shift();
+        var o = a.join('\n');
+        var b = new Blob([o], { type: "text/plain;charset=utf-8" });
+        var l = document.createElement('a');
+        l.href = URL.createObjectURL(b);
+        l.download = "id.txt";
+        document.body.appendChild(l);
+        l.click();
+        document.body.removeChild(l);
+    }
+    function d() {
+        var b = document.createElement('button');
+        b.innerText = "ID Bài";
+        b.style.position = 'fixed';
+        b.style.top = '20px';
+        b.style.right = '20px';
+        b.style.padding = '10px';
+        b.style.background = '#28a745';
+        b.style.color = 'white';
+        b.style.border = 'none';
+        b.style.borderRadius = '5px';
+        b.style.cursor = 'pointer';
+        b.addEventListener('click', e);
+        document.body.appendChild(b);
+    }
 
+    d();
+})();
                 var csv = [];
 
                 $('#ranking-table thead tr').each(function () {
