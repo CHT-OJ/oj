@@ -20,8 +20,10 @@
 
 {% if submission.contest_or_none %}
     {% set prefix_length = submission.contest_or_none.problem.output_prefix_override %}
+    {% set hide_participation = submission.contest_or_none.scoreboard_visibility == 'H' %}
 {% else %}
     {% set prefix_length = None %}
+    {% set hide_participation = False %}
 {% endif %}
 {% set is_pretest = submission.is_pretested %}
 
@@ -45,7 +47,11 @@
             <h3>{{ _('Execution Results') }}</h3>
         {% endif %}
         <br>
-        {% if can_view_testcase_status or can_view_batch_status %}
+        {% if hide_participation %}
+            <div class="alert alert-info">
+                {{ _('Your points are not visible at this time') }}
+            </div>
+        {% elif can_view_testcase_status or can_view_batch_status %}
         {% if statuses or not submission.is_graded %}
             {% for case in statuses %}
                 {% if case.status == "AC" %}
@@ -174,26 +180,28 @@
                     {{ submission.memory|kbdetailformat }}
                     <br>
                 {% endif %}
-                {% if is_pretest %}
-                    <b>{{ _('Final pretest score:') }}</b>
-                {% else %}
-                    <b>{{ _('Final score:') }}</b>
-                {% endif %}
-                {{ submission.case_points|floatformat(-3) }}/{{ submission.case_total|floatformat(0) }}
-                {% if request.in_contest and submission.contest_or_none %}
-                    {% with contest=submission.contest_or_none %}
-                        {% set points=contest.points|roundfloat(3) %}
-                        {% set total=contest.problem.points|floatformat(-1) %}
-                        ({{ _('%(points)s/%(total)s points', points=points, total=total) }})
-                    {% endwith %}
-                {% else %}
-                    {% with points=submission.points|floatformat(3), total=submission.problem.points|floatformat(3) %}
-                        ({{ _('%(points)s/%(total)s points', points=points, total=total) }})
-                    {% endwith %}
-                {% endif %}
-                {% if is_pretest and submission.result == "AC" %}
-                    <br>
-                    <i>{{ _('Passing pretests does not guarantee a full score on system tests.') }}</i>
+                {% if not hide_participation %}
+                    {% if is_pretest %}
+                        <b>{{ _('Final pretest score:') }}</b>
+                    {% else %}
+                        <b>{{ _('Final score:') }}</b>
+                    {% endif %}
+                    {{ submission.case_points|floatformat(-3) }}/{{ submission.case_total|floatformat(0) }}
+                    {% if request.in_contest and submission.contest_or_none %}
+                        {% with contest=submission.contest_or_none %}
+                            {% set points=contest.points|roundfloat(3) %}
+                            {% set total=contest.problem.points|floatformat(-1) %}
+                            ({{ _('%(points)s/%(total)s points', points=points, total=total) }})
+                        {% endwith %}
+                    {% else %}
+                        {% with points=submission.points|floatformat(3), total=submission.problem.points|floatformat(3) %}
+                            ({{ _('%(points)s/%(total)s points', points=points, total=total) }})
+                        {% endwith %}
+                    {% endif %}
+                    {% if is_pretest and submission.result == "AC" %}
+                        <br>
+                        <i>{{ _('Passing pretests does not guarantee a full score on system tests.') }}</i>
+                    {% endif %}
                 {% endif %}
             {% else %}
                 <b>{{ _('Submission aborted!') }}</b>

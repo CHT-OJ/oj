@@ -260,10 +260,13 @@ class SubmissionStatus(SubmissionDetailBase):
         else:
             context['cases_data'] = {}
 
-        context['can_view_testcase_status'] = self.request.user.is_superuser or \
-            submission.problem.testcase_result_visibility_mode == ProblemTestcaseResultAccess.ALL_TEST_CASE
-        context['can_view_batch_status'] = submission.problem.testcase_result_visibility_mode \
-            == ProblemTestcaseResultAccess.ONLY_BATCH_RESULT
+        # Check if the contest has Hide Participation enabled
+        hide_participation = submission.contest_object and submission.contest_object.scoreboard_visibility == 'H'
+        
+        context['can_view_testcase_status'] = (self.request.user.is_superuser or \
+            submission.problem.testcase_result_visibility_mode == ProblemTestcaseResultAccess.ALL_TEST_CASE) and not hide_participation
+        context['can_view_batch_status'] = (submission.problem.testcase_result_visibility_mode \
+            == ProblemTestcaseResultAccess.ONLY_BATCH_RESULT) and not hide_participation
 
         context['can_view_feedback'] = self.request.user.is_superuser or \
             submission.problem.allow_view_feedback

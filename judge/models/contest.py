@@ -65,11 +65,20 @@ class Contest(models.Model):
     SCOREBOARD_HIDDEN = 'H'
     SCOREBOARD_AFTER_CONTEST = 'C'
     SCOREBOARD_AFTER_PARTICIPATION = 'P'
+    SCOREBOARD_HIDE_PARTICIPATION = 'U'
     SCOREBOARD_VISIBILITY = (
         (SCOREBOARD_VISIBLE, _('Visible')),
         (SCOREBOARD_HIDDEN, _('Always hidden')),
         (SCOREBOARD_AFTER_CONTEST, _('Hidden for duration of contest')),
         (SCOREBOARD_AFTER_PARTICIPATION, _('Hidden for duration of participation')),
+        (SCOREBOARD_HIDE_PARTICIPATION, _('Hide participation details')),
+    )
+    SCOREBOARD_VISIBILITY_VN = (
+        (SCOREBOARD_VISIBLE, _('Hiển thị')),
+        (SCOREBOARD_HIDDEN, _('Luôn ẩn')),
+        (SCOREBOARD_AFTER_CONTEST, _('Ẩn trong thời gian thi')),
+        (SCOREBOARD_AFTER_PARTICIPATION, _('Ẩn cho đến khi kết thúc tham gia')),
+        (SCOREBOARD_HIDE_PARTICIPATION, _('Ẩn thông tin tham gia')),
     )
     key = models.CharField(max_length=32, verbose_name=_('contest id'), unique=True,
                            validators=[RegexValidator('^[a-z0-9_]+$', _('Contest id must be ^[a-z0-9_]+$'))])
@@ -307,7 +316,7 @@ class Contest(models.Model):
             return False
         if not self.can_join:
             return False
-        if (self.scoreboard_visibility in (self.SCOREBOARD_AFTER_CONTEST, self.SCOREBOARD_AFTER_PARTICIPATION) and
+        if (self.scoreboard_visibility in (self.SCOREBOARD_AFTER_CONTEST, self.SCOREBOARD_AFTER_PARTICIPATION, self.SCOREBOARD_HIDE_PARTICIPATION) and
                 not self.ended):
             return False
         return True
