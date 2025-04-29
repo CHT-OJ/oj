@@ -75,6 +75,7 @@
 {% endblock %}
 
 {% block title_row %}
+    
     <div class="problem-title">
         {% if request.user.is_authenticated %}
             {% if problem.id in completed_problem_ids %}
@@ -213,6 +214,10 @@
             {% endif %}
         </span>
     </div>
+    <div class="problem-info-entry">
+        <i class="fa fa-signal fa-fw"></i><span class="pi-name">{{ _('Difficulty:') }}</span>
+        <span class="pi-value">{{ problem.difficulty|capfirst }}</span>
+    </div>  
     <div class="problem-info-entry">
         <i class="fa fa-clock-o fa-fw"></i><span class="pi-name">{{ _('Time limit:') }}</span>
         <span class="pi-value">{{ problem.time_limit }}s</span>
