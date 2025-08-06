@@ -615,7 +615,7 @@ class UserList(QueryStringSortMixin, InfinitePaginationMixin, DiggPaginatorMixin
         context = super(UserList, self).get_context_data(**kwargs)
         context['users'] = ranker(
             context['users'],
-            key=attrgetter('performance_points', 'problem_count'),
+            key=attrgetter('rating', 'performance_points'),
             rank=self.paginate_by * (context['page_obj'].number - 1),
         )
         context['first_page_href'] = '.'
