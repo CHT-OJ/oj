@@ -600,16 +600,12 @@ class UserList(QueryStringSortMixin, InfinitePaginationMixin, DiggPaginatorMixin
     paginate_by = 100
     all_sorts = frozenset(('points', 'problem_count', 'rating', 'performance_points'))
     default_desc = all_sorts
-    default_sort = '-rating'
+    default_sort = '-performance_points'
 
     def get_queryset(self):
-        return (Profile.objects.filter(is_unlisted=False).order_by(self.order, 'id')
-                .prefetch_related(Prefetch('user', queryset=User.objects.only('username', 'first_name')))
-                .prefetch_related(Prefetch('organizations',
-                                  queryset=Organization.objects.filter(is_unlisted=False).only('name', 'id', 'slug')))
-                .select_related('display_badge')
-                .only('display_rank', 'display_badge', 'user', 'points', 'rating', 'performance_points',
-                      'problem_count', 'organizations', 'username_display_override'))
+        return (Profile.objects.filter(is_unlisted=False).order_by(self.order, 'id').select_related('user')
+                .only('display_rank', 'user__username', 'username_display_override', 'points', 'rating',
+                      'performance_points', 'problem_count'))
 
     def get_context_data(self, **kwargs):
         context = super(UserList, self).get_context_data(**kwargs)
@@ -625,6 +621,7 @@ class UserList(QueryStringSortMixin, InfinitePaginationMixin, DiggPaginatorMixin
 
 
 user_list_view = UserList.as_view()
+
 
 
 class ContribList(QueryStringSortMixin, DiggPaginatorMixin, TitleMixin, ListView):
