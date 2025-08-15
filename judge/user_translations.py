@@ -7,7 +7,7 @@ if settings.USE_I18N:
     _translations = {}
 
     def translation(language):
-        global _translations
+        # global _translations
         if language not in _translations:
             _translations[language] = DjangoTranslation(language, domain='dmoj-user')
         return _translations[language]
