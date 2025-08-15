@@ -1247,8 +1247,8 @@ class ComputeMoss(ContestMixin, SingleObjectMixin, PermissionRequiredMixin, View
                 new_record.offender = UserModel.objects.get(user__username=i)
                 new_record.judge = UserModel.objects.get(user__username=request.user.username)
                 new_record.reason = (
-                    f"thí sinh {request.user.username} đã có hành vi chép bài "
-                    f"tại contest #{self.get_object()}"
+                    f'thí sinh {request.user.username} đã có hành vi chép bài'
+                    f'tại contest #{self.get_object()}'
                 )
                 new_record.save()
             except Exception as error:
