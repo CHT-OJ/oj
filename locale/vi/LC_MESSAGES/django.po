@@ -4927,6 +4927,10 @@ msgstr "Thống kê"
 msgid "Rankings"
 msgstr "Bảng xếp hạng"
 
+#: templates/contest/contest-tabs.html:12
+msgid "Spotlight Ranking"
+msgstr "Chế độ trình diễn"
+
 #: templates/contest/contest-tabs.html:13
 msgid "Official Rankings"
 msgstr "Bảng xếp hạng chính thức"

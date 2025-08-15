@@ -58,7 +58,7 @@ from judge.utils.views import DiggPaginatorMixin, QueryStringSortMixin, SingleOb
 __all__ = ['ContestList', 'ContestDetail', 'ContestRanking', 'ContestJoin', 'ContestLeave', 'ContestCalendar',
            'ContestClone', 'ContestStats', 'ContestMossView', 'ContestMossDelete',
            'ContestParticipationList', 'ContestParticipationDisqualify', 'get_contest_ranking_list',
-           'base_contest_ranking_list', 'ComputeMoss', 'ExportMoss']
+           'base_contest_ranking_list', 'ComputeMoss', 'ExportMoss', 'SpotlightContestRanking']
 
 
 def _find_contest(request, key, private_check=True):
@@ -976,6 +976,136 @@ class ContestRanking(ContestRankingBase):
 
     def get_title(self):
         return _('%s Rankings') % self.object.name
+
+    @cached_property
+    def is_frozen(self):
+        return self.object.is_frozen and not self.can_edit
+
+    @property
+    def cache_key(self):
+        return f'contest_ranking_cache_{self.object.key}_{self.show_virtual}_{self.is_frozen}_' \
+               f'{self.request.LANGUAGE_CODE}'
+
+    @property
+    def bypass_cache_ranking(self):
+        return self.object.scoreboard_cache_timeout == 0 or self.can_edit or \
+            (self.request.user.is_authenticated and not self.object.can_see_full_scoreboard(self.request.user))
+
+    def get_ranking_queryset(self):
+        if self.is_frozen:
+            queryset = base_contest_frozen_ranking_queryset(self.object)
+        else:
+            queryset = base_contest_ranking_queryset(self.object)
+        if not self.show_virtual:
+            queryset = queryset.filter(virtual=ContestParticipation.LIVE)
+        return queryset
+
+    def get_full_ranking_list(self):
+        if 'show_virtual' in self.request.GET:
+            self.show_virtual = self.request.session['show_virtual'] \
+                              = self.request.GET.get('show_virtual').lower() == 'true'
+        else:
+            self.show_virtual = self.request.session.get('show_virtual', False)
+
+        queryset = self.get_ranking_queryset()
+        return get_contest_ranking_list(
+            self.request, self.object,
+            ranking_list=partial(base_contest_ranking_list, queryset=queryset, frozen=self.is_frozen),
+        )
+
+    def get_ranking_list(self):
+        if not self.object.can_see_full_scoreboard(self.request.user):
+            queryset = self.object.users.filter(user=self.request.profile, virtual=ContestParticipation.LIVE)
+            return get_contest_ranking_list(
+                self.request, self.object,
+                ranking_list=partial(base_contest_ranking_list, queryset=queryset),
+                ranker=lambda users, key: ((_('???'), user) for user in users),
+            )
+
+        return self.get_full_ranking_list()
+
+    def get_rendered_ranking_table(self):
+        if self.bypass_cache_ranking:
+            return super().get_rendered_ranking_table()
+
+        rendered_ranking_table = cache.get(self.cache_key, None)
+        if rendered_ranking_table is None:
+            rendered_ranking_table = super().get_rendered_ranking_table()
+            cache.set(self.cache_key, rendered_ranking_table, self.object.scoreboard_cache_timeout)
+
+        return rendered_ranking_table
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['has_rating'] = self.object.ratings.exists()
+        context['show_virtual'] = self.show_virtual
+        context['is_frozen'] = self.is_frozen
+        context['cache_timeout'] = 0 if self.bypass_cache_ranking else self.object.scoreboard_cache_timeout
+        return context
+
+class SpotlightContestRankingBase(ContestMixin, TitleMixin, DetailView):
+    template_name = 'contest/spotlight-ranking.html'
+    ranking_table_template = get_template('contest/spotlight-ranking-table.html')
+    tab = None
+
+    def get_title(self):
+        raise NotImplementedError()
+
+    def get_content_title(self):
+        return self.object.name
+
+    def get_ranking_list(self):
+        raise NotImplementedError()
+
+    @property
+    def is_frozen(self):
+        return False
+
+    def check_can_see_own_scoreboard(self):
+        if not self.object.can_see_own_scoreboard(self.request.user):
+            raise Http404()
+
+    def get_rendered_ranking_table(self):
+        users, problems, total_ac = self.get_ranking_list()
+
+        return self.ranking_table_template.render(request=self.request, context={
+            'table_id': 'ranking-table',
+            'users': users,
+            'problems': problems,
+            'total_ac': total_ac,
+            'contest': self.object,
+            'has_rating': self.object.ratings.exists(),
+            'is_frozen': self.is_frozen,
+            'perms': PermWrapper(self.request.user),
+            'can_edit': self.can_edit,
+            'is_ICPC_format': (self.object.format.name == ICPCContestFormat.name),
+        })
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        self.check_can_see_own_scoreboard()
+
+        context['rendered_ranking_table'] = self.get_rendered_ranking_table()
+        context['tab'] = self.tab
+        return context
+
+    def get(self, request, *args, **kwargs):
+        if 'raw' in request.GET:
+            self.object = self.get_object()
+
+            self.check_can_see_own_scoreboard()
+
+            return HttpResponse(self.get_rendered_ranking_table(), content_type='text/plain')
+
+        return super().get(request, *args, **kwargs)
+    
+class SpotlightContestRanking(SpotlightContestRankingBase):
+    tab = 'spotlight_ranking'
+    show_virtual = False
+
+    def get_title(self):
+        return _('%s Rescore Rankings') % self.object.name
 
     @cached_property
     def is_frozen(self):

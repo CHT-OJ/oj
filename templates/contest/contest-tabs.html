@@ -9,6 +9,7 @@
     {% if contest.start_time <= now or perms.judge.see_private_contest %}
         {% if contest.can_see_own_scoreboard(request.user) %}
             {{ make_tab('ranking', 'fa-bar-chart', url('contest_ranking', contest.key), _('Rankings')) }}
+            {{ make_tab('spotlight_ranking', 'fa-star-half-o', url('spotlight_ranking', contest.key), _('Spotlight Ranking'))}}
             {% if contest.csv_ranking %}
                 {{ make_tab('official_ranking', 'fa-bar-chart', url('contest_official_ranking', contest.key), _('Official Rankings')) }}
             {% endif %}
