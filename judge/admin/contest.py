@@ -1,10 +1,14 @@
+import zipfile
+from io import BytesIO
+
 from adminsortable2.admin import SortableInlineAdminMixin
 from django.contrib import admin
 from django.core.exceptions import PermissionDenied
+from django.core.files import File
 from django.db import connection, transaction
 from django.db.models import Q, TextField
 from django.forms import ModelForm, ModelMultipleChoiceField
-from django.http import Http404, HttpResponseRedirect, FileResponse
+from django.http import FileResponse, Http404, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.urls import path, reverse, reverse_lazy
 from django.utils import timezone
@@ -16,12 +20,14 @@ from django_ace import AceWidget
 from judge.models import Contest, ContestAnnouncement, ContestProblem, ContestSubmission, Profile, Rating, Submission
 from judge.ratings import rate_contest
 from judge.utils.views import NoBatchDeleteMixin
-from judge.widgets import AdminHeavySelect2MultipleWidget, AdminHeavySelect2Widget, AdminMartorWidget, \
-    AdminSelect2MultipleWidget, AdminSelect2Widget
+from judge.widgets import (
+    AdminHeavySelect2MultipleWidget,
+    AdminHeavySelect2Widget,
+    AdminMartorWidget,
+    AdminSelect2MultipleWidget,
+    AdminSelect2Widget,
+)
 
-import zipfile
-from io import BytesIO
-from django.core.files import File
 
 class AdminHeavySelect2Widget(AdminHeavySelect2Widget):
     @property
@@ -316,9 +322,9 @@ class ContestAdmin(NoBatchDeleteMixin, VersionAdmin):
         for submission in queryset:
             author = submission.submission.user.user.username
             prob = submission.submission.problem.code
-            if not author in submissions:
+            if author not in submissions:
                 submissions[author] = {}
-            if not submission.problem_id in submissions[author] or (
+            if submission.problem_id not in submissions[author] or (
                     submissions[author][prob].submission.date > submission.submission.date
                     if submissions[author][prob].points == submission.points
                     else submissions[author][prob].points < submission.points):
@@ -328,7 +334,9 @@ class ContestAdmin(NoBatchDeleteMixin, VersionAdmin):
         zfile = zipfile.ZipFile(buf, 'w')
         for handle, usr_submissions in submissions.items():
             for prob, submission in usr_submissions.items():
-                zfile.writestr(f'{handle}/{prob}.{submission.submission.language.extension}', submission.submission.source.source)
+                ext = submission.submission.language.extension
+                src = submission.submission.source.source
+                zfile.writestr(f'{handle}/{prob}.{ext}', src)
         zfile.close()
         buf.seek(0)
         return FileResponse(File(buf), filename=f'{contest.key}.zip')
