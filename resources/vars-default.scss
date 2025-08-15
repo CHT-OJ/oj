@@ -48,3 +48,28 @@ $color_voted_mark: #0000ff;
 $path_to_root: '.';     // relative path from style.css to STATIC_ROOT
 
 @mixin vars-img {}
+
+:root {
+    // General
+    --background-color: #f4f7f6;
+    --text-color: #333;
+    --border-color: #e0e0e0;
+    --link-color: #1958c1;
+    --link-hover-color: #0645ad;
+
+    // Header
+    --header-background-color: #ffffff;
+    --header-link-color: #333;
+    --header-link-hover-color: #1958c1;
+    --header-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+
+    // Footer
+    --footer-background-color: #231f20;
+    --footer-text-color: #e0e0e0;
+    --footer-link-color: #ffffff;
+    --footer-link-hover-color: #1958c1;
+
+    // Content Container
+    --content-background-color: #ffffff;
+    --container-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}

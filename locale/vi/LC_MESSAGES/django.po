@@ -4562,7 +4562,7 @@ msgstr "dựa trên nền tảng %(dmoj)s"
 #: templates/base.html:355
 #, python-format
 msgid "follow us on %(github)s and %(facebook)s"
-msgstr "theo dõi VNOI trên %(github)s và %(facebook)s"
+msgstr "theo dõi CHTOJ trên %(github)s và %(facebook)s"
 
 #: templates/blog/blog-list-tabs.html:4
 msgid "Newsfeed"
