@@ -7,6 +7,7 @@
 *.mo
 *~
 *.swp
+.idx
 dmoj/local_settings.py
 dmoj/settings.py
 dmoj-site.pid
