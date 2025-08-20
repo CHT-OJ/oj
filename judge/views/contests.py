@@ -1043,6 +1043,7 @@ class ContestRanking(ContestRankingBase):
         context['cache_timeout'] = 0 if self.bypass_cache_ranking else self.object.scoreboard_cache_timeout
         return context
 
+
 class SpotlightContestRankingBase(ContestMixin, TitleMixin, DetailView):
     template_name = 'contest/spotlight-ranking.html'
     ranking_table_template = get_template('contest/spotlight-ranking-table.html')
@@ -1097,9 +1098,9 @@ class SpotlightContestRankingBase(ContestMixin, TitleMixin, DetailView):
             self.check_can_see_own_scoreboard()
 
             return HttpResponse(self.get_rendered_ranking_table(), content_type='text/plain')
-
         return super().get(request, *args, **kwargs)
-    
+
+
 class SpotlightContestRanking(SpotlightContestRankingBase):
     tab = 'spotlight_ranking'
     show_virtual = False
