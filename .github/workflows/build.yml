@@ -33,14 +33,9 @@ jobs:
         pip install wheel
         pip install -r requirements.txt
         pip install coverage
-        pip install --upgrade setuptools
         cp .ci.settings.py dmoj/local_settings.py
     - name: Start MySQL
       run: sudo systemctl start mysql.service
-    - name: Migrate database
-      run: |
-        python3 manage.py makemigrations
-        python3 manage.py migrate
     - name: Run unit tests
       run: coverage run --source=. manage.py test judge
     - name: Generate coverage report
