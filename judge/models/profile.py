@@ -460,7 +460,7 @@ class Profile(models.Model):
 class WarningLog(models.Model):
     offender = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='warning_offender')
     judge = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='warning_judge')
-    reason = models.CharField(max_length=3072, null=False, blank=False)
+    reason = models.CharField(max_length=3071, null=False, blank=False)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
