@@ -192,7 +192,7 @@ class Contest(models.Model):
                                                        'Leave it blank to disable.'),
                                            blank=True, default='', max_length=255)
     allow_spotlight = models.BooleanField(verbose_name=_('Allow spotlight ranking'),
-                                           default=False)
+                                          default=False)
 
     @cached_property
     def format_class(self):

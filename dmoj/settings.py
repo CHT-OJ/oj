@@ -23,6 +23,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 APPEND_SLASH = True
 
+SECRET_KEY = 'looking for me? huh?'
+
+DEBUG = True
+
 ALLOWED_HOSTS = []
 
 CSRF_FAILURE_VIEW = 'judge.views.widgets.csrf_failure'
