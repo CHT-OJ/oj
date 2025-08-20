@@ -46,6 +46,16 @@
     content: "🧑‍🏫";
 }
 
+.custom1 a, .custom1 {
+    color: #FFB7C5 !important;
+    font-weight: bold !important;
+}
+
+.custom1 a::before {
+    content: "🌸 ";
+}
+
+
 .deleted-user, .deleted-user a {
     color: #999;
     font-weight: normal;
