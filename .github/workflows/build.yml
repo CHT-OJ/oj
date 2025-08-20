@@ -31,6 +31,8 @@ jobs:
       with:
         path: ~/.cache/pip
         key: pip-${{ runner.os }}-${{ secrets.CACHE_VERSION }}-${{ hashFiles('requirements.txt') }}
+    - name: Start MySQL
+      run: sudo systemctl start mysql.service
     - name: Install unit test dependencies
       run: |
         pip install wheel
@@ -39,8 +41,6 @@ jobs:
         cp .ci.settings.py dmoj/local_settings.py
         python3 manage.py makemigrations
         python3 manage.py migrate
-    - name: Start MySQL
-      run: sudo systemctl start mysql.service
     - name: Run unit tests
       run: coverage run --source=. manage.py test judge
     - name: Generate coverage report
