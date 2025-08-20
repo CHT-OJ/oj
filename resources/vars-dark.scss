@@ -49,28 +49,3 @@ $path_to_root: '..';    // relative path from style.css to STATIC_ROOT
 @mixin vars-img {
     filter: invert(1) hue-rotate(180deg);
 }
-
-:root {
-    // General
-    --background-color: #1a1a1a;
-    --text-color: #e0e0e0;
-    --border-color: #3b3b3b;
-    --link-color: #6bf;
-    --link-hover-color: #49e;
-
-    // Header
-    --header-background-color: #2b2b2b;
-    --header-link-color: #e0e0e0;
-    --header-link-hover-color: #6bf;
-    --header-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-
-    // Footer
-    --footer-background-color: #0f0f0f;
-    --footer-text-color: #808080;
-    --footer-link-color: #e0e0e0;
-    --footer-link-hover-color: #6bf;
-
-    // Content Container
-    --content-background-color: #2b2b2b;
-    --container-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-}
