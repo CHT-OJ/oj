@@ -23,7 +23,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 APPEND_SLASH = True
 
-SECRET_KEY = "looking for me? huh?"
+SECRET_KEY = 'looking for me? huh?'
 
 DEBUG = True
 
