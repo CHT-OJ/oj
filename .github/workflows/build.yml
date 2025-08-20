@@ -35,6 +35,7 @@ jobs:
         pip install coverage
         pip install --upgrade setuptools
         cp .ci.settings.py dmoj/local_settings.py
+        python3 manage.py makemigrations
     - name: Start MySQL
       run: sudo systemctl start mysql.service
     - name: Run unit tests
