@@ -38,6 +38,7 @@ jobs:
         pip install coverage
         cp .ci.settings.py dmoj/local_settings.py
         python3 manage.py makemigrations
+        python3 manage.py migrate
     - name: Start MySQL
       run: sudo systemctl start mysql.service
     - name: Run unit tests
