@@ -245,6 +245,7 @@ urlpatterns = [
         path('/announce', contests.ContestAnnounce.as_view(), name='contest_announce'),
         path('/clone', contests.ContestClone.as_view(), name='contest_clone'),
         path('/ranking/', contests.ContestRanking.as_view(), name='contest_ranking'),
+        path('/spotlight_ranking/', contests.SpotlightContestRanking.as_view(), name='spotlight_ranking'),
         path('/public_ranking/', contests.ContestPublicRanking.as_view(), name='contest_public_ranking'),
         path('/official_ranking/', contests.ContestOfficialRanking.as_view(), name='contest_official_ranking'),
         path('/register', contests.ContestRegister.as_view(), name='contest_register'),

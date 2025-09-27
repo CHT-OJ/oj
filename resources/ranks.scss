@@ -46,6 +46,38 @@
     content: "🧑‍🏫";
 }
 
+.custom1 a, .custom1 {
+    color: #FFB7C5 !important;
+    font-weight: bold !important;
+}
+
+.custom1 a::before {
+    content: "🌸 ";
+}
+
+.custom2 a, .custom2 {
+    font-weight: bold !important;
+
+    background: linear-gradient(90deg, 
+        red, orange, yellow, green, blue, indigo, violet);
+    
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+}
+
+.tourist a, .tourist {
+    font-weight: bold !important;
+    color: black !important;
+}
+
+.tourist a::first-letter, .tourist::first-letter {
+    color: #e7191f !important;
+}
+
+
+
 .deleted-user, .deleted-user a {
     color: #999;
     font-weight: normal;

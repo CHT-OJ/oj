@@ -159,6 +159,7 @@ class Badge(models.Model):
 def user_directory_path(instance, _):
     return os.path.join('avatar', f'{instance.id}.jpg')
 
+
 class Profile(models.Model):
     user = models.OneToOneField(User, verbose_name=_('user associated'), on_delete=models.CASCADE)
     about = models.TextField(verbose_name=_('self-description'), null=True, blank=True)
@@ -455,10 +456,11 @@ class Profile(models.Model):
             models.Index(fields=('is_unlisted', '-problem_count')),
         ]
 
+
 class WarningLog(models.Model):
     offender = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='warning_offender')
     judge = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='warning_judge')
-    reason = models.TextField(null=False, blank=False)
+    reason = models.CharField(max_length=255, null=False, blank=False)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -466,6 +468,7 @@ class WarningLog(models.Model):
         constraints = [
             models.UniqueConstraint(fields=['reason'], name='unique_warning_log'),
         ]
+
 
 class WebAuthnCredential(models.Model):
     user = models.ForeignKey(Profile, verbose_name=_('user'), related_name='webauthn_credentials',

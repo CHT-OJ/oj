@@ -200,6 +200,8 @@ class Contest(models.Model):
                                            help_text=_('An optional code to view the contest ranking. '
                                                        'Leave it blank to disable.'),
                                            blank=True, default='', max_length=255)
+    allow_spotlight = models.BooleanField(verbose_name=_('Allow spotlight ranking'),
+                                          default=False)
 
     @cached_property
     def format_class(self):
@@ -548,6 +550,7 @@ class Contest(models.Model):
             ('change_contest_visibility', _('Change contest visibility')),
             ('contest_problem_label', _('Edit contest problem label script')),
             ('lock_contest', _('Change lock status of contest')),
+            ('can_view_spotlight', _('User can view spotlight ranking')),
         )
         verbose_name = _('contest')
         verbose_name_plural = _('contests')

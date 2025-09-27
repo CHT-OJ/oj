@@ -23,6 +23,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 APPEND_SLASH = True
 
+SECRET_KEY = 'looking for me? huh?'
+
+DEBUG = True
+
 ALLOWED_HOSTS = []
 
 CSRF_FAILURE_VIEW = 'judge.views.widgets.csrf_failure'
@@ -70,6 +74,9 @@ VNOJ_DISPLAY_RANKS = (
     ('banned', _('Banned User')),
     ('admin', _('Admin')),
     ('teacher', _('Teacher')),
+    ('custom1', _('Sakura')),
+    ('custom2', _('Rainbow')),
+    ('tourist', _('Tourist')),
 )
 
 # Maximum number of organization a single user can be admin, to be able to

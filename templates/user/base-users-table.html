@@ -20,7 +20,7 @@
     <tbody>
     {% for rank, user in users %}
         <tr id="user-{{ user.user.username }}" {% block row_extra scoped %}{% endblock %}>
-            <td>{{ rank }}</td>
+            <td class="ranking-column"><div>{{ rank }}</div></td>
             {% block after_rank scoped %}{% endblock %}
             <td class="user-name">
                 <div>
