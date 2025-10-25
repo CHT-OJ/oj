@@ -225,6 +225,22 @@ class UserAboutPage(UserPage):
                 .aggregate(min_year=Min('year_only'))['min_year']
             ),
         }))
+        profile = getattr(self.request.user, 'profile', None)
+        if profile is not None:
+            did_increment, seconds_until_next_day = profile.update_daily_streak(when=timezone.now())
+            context.update({
+                'current_streak': getattr(profile, 'current_streak', 0),
+                'max_streak': getattr(profile, 'max_streak', 0),
+                'seconds_until_next_day': seconds_until_next_day or 0,
+                'did_increment': bool(did_increment),
+            })
+        else:
+            context.update({
+                'current_streak': 0,
+                'max_streak': 0,
+                'seconds_until_next_day': 0,
+                'did_increment': False,
+            })
         return context
 
 
