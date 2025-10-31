@@ -231,11 +231,6 @@ class Profile(models.Model):
     warn = models.IntegerField(default=0)
     last_warned = models.DateTimeField(default=None, null=True, blank=True)
 
-    # Daily streak fields
-    last_visit = models.DateField(null=True, blank=True)
-    current_streak = models.IntegerField(default=0)
-    max_streak = models.IntegerField(default=0)
-
     @cached_property
     def organization(self):
         # We do this to take advantage of prefetch_related
@@ -420,61 +415,6 @@ class Profile(models.Model):
         self.user.save(update_fields=['is_active'])
 
     unban_user.alters_data = True
-
-    def update_daily_streak(self, when=None):
-        from django.utils import timezone as dj_timezone
-        import datetime
-
-        if when is None:
-            when = dj_timezone.now()
-
-        tz_name = getattr(self, 'timezone', None) or settings.DEFAULT_USER_TIME_ZONE
-        try:
-            import pytz
-            user_tz = pytz.timezone(tz_name)
-        except Exception:
-            user_tz = dj_timezone.utc
-
-        when_local = when.astimezone(user_tz)
-        today = when_local.date()
-
-        did_increment = False
-
-        def secs_until_next_midnight(local_dt_date, local_dt):
-            next_midnight = datetime.datetime.combine(local_dt_date + datetime.timedelta(days=1),
-                                                      datetime.time.min)
-            try:
-                next_midnight_local = user_tz.localize(next_midnight)
-            except Exception:
-                next_midnight_local = next_midnight.replace(tzinfo=user_tz)
-            return max(int((next_midnight_local - local_dt).total_seconds()), 0)
-
-        if self.last_visit is None:
-            self.last_visit = today
-            self.current_streak = 1
-            if self.current_streak > self.max_streak:
-                self.max_streak = self.current_streak
-            self.save(update_fields=['last_visit', 'current_streak', 'max_streak'])
-            return True, secs_until_next_midnight(today, when_local)
-
-        if self.last_visit == today:
-            return False, secs_until_next_midnight(today, when_local)
-
-        from datetime import timedelta
-        if self.last_visit == (today - timedelta(days=1)):
-            self.current_streak = (self.current_streak or 0) + 1
-            if self.current_streak > self.max_streak:
-                self.max_streak = self.current_streak
-            self.last_visit = today
-            self.save(update_fields=['last_visit', 'current_streak', 'max_streak'])
-            return True, secs_until_next_midnight(today, when_local)
-
-        self.current_streak = 1
-        if self.current_streak > self.max_streak:
-            self.max_streak = self.current_streak
-        self.last_visit = today
-        self.save(update_fields=['last_visit', 'current_streak', 'max_streak'])
-        return True, secs_until_next_midnight(today, when_local)
 
     def get_absolute_url(self):
         return reverse('user_page', args=(self.user.username,))
