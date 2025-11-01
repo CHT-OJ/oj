@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Inbox{% endblock %}
+
+{% block body %}
+<style>
+  table.inbox {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 0.8rem;
+  }
+  table.inbox td {
+    background-color: #222;
+    color: #ddd;
+    border: 1px solid #555;
+    border-radius: 6px;
+    padding: 1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  a.username {
+    color: #5bc0de;
+    text-decoration: none;
+    font-weight: bold;
+  }
+  a.username:hover {
+    text-decoration: underline;
+  }
+  small.meta {
+    color: #aaa;
+    display: block;
+    margin-top: 0.3rem;
+  }
+</style>
+
+<div class="container" style="margin-top:1.5rem;">
+  <table class="inbox">
+    {% for msg in conversations %}
+      {% set other_user = msg.sender if msg.sender != request.user else msg.recipient %}
+      <tr>
+        <td>
+          <a href="{{ url('conversation', other_user.username) }}" class="username">
+            {{ other_user.username }}
+          </a>
+          <small class="meta">
+            <strong>{{ msg.sender.username }}:</strong>
+            {{ msg.body|truncatewords(10) }}
+            &nbsp;&middot;&nbsp;
+            {{ msg.timestamp|date("H:i d/m/Y") }}
+          </small>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td>No messages.</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

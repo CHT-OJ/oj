@@ -75,6 +75,16 @@ const messagesPost = (channel, message) => {
   pollers.forEach((request) => {
     request.gotMessage(resolvedMessage);
   });
+
+  if (channel.startsWith("chat_")) {
+  const newItems = [];
+  messages.forEach(m => {
+    if (m.id !== resolvedMessage.id) newItems.push(m);
+  });
+  while (messages.length) messages.pop();
+  newItems.forEach(m => messages.push(m));
+  } 
+  
   return resolvedMessage.id;
 };
 

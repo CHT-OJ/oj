@@ -1,0 +1,200 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <title>Chat with {{ other_user.username }}</title>
+  <link href="{% static 'CHTmessages/css/bootstrap.min.css' %}" rel="stylesheet">
+<style>
+body {
+    background: var(--bs-body-bg);
+}
+.chat-box {
+    height: 70vh;
+    overflow-y: auto;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 6px;
+    padding: 10px;
+    background: var(--bs-body-bg);
+}
+.msg {
+    display: table;
+    padding: 6px 10px;
+    margin: 6px 0;
+    border-radius: 6px;
+    min-width: 100px;
+    max-width: 75%;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+.msg.me {
+    background-color: var(--bs-success-bg-subtle, #d1e7dd);
+    margin-left: auto;
+}
+.msg.them {
+    background-color: var(--bs-danger-bg-subtle, #f8d7da);
+    margin-right: auto;
+}
+</style>
+
+</head>
+<body class="container py-4">
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Chat with {{ other_user.username }}</h4>
+  <a href="{% url 'inbox' %}" class="btn btn-secondary btn-sm">Back</a>
+</div>
+
+<div id="chat-box" class="chat-box mb-3">
+{% for m in messages %}
+  <div class="msg {% if m.sender == request.user %}me{% else %}them{% endif %}" data-dmid="{{ m.id }}">
+      <div class="msg-sender"><strong>{{ m.sender.username }}</strong>:</div>
+      <div class="msg-body">{{ m.body|linebreaksbr }}</div>
+      <div class="small text-muted">{{ m.timestamp|date:"H:i:s" }}</div>
+  </div>
+{% empty %}
+  <p class="text-muted">No messages yet.</p>
+{% endfor %}
+</div>
+
+<form id="chat-form" method="post" action="{% url 'send_message' other_user.username %}" class="d-flex">
+    {% csrf_token %}
+    <textarea name="body" id="msg-input" class="form-control me-2" placeholder="Type a message..." rows="1"></textarea>
+    <button class="btn btn-primary">Send</button>
+</form>
+
+<script>
+const timeFormatter = new Intl.DateTimeFormat('default', {
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false
+});
+
+
+(() => {
+  const chatBox = document.getElementById('chat-box');
+  const username = "{{ request.user.username }}";
+  const chatForm = document.getElementById('chat-form');
+  const msgInput = document.getElementById('msg-input');
+  const sendUrl = chatForm.action;
+  const otherUsername = "{{ other_user.username|escapejs }}";
+
+
+  msgInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          chatForm.requestSubmit();
+      }
+  });
+
+  const resizeTextarea = () => {
+    msgInput.style.height = 'auto';
+    msgInput.style.height = msgInput.scrollHeight + 'px';
+  };
+
+  msgInput.addEventListener('input', resizeTextarea);
+
+
+  function scrollToBottom(force = false) {
+    const threshold = 100; //px
+    const distanceFromBottom = chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight;
+    const atBottom = Math.abs(distanceFromBottom) <= threshold;
+    if (force || atBottom) {
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+  }
+  setTimeout(() => chatBox.scrollTop = chatBox.scrollHeight, 0);
+
+
+// DIE DIE DIE DIE DIE
+  const recvWs = new WebSocket("ws://127.0.0.1:15100/");
+  recvWs.addEventListener('open', () => {
+
+    recvWs.send(JSON.stringify({
+      command: "set-filter",
+      filter: ["chat_" + username]
+    }));
+
+    recvWs.send(JSON.stringify({ command: "start-msg", start: 0 }));
+  });
+  recvWs.addEventListener('message', e => {
+    try {
+      const msg = JSON.parse(e.data);
+      const payload = typeof msg.message === "string" ? JSON.parse(msg.message) : msg.message;
+
+      if (!(
+        (payload.sender === username && payload.recipient === otherUsername) ||
+        (payload.sender === otherUsername && payload.recipient === username)
+      )) return;
+
+
+
+      const div = document.createElement("div");
+      div.className = payload.sender === username ? "msg me" : "msg them";
+      div.dataset.dmid = payload.id;
+      const senderElem = document.createElement("strong");
+      senderElem.className = "msg-sender";
+      senderElem.textContent = payload.sender + ":";
+      const bodyElem = document.createElement("div");
+      bodyElem.className = "msg-body";
+      bodyElem.innerHTML = payload.body.replace(/\n/g, "<br>");
+      const timeElem = document.createElement("div");
+      timeElem.className = "small text-muted";
+      timeElem.textContent = timeFormatter.format(new Date(payload.timestamp));
+
+      div.appendChild(senderElem);
+      div.appendChild(bodyElem);
+      div.appendChild(timeElem);
+
+      const emptyMsg = chatBox.querySelector(".text-muted");
+      if (emptyMsg && emptyMsg.textContent.includes("No messages yet")) {
+          emptyMsg.remove();
+      }
+
+      chatBox.appendChild(div);
+
+      scrollToBottom();
+
+    } catch(err) {
+      console.error("Invalid WS data:", e.data, err);
+    }
+  });
+
+  recvWs.addEventListener('error', err => console.error("WebSocket error:", err));
+  recvWs.addEventListener('close', () => console.warn("WebSocket closed"));
+
+// Enter = submit
+  chatForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    const body = msgInput.value.trim();
+    if (!body) return;
+
+    try {
+      const resp = await fetch(sendUrl, {
+        method: "POST",
+        headers: {
+          "X-CSRFToken": chatForm.querySelector('[name=csrfmiddlewaretoken]').value,
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({ body })
+      });
+
+      if (!resp.ok) {
+        console.error("Send failed:", await resp.text());
+        return;
+      }
+
+      msgInput.value = "";
+
+    } catch(err) {
+      console.error("AJAX error:", err);
+    }
+  });
+
+  
+
+})();
+</script>
+
+</body>
+</html>

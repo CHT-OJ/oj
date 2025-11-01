@@ -42,6 +42,10 @@
             <br>
             <div>
                 <a href="{{ url('all_user_submissions', user.user.username) }}">{{ _('View submissions') }}</a>
+                {% if request.user!=user.user %}
+                <a href="{{ url('conversation', user.user.username) }}">Message {{ user.user.username }}</a>
+                {% endif %}
+
             </div>
 
             {% if ratings %}
