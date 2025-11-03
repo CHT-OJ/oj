@@ -107,7 +107,8 @@ const timeFormatter = new Intl.DateTimeFormat('default', {
 
 
 // DIE DIE DIE DIE DIE
-  const recvWs = new WebSocket("ws://127.0.0.1:15100/");
+  const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+  const recvWs = new WebSocket(protocol + window.location.host + "/event/");
   recvWs.addEventListener('open', () => {
 
     recvWs.send(JSON.stringify({
