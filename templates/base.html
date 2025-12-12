@@ -25,7 +25,6 @@
     <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96">
     <link rel="icon" type="image/png" href="/favicon-16x16.png" sizes="16x16">
     <link rel="manifest" href="/manifest.json">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <meta name="msapplication-TileColor" content="#231F20">
     <meta name="msapplication-TileImage" content="/mstile-144x144.png">
     {# Chrome 39 for Android colour #}
@@ -91,6 +90,10 @@
             moment.locale('{{ LANGUAGE_CODE }}');
             $(function () {
                 $('img.unveil').unveil(200);
+                $('[class^="a-transform-"]').on('click', function() {
+                    var url = $(this).data('href');
+                    if (url) window.location.href = url;
+                });
             });
         </script>
     {% endcompress %}
@@ -109,13 +112,16 @@
             count_down($("#contest-time-remaining"));
 
             var selected = null,
+                selectedOverlay = null,
                 x_pos = 0, y_pos = 0,
                 x_elem = 0, y_elem = 0;
 
             $('#contest-info').mousedown(function () {
                 selected = $(this);
+                selectedOverlay = $('#overlayTicket');
                 x_elem = x_pos - selected.offset().left;
                 y_elem = y_pos - (selected.offset().top - $(window).scrollTop());
+                
                 return false;
             });
 
@@ -127,17 +133,40 @@
                 });
             }
 
-            $("#contest-info").show();
+            $("#contest-info").show().css('display', 'flex');
+            $("#selectedOverlay").hide();
 
             $(document).mousemove(function (e) {
                 x_pos = e.screenX;
                 y_pos = e.screenY;
                 x_pos = Math.max(Math.min(x_pos, window.innerWidth), 0);
                 y_pos = Math.max(Math.min(y_pos, window.innerHeight), 0);
+                //console.log(x_pos, y_pos);
+                
+                if (selectedOverlay !== null) {
+                    //Setting Overlay
+                    selectedOverlay.css({
+                        display: 'none',
+                        position: 'fixed',
+                        inset: '0',
+                        width: '105%',
+                        height: '105%',
+                        background: 'rgba(0,1,2,.02)',
+                        cursor: 'move',
+                        pointerEvents: 'auto',
+                        zIndex: '99999',
+                        transition: '0.2s'
+                    });
+                    //----
+                    selectedOverlay.show();
+                }
 
                 if (selected !== null) {
-                    left_px = (x_pos - x_elem) + 'px';
-                    top_px = (y_pos - y_elem) + 'px';
+                    left_px = (x_pos - x_elem);
+                    top_px = (y_pos - y_elem);
+                    
+                    left_px = (left_px < 1 ? 1 : left_px) + 'px';
+                    top_px = (top_px < 1 ? 1 : top_px) + 'px';
 
                     localStorage.setItem("contest_timer_pos", left_px + ":" + top_px);
 
@@ -149,7 +178,9 @@
             });
 
             $(document).mouseup(function () {
+                if (selectedOverlay !== null ) { selectedOverlay.hide() }
                 selected = null;
+                selectedOverlay = null;
             })
 
             {# Virtual = 0 is live participation, virtual = -1 is spectating #}
@@ -205,6 +236,195 @@
             }
         </style>
     </noscript>
+    <style>
+        :root {
+          {% if request.user.is_authenticated %}
+          {% if request.user.profile.site_theme == 'light' %}
+          --inputfile-bg: #ffffff;
+          --inputfile-text: #222;
+          --inputfile-border: #d0d0d0;
+          --inputfile-hover-bg: #f2f2f2;
+          {% else %}
+          --inputfile-bg: #1d1d1d;
+          --inputfile-text: #f0f0f0;
+          --inputfile-border: #555;
+          --inputfile-hover-bg: #2b2b2b;
+          {% endif %}
+          {% else %}
+          --inputfile-bg: #ffffff;
+          --inputfile-text: #222;
+          --inputfile-border: #d0d0d0;
+          --inputfile-hover-bg: #f2f2f2;
+          {% endif %}
+        }
+        {% if request.user.is_authenticated and request.user.profile.site_theme != 'light' %}
+        .ui.basic.buttons .button,
+        .ui.basic.button,
+        .item {
+            color: rgb(255 255 255 / 84%) !important;
+        }
+        .ui.basic.buttons .button:hover,
+        .ui.basic.button:hover {
+          background: rgba(250, 250, 250, .2) !important;
+          color: #fff !important;
+          -webkit-box-shadow: 0px 0px 0px 1px rgba(34, 36, 38, 0.35) inset, 0px 0px 0px 0px rgba(34, 36, 38, 0.15) inset !important;
+          box-shadow: 0px 0px 0px 1px rgba(34, 36, 38, 0.35) inset, 0px 0px 0px 0px rgba(34, 36, 38, 0.15) inset !important;
+        }
+        .martor-preview {
+          color: #000;
+        }
+        .alert-info {
+          color: #ffffff;
+          background-color: rgb(0 159 206) !important;
+          border-color: #51baff !important;
+        }
+        .alert-dismissable .close {
+          color: #ccc !important;
+        }
+        .close {
+          opacity: 0.7 !important;
+        }
+        .close:hover {
+          opacity: 1 !important;
+        }
+        .alert-warning {
+          color: #ffffff;
+          background-color: #8c640099 !important;
+          border-color: #ff9600 !important;
+        }
+        .alert-danger {
+          color: #ffffff;
+          background-color: #a20000ad !important;
+          border-color: #ff0029 !important;
+        }
+        {% endif %}
+        
+        .close {
+          transition: all .2s ease !important;
+        }
+        .acc-warning-ticket {
+          font-size: 1rem;
+          font-weight: 400;
+          line-height: 1.5;
+          text-align: left;
+          box-sizing: border-box;
+          position: relative;
+          padding: .75rem 1.25rem;
+          margin-bottom: 1rem;
+          border: {% if request.user.is_authenticated %}{% if request.user.profile.site_theme == 'light' %}1{% else %}1.3{% endif %}{% else %}1{% endif %}px solid transparent;
+          border-left: 6px solid #000;
+          border-left-color: #{% if request.user.is_authenticated %}{% if request.user.profile.site_theme == 'light' %}d9726a{% else %}c7483e{% endif %}{% else %}d9726a{% endif %} !important;
+          border-radius: .25rem;
+          color: #{% if request.user.is_authenticated and request.user.profile.site_theme == 'light' %}721c24{% else %}ff6a75{% endif %};
+          background-color: {% if request.user.is_authenticated and request.user.profile.site_theme == 'light' %}#ffd9dc{% else %}transparent{% endif %};
+          box-shadow: {% if request.user.is_authenticated and request.user.profile.site_theme == 'light' %}0 4px 10px rgba(255, 0, 23, 0.12){% else %}0 0px 10px rgba(123, 11, 23, .8){% endif %};
+          border-color: #{% if request.user.is_authenticated and request.user.profile.site_theme == 'light' %}7000093b{% else %}ff0004{% endif %};
+          margin-top: 1rem;
+          animation: pulseBorder .7s ease forwards;
+        }
+        input[type="file"] {
+          padding: 10px;
+          border-radius: 10px;
+          border: 1px solid var(--inputfile-border);
+          background: var(--inputfile-bg);
+          color: var(--inputfile-text);
+          width: 80%;
+          cursor: pointer;
+          margin-bottom: 20px;
+        }
+        input[type="file"]::file-selector-button {
+          padding: 8px 14px;
+          border-radius: 8px;
+          border: none;
+          background: var(--inputfile-hover-bg);
+          cursor: pointer;
+          margin-right: 10px;
+          color: var(--inputfile-text);
+          transition: 0.2s;
+        }
+        input[type="file"]::file-selector-button:hover {
+          background: var(--inputfile-border);
+        }
+        .a-transform-gotocontest {
+          width: 100%;
+          cursor: pointer;
+          transition: all .2s ease;
+        }
+        .a-transform-gotocontest:hover {
+          color: #ccc;
+        }
+        .a-transform-gotoranking {
+          text-align: center;
+          font-size: 0.7em;
+          color: #f9ff00 !important;
+          margin-top: .5em !important;
+          font-weight: 500;
+          padding-top: 1px;
+          padding-bottom: 3px;
+          cursor: pointer;
+          text-transform: uppercase;
+          transition: all .2s ease;
+          width: 100%
+        }
+        .a-transform-gotoranking:hover {
+          color: #ffcd00 !important;
+        }
+        .a-transform-gotoranking:active {
+          color: #ff5c00 !important;
+        }
+        #contest-info {
+          border-left: 5px solid rgba(0,0,0,0);
+          min-width: 6rem !important;
+          flex-direction: column;
+        }
+        #contest-info::after {
+          content: "";
+          position: absolute;
+          left: -5px;
+          top: 0;
+
+          width: 6px;
+          height: 100%;
+
+          background:
+            radial-gradient(circle, white 2px, transparent 3px) 0 0 / 6px 12px repeat-y;
+          
+          animation: moveDots 0.6s linear infinite;
+        }
+        @keyframes moveDots {
+          from { background-position: 0 0; }
+          to   { background-position: 0 12px; }
+        }
+        @keyframes pulseBorder {
+          0% { border-left-width: 0px; }
+          100% { border-left-width: 8px; }
+        }
+        *::-webkit-scrollbar {
+          width:  8px;
+          height: 8px;
+        }
+        *::-webkit-scrollbar-thumb {
+          background-color: rgba(111, 111, 111, 0.8);
+          border-radius: 10px;
+        }
+        *:hover::-webkit-scrollbar-thumb {
+          background-color: rgba(111, 111, 111, 0.9);
+        }
+        *:active::-webkit-scrollbar-thumb {
+          background-color: rgba(111, 111, 111, 1);
+        }
+        *::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        /* ================== iOS / Smooth scroll ================== */
+        html, body, * {
+          -webkit-overflow-scrolling: touch;
+          scroll-behavior: smooth;
+        }
+        * {
+          -ms-overflow-style: auto;
+        }
+    </style>
     <!-- Facebook Pixel Code -->
     <script>
     !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -322,10 +542,15 @@
     </div>
     <div id="nav-shadow"></div>
 </nav>
+
+<!-- overlay while moving contest ticket --!>
+<div id="overlayTicket"></div>
+<!-----!-----!>
+
 {% if request.in_contest %}
     {% set current_contest = request.participation.contest %}
-    <div id="contest-info">
-        <a href="{{ url('contest_view', current_contest.key) }}">
+    <div id="contest-info" style="background:rgba(0,0,0,0.5)!important;backdrop-filter:blur(20px)!important;font-weight:500!important;cursor:move">
+        <div data-href="{{ url('contest_view', current_contest.key) }}" class="a-transform-gotocontest">
             {{ current_contest.name }} -
             {% if request.participation.spectate %}
                 {{ _('spectating') }}
@@ -336,11 +561,11 @@
             {% else %}
                 {{ _('virtual') }}
             {% endif %}
-        </a>
+        </div>
         {% if current_contest.can_see_own_scoreboard(request.user) %}
-            <a href="{{ url('contest_ranking', current_contest.key) }}" style="text-align: center; font-size: 0.7em; color: #DCD427;">
+            <div data-href="{{ url('contest_ranking', current_contest.key) }}" class="a-transform-gotoranking">
                 {{ _('Go to Rankings') }}
-            </a>
+            </div>
         {% endif %}
     </div>
 {% endif %}
@@ -351,21 +576,7 @@
     <br>
     <main id="content">
         {% if request.profile.last_warned != None and request.user.is_authenticated %}
-        <div style="
-        font-size: 1rem;
-        font-weight: 400;
-        line-height: 1.5;
-        text-align: left;
-        box-sizing: border-box;
-        position: relative;
-        padding: .75rem 1.25rem;
-        margin-bottom: 1rem;
-        border: 1px solid transparent;
-        border-radius: .25rem;
-        color: #721c24;
-        background-color: #f8d7da;
-        border-color: #7000093b;
-        margin-top: 1rem;">Tài khoản {{ request.user.username }} đã có <strong>{{ request.profile.warn }}</strong> lần cảnh báo từ hệ thống <strong>CHTOJ</strong>, xem chi tiết tại <a href="http://{{ request.get_host() }}/user/{{ request.user.username }}/warning/">bấm vào đây. </a><strong style='text-transform: uppercase'>nếu bạn còn tiếp tục thực hiện hành vi trên 5 lần thì tài khoản của bạn sẽ bị khóa vĩnh viễn!</strong></div>
+        <div class="acc-warning-ticket">Tài khoản <b><i>{{ request.user.username }}</i></b> có <strong>{{ request.profile.warn }}</strong> lần cảnh báo từ hệ thống <strong>CHTOJ</strong>, xem chi tiết tại <a href="http://{{ request.get_host() }}/user/{{ request.user.username }}/warning/" style="text-shadow:.2px .2px 2px #66bbff7d!important"><b>bấm vào đây. </b></a><strong style='text-transform: uppercase'>thực hiện hành vi vi phạm từ 5 lần trở lên thì tài khoản của bạn sẽ bị khóa vĩnh viễn!</strong></div>
         {% endif %}
         {% if misc_config.top_notification %}
             {{ render_django(misc_config.top_notification) }}
@@ -406,27 +617,6 @@
         </span>
         <br>
     </footer>
-</div>
-<div class="message-button">
-    <style>
-        .messenger-button {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background-color: #0084FF;
-            color: white;
-            padding: 15px 15px;
-            border-radius: 50%;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            cursor: pointer;
-            z-index: 1000;
-        }
-    </style>
-    <div class="button-container">
-        <a href="https://m.me/61552626677713" target="_blank" class="messenger-button">
-            <i class="fa-brands fa-facebook-messenger"></i>
-        </a>
-    </div>
 </div>
 </body>
 </html>
