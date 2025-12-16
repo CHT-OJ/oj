@@ -448,7 +448,7 @@ class TagProblemAssignForm(Form):
 class OrganizationForm(ModelForm):
     class Meta:
         model = Organization
-        fields = ['name', 'slug', 'is_open', 'about', 'logo_override_image', 'admins']
+        fields = ['name', 'slug', 'about', 'logo_override_image', 'admins']
         widgets = {'about': MartorWidget(attrs={'data-markdownfy-url': reverse_lazy('organization_preview')})}
         if HeavySelect2MultipleWidget is not None:
             widgets.update({
