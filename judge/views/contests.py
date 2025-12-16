@@ -44,7 +44,7 @@ from judge.contest_format import ICPCContestFormat
 from judge.forms import ContestAnnouncementForm, ContestCloneForm, ContestDownloadDataForm, ContestForm, \
     ProposeContestProblemFormSet
 from judge.models import Contest, ContestAnnouncement, ContestMoss, ContestParticipation, ContestProblem, ContestTag, \
-    Organization, Problem, ProblemClarification, Profile, Submission, WarningLog
+    Organization, Problem, ProblemClarification, Profile, Submission, WarningLog, tag
 from judge.tasks import on_new_contest, prepare_contest_data, run_moss
 from judge.utils.celery import redirect_to_task_status, task_status_by_id, task_status_url_by_id
 from judge.utils.cms import parse_csv_ranking
@@ -58,7 +58,7 @@ from judge.utils.views import DiggPaginatorMixin, QueryStringSortMixin, SingleOb
 __all__ = ['ContestList', 'ContestDetail', 'ContestRanking', 'ContestJoin', 'ContestLeave', 'ContestCalendar',
            'ContestClone', 'ContestStats', 'ContestMossView', 'ContestMossDelete',
            'ContestParticipationList', 'ContestParticipationDisqualify', 'get_contest_ranking_list',
-           'base_contest_ranking_list', 'ComputeMoss', 'ExportMoss', 'SpotlightContestRanking']
+           'base_contest_ranking_list', 'ComputeMoss', 'ExportMoss', 'SpotlightContestRanking', 'ContestTagList']
 
 
 def _find_contest(request, key, private_check=True):
@@ -162,6 +162,77 @@ class ContestList(QueryStringSortMixin, DiggPaginatorMixin, TitleMixin, ContestL
         context.update(self.get_sort_paginate_context())
         return context
 
+class ContestTagList(QueryStringSortMixin, DiggPaginatorMixin, TitleMixin, ContestListMixin, ListView):
+    model = Contest
+    paginate_by = 20
+    template_name = 'contest/contest-tag.html'
+    title = gettext_lazy('Các kỳ thi thuộc mục')
+    context_object_name = 'past_contests'
+    all_sorts = frozenset(('name', 'user_count', 'start_time'))
+    default_desc = frozenset(('name', 'user_count'))
+    default_sort = '-start_time'
+
+    @cached_property
+    def _now(self):
+        return timezone.now()
+
+    def _get_queryset(self):
+        return super().get_queryset().prefetch_related('tags', 'organizations', 'authors', 'curators', 'testers')
+
+    def get_queryset(self):
+        self.search_query = None
+        self.tag = self.kwargs.get('key')
+        query_set = self._get_queryset().order_by(self.order, 'key')
+        if self.tag:
+            self.tag = get_object_or_404(ContestTag, key=self.tag)
+            query_set = query_set.filter(tags__key=self.tag)
+        if 'search' in self.request.GET:
+            self.search_query = search_query = ' '.join(self.request.GET.getlist('search')).strip()
+            if search_query:
+                query_set = query_set.filter(Q(key__icontains=search_query) | Q(name__icontains=search_query))
+        return query_set
+
+    def get_paginator(self, queryset, per_page, orphans=0, allow_empty_first_page=True, **kwargs):
+        return super().get_paginator(queryset, per_page, orphans, allow_empty_first_page,
+                                     count=self.get_queryset().values('id').count(), **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super(ContestTagList, self).get_context_data(**kwargs)
+        present, active, future = [], [], []
+        finished = set()
+        for contest in self._get_queryset().exclude(end_time__lt=self._now).filter(tags__key=self.kwargs.get('key')):
+            if contest.start_time > self._now:
+                future.append(contest)
+            else:
+                present.append(contest)
+
+        if self.request.user.is_authenticated:
+            for participation in ContestParticipation.objects.filter(virtual=0, user=self.request.profile,
+                                                                     contest_id__in=present) \
+                    .select_related('contest') \
+                    .prefetch_related('contest__authors', 'contest__curators', 'contest__testers') \
+                    .annotate(key=F('contest__key')):
+                if participation.ended:
+                    finished.add(participation.contest.key)
+                else:
+                    active.append(participation)
+                    present.remove(participation.contest)
+
+        active.sort(key=attrgetter('end_time', 'key'))
+        present.sort(key=attrgetter('end_time', 'key'))
+        future.sort(key=attrgetter('start_time'))
+        context['title'] = _('Các kỳ thi thuộc mục "%s"') % self.tag.display_name
+        context['active_participations'] = active
+        context['current_contests'] = present
+        context['future_contests'] = future
+        context['finished_contests'] = finished
+        context['now'] = self._now
+        context['first_page_href'] = '.'
+        context['page_suffix'] = '#past-contests'
+        context['search_query'] = self.search_query
+        context.update(self.get_sort_context())
+        context.update(self.get_sort_paginate_context())
+        return context
 
 class PrivateContestError(Exception):
     def __init__(self, name, is_private, is_organization_private, orgs):
@@ -1439,6 +1510,7 @@ class ContestTagDetail(TitleMixin, ContestTagDetailAjax):
 
     def get_title(self):
         return _('Contest tag: %s') % self.object.name
+    
 
 
 class CreateContest(PermissionRequiredMixin, TitleMixin, CreateView):

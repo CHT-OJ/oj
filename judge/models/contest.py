@@ -34,16 +34,19 @@ class MinValueOrNoneValidator(MinValueValidator):
 class ContestTag(models.Model):
     color_validator = RegexValidator('^#(?:[A-Fa-f0-9]{3}){1,2}$', _('Invalid colour.'))
 
-    name = models.CharField(max_length=20, verbose_name=_('tag name'), unique=True,
+    key = models.CharField(max_length=20, verbose_name=_('tag name'), unique=True,
                             validators=[RegexValidator(r'^[a-z-]+$', message=_('Lowercase letters and hyphens only.'))])
+    
+    display_name = models.CharField(max_length=50, verbose_name=_('tag display name'), unique=True, default='')
+    
     color = models.CharField(max_length=7, verbose_name=_('tag colour'), validators=[color_validator])
     description = models.TextField(verbose_name=_('tag description'), blank=True)
 
     def __str__(self):
-        return self.name
+        return self.key
 
     def get_absolute_url(self):
-        return reverse('contest_tag', args=[self.name])
+        return reverse('contest_tag_list', args=[self.key])
 
     @property
     def text_color(self, cache={}):
@@ -58,7 +61,6 @@ class ContestTag(models.Model):
     class Meta:
         verbose_name = _('contest tag')
         verbose_name_plural = _('contest tags')
-
 
 class Contest(models.Model):
     SCOREBOARD_VISIBLE = 'V'
