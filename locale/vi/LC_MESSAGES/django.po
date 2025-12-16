@@ -1077,8 +1077,12 @@ msgid "Invalid colour."
 msgstr "Màu sắc không hợp lệ."
 
 #: judge/models/contest.py:37
-msgid "tag name"
-msgstr "tên thẻ"
+msgid "tag key"
+msgstr "Đường dẫn tới thẻ"
+
+#: judge/models/contest.py:40
+msgid "tag display name"
+msgstr "Tên hiển thị của thẻ"
 
 #: judge/models/contest.py:38
 msgid "Lowercase letters and hyphens only."
@@ -1731,7 +1735,7 @@ msgid "miscellaneous configuration"
 msgstr "cấu hình khác"
 
 #: judge/models/interface.py: warninglog
-msgid "Warning logs"
+msgid "warning logs"
 msgstr "Lịch sử vi phạm"
 
 #: judge/models/interface.py:39
@@ -2765,6 +2769,26 @@ msgstr "yêu cầu tham gia tổ chức"
 #: judge/models/profile.py:424
 msgid "organization join requests"
 msgstr "yêu cầu tham gia tổ chức"
+
+#: judge/models/profile.py:460
+msgid "WarningLogs"
+msgstr "Lịch sử cảnh báo"
+
+#: judge/models/profile.py:461
+msgid "offender"
+msgstr "Người vi phạm"
+
+#: judge/models/profile.py:462
+msgid "judge_admin"
+msgstr "Người xử lý"
+
+#: judge/models/profile.py:463
+msgid "warning reason"
+msgstr "Lý do vi phạm"
+
+#: judge/models/profile.py:464
+msgid "timestamp"
+msgstr "Thời điểm vi phạm"
 
 #: judge/models/runtime.py:19
 msgid "short identifier"

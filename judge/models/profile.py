@@ -458,10 +458,10 @@ class Profile(models.Model):
 
 
 class WarningLog(models.Model):
-    offender = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='warning_offender')
-    judge = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='warning_judge')
-    reason = models.CharField(max_length=255, null=False, blank=False)
-    timestamp = models.DateTimeField(auto_now_add=True)
+    offender = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='warning_offender', verbose_name=_('offender'))
+    judge = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='warning_judge', verbose_name=_('judge_admin'))
+    reason = models.CharField(max_length=255, null=False, blank=False, verbose_name=_('warning reason'))
+    timestamp = models.DateTimeField(auto_now_add=True, verbose_name=_('timestamp'))
 
     class Meta:
         db_table = 'judge_warninglog'
