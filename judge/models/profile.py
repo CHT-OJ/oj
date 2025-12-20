@@ -161,6 +161,8 @@ def user_directory_path(instance, _):
 
 
 class Profile(models.Model):
+    school_logo = models.URLField(blank = True, verbose_name = "school logo URL")
+
     user = models.OneToOneField(User, verbose_name=_('user associated'), on_delete=models.CASCADE)
     about = models.TextField(verbose_name=_('self-description'), null=True, blank=True)
     timezone = models.CharField(max_length=50, verbose_name=_('time zone'), choices=TIMEZONE,
