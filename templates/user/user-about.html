@@ -45,6 +45,15 @@
             <br>
         {% endif %}
 
+        {% if user.school_logo %}
+            <h4>Logo trường</h4>
+            <div style="display: inline-block; margin-left: 1em; margin-right: 1em;">
+                <img src="{{ user.school_logo }}" title="SCHOOL LOGO" style="height: 10em; width: auto; display: block; margin: 0 auto; border-radius: 50%;" />
+            </div>
+        {% else %}
+            <h4>Chưa đặt Logo trường.</h4>
+        {% endif %}
+
         <h4>{{ _('Badges & Awards') }}</h4>
         {% for badge in user.badges.all() %}
             <div style="display: inline-block; margin-left: 1em; margin-right: 1em;">
