@@ -18,7 +18,8 @@ from judge.models import Badge, BlogPost, Comment, CommentLock, Contest, Contest
     ContestTag, Judge, Language, License, MiscConfig, NavigationBar, Organization, \
     OrganizationRequest, Problem, ProblemGroup, ProblemType, Profile, Submission, Tag, \
     TagGroup, TagProblem, Ticket, WarningLog
-
+from judge.models.profile import Logo
+admin.site.register(Logo)
 admin.site.register(WarningLog, WarningLogAdmin)
 admin.site.register(BlogPost, BlogPostAdmin)
 admin.site.register(Comment, CommentAdmin)

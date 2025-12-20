@@ -155,13 +155,19 @@ class Badge(models.Model):
     def __str__(self):
         return self.name
 
+class Logo(models.Model):
+    name = models.CharField(max_length=128, verbose_name=_('logo name'), default="cht")
+    url = models.URLField(blank = True, verbose_name = "logo URL")
+    def __str__(self):
+        return self.name
+
 
 def user_directory_path(instance, _):
     return os.path.join('avatar', f'{instance.id}.jpg')
 
 
 class Profile(models.Model):
-    school_logo = models.URLField(blank = True, verbose_name = "school logo URL")
+    u_logo = models.ForeignKey(Logo, verbose_name = "logo URL", blank=True, null=True, on_delete=models.SET_NULL)
 
     user = models.OneToOneField(User, verbose_name=_('user associated'), on_delete=models.CASCADE)
     about = models.TextField(verbose_name=_('self-description'), null=True, blank=True)
