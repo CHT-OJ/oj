@@ -45,13 +45,13 @@
             <br>
         {% endif %}
 
-        {% if user.school_logo %}
-            <h4>Logo trường</h4>
+        {% if user.u_logo and user.u_logo.url %}
+            <h4>Logo</h4>
             <div style="display: inline-block; margin-left: 1em; margin-right: 1em;">
-                <img src="{{ user.school_logo }}" title="SCHOOL LOGO" style="height: 10em; width: auto; display: block; margin: 0 auto; border-radius: 50%;" />
+                <img src="{{ user.u_logo.url }}" title="LOGO" style="height: 10em; width: auto; display: block; margin: 0 auto; border-radius: 50%;" />
             </div>
         {% else %}
-            <h4>Chưa đặt Logo trường.</h4>
+            <h4>Chưa đặt Logo.</h4>
         {% endif %}
 
         <h4>{{ _('Badges & Awards') }}</h4>
