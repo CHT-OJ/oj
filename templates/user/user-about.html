@@ -47,11 +47,16 @@
 
         {% if user.u_logo and user.u_logo.url %}
             <h4>Logo</h4>
-            <div style="display: inline-block; margin-left: 1em; margin-right: 1em;">
-                <img src="{{ user.u_logo.url }}" title="LOGO" style="height: 10em; width: auto; display: block; margin: 0 auto; border-radius: 50%;" />
+            <div class="u-logo-container">
+                <div class="u-logo-frag">
+                    <img src="{{ user.u_logo.url }}" title="{{ user.u_logo.name }}" />
+                </div>
+                <div class="u-logo-name-wrapper">
+                    <p>{{ user.u_logo.name }}</p>
+                </div>
             </div>
         {% else %}
-            <h4>Chưa đặt Logo.</h4>
+            <h4>Chưa đặt Logo</h4>
         {% endif %}
 
         <h4>{{ _('Badges & Awards') }}</h4>
