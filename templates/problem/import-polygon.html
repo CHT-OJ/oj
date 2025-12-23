@@ -142,7 +142,12 @@
         </table>
         <table>
             <tr><td style="float: left;">
-            <td style="float: right;"><input type="submit" value="{{ _('Import') }}" class="button"></td></tr>
+            <td style="float: right;">
+            <button type="submit" class="button">
+            <i class="fa-solid fa-file-import btn-icon-mg1"></i>
+            {{ _('Import') }}
+            </button>
+            </td></tr>
         </table>
     </form>
 {% endblock %}

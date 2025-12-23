@@ -253,12 +253,12 @@
 
             var $file_test = $('#id_problem-data-zipfile');
             $("<br>").appendTo($file_test.parent());
-            $("<input/>", {
+            $("<button>", {
                 type: "submit",
-                value: "{{ _('Please press this button if you have just updated the zip data') }}",
                 class: "button",
                 style: "display: inherit",
                 id: "submit-button",
+                html: '<i class="fa-solid fa-arrows-rotate btn-icon-mg1"></i>{{ _("Please press this button if you have just updated the zip data") }}'
             }).appendTo($file_test.parent());
             $("<br>").appendTo($file_test.parent());
             $("<input/>", {
@@ -788,8 +788,11 @@
             {% endfor %}
             </tbody>
         </table>
-        <input type="submit" value="{{ _('Apply!') }}" class="button" id="submit-button">
+        <button type="submit" class="button" id="submit-button">
+            <i class="fa-solid fa-check btn-icon-mg1"></i>
+            {{ _('Apply!') }}
+        </button>
         <a id="add-case-row" href="#" style="display: None;"><i class="fa fa-plus"></i> {{ _('Add new case') }}</a>
     </form>
-    <div style="display: none" class="generator-args-editor"><textarea></textarea><a class="button">{{ _('Save') }}</a></div>
+    <div style="display: none" class="generator-args-editor"><textarea></textarea><a class="button"><i class="fa-solid fa-check btn-icon-mg1"></i>{{ _('Save') }}</a></div>
 {% endblock %}

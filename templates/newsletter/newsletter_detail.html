@@ -5,9 +5,9 @@
 
 {% block body %}
     <ul>
-        <li><a href="{{ url('newsletter_subscribe_request', object.slug) }}">Subscribe</a></li>
-        <li><a href="{{ url('newsletter_unsubscribe_request', object.slug) }}">Unsubscribe</a></li>
-        <li><a href="{{ url('newsletter_archive', object.slug) }}">Archive</a></li>
-        <li><a href="{{ url('newsletter_list') }}">Back to list</a></li>
+        <li><a href="{{ url('newsletter_subscribe_request', object.slug) }}"><i class="fa-solid fa-user-plus btn-icon-mg1"></i>Subscribe</a></li>
+        <li><a href="{{ url('newsletter_unsubscribe_request', object.slug) }}"><i class="fa-solid fa-user-minus btn-icon-mg1"></i>Unsubscribe</a></li>
+        <li><a href="{{ url('newsletter_archive', object.slug) }}"><i class="fa-solid fa-box-archive btn-icon-mg1"></i>Archive</a></li>
+        <li><a href="{{ url('newsletter_list') }}"><i class="fa-solid fa-arrow-left btn-icon-mg1"></i>Back to list</a></li>
     </ul>
 {% endblock %}

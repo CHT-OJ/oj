@@ -1,5 +1,7 @@
 {% set can_view, can_edit = submission_layout(submission, profile_id, request.user, completed_problem_ids, editable_problem_ids, tester_problem_ids) %}
 <div class="sub-result {{ submission.result_class }}">
+    <div title="{{ submission.long_status }}" class="subm-status status">{{ submission.short_status }}</div>
+
     <div class="score">
         {%- if submission.is_graded -%}
             {%- if submission.status in ('IE', 'CE', 'AB') -%}
@@ -11,11 +13,8 @@
             <i class="fa fa-spinner fa-pulse grading-spinner"></i>
         {%- endif -%}
     </div>
-
-    <div class="state">
-        <span title="{{ submission.long_status }}" class="status">{{ submission.short_status }}</span> |
-        <span class="language">{{ submission.language.short_display_name }}</span>
-    </div>
+    
+    <span class="language">{{ submission.language.short_display_name }}</span>
 </div>
 {% set can_view_testcase_status = request.user.is_superuser or submission.problem.testcase_result_visibility_mode == 'A' %}
 <div class="sub-main">
@@ -32,7 +31,7 @@
             {% if not request.in_contest and submission.contest_object_id %}
                 <a href="{{ url('contest_view', submission.contest_object.key) }}"
                    class="submission-contest">
-                    <i title="{{ submission.contest_object.name }}" class="fa fa-dot-circle-o"></i>
+                    <i title="{{ submission.contest_object.name }}" class="fa fa-dot-circle"></i>
                 </a>
             {% endif %}
         </div>
@@ -49,13 +48,13 @@
     {% endif %}
 
     {% if can_view %}
-        <div class="sub-prop"><div>
+        <div class="sub-prop"><div class="sub-main-options">
             <a href="{{ url('submission_status', submission.id) }}">
                 <i class="fa fa-eye fa-fw"></i><span class="label">{{ _('view') }}</span>
             </a> ·
             {% if not submission.language.file_only %}
                 <a href="{{ url('submission_source', submission.id) }}">
-                    <i class="fa fa-file-code-o fa-fw"></i><span class="label">{{ _('source') }}</span>
+                    <i class="fa fa-file-code fa-fw"></i><span class="label">{{ _('source') }}</span>
                 </a>
             {% else %}
                 <a href="{{ url('submission_source_download', submission.id) }}">
@@ -78,7 +77,7 @@
             {% if can_edit %}
                 {% if not submission.language.file_only %} ·
                     <a href="{{ url('problem_submission_diff', submission.problem.code) }}?username={{ submission.user.user.username }}&highlight={{ submission.id }}">
-                        <i class="fa fa-files-o fa-fw"></i><span class="label">{{ _('diff') }}</span>
+                        <i class="fa fa-file fa-fw"></i><span class="label">{{ _('diff') }}</span>
                     </a>
                 {% endif %}
                 {% if request.user.is_superuser %} ·
@@ -94,17 +93,30 @@
 
 <div class="sub-usage">
     {% if submission.status in ('QU', 'P', 'G', 'CE', 'IE', 'AB') or not can_view_testcase_status %}
-        <div class="time">---</div>
-        <div class="memory">---</div>
+        <div class="time">
+            <i class="fa fa-clock"></i>
+            ---
+        </div>
+        <div class="memory">
+            <i class="fa fa-memory"></i>
+            <b>---</b>
+        </div>
     {% else %}
         {% if "TLE" != submission.result %}
             <div title="{{ submission.time or 0 }}s" class="time">
+                <i class="fa fa-clock"></i>
                 {{ (submission.time or 0)|floatformat(2) }}s
             </div>
         {% else %}
-            <div class="time">---</div>
+            <div class="time">
+                <i class="fa fa-clock"></i>
+                ---
+            </div>
         {% endif %}
         {# No one actually likes IEC prefixes, Jinja2. #}
-        <div class="memory">{{ (submission.memory_bytes|filesizeformat(True)).replace('i', '') }}</div>
+        <div class="memory">
+            <i class="fa fa-memory"></i>
+            {{ (submission.memory_bytes|filesizeformat(True)).replace('i', '') }}
+        </div>
     {% endif %}
 </div>

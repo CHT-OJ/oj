@@ -375,6 +375,7 @@
                         </td></tr>
                         <tr><td>
                             <a href="{{ url('password_change') }}" class="inline-header">
+                                <i class="fa-solid fa-key btn-icon-mg1"></i>
                                 {{ _('Change your password') }}
                             </a>
                         </td></tr>
@@ -458,7 +459,10 @@
             </div>
             <hr>
 
-            <input type="submit" class="submit-bar" value="{{ _('Update profile') }}">
+            <button type="submit" class="submit-bar">
+                <i class="fa-solid fa-arrows-rotate btn-icon-mg1"></i>
+                {{ _('Update profile') }}
+            </button>
         </form>
     </div>
 {% endblock %}

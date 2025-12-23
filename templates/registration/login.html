@@ -30,10 +30,16 @@
                 </tr>
             </table>
             <hr>
-            <button style="float:right;" type="submit">{{ _('Login!') }}</button>
+            <button style="float:right;" type="submit">
+                <i class="fa-solid fa-right-to-bracket btn-icon-mg1"></i>
+                {{ _('Login!') }}
+            </button>
             <input type="hidden" name="next" value="{{ next }}">
         </form>
-        <a href="{{ url('password_reset') }}">{{ _('Forgot your password?') }}</a>
+        <a href="{{ url('password_reset') }}">
+            <i class="fa-solid fa-key btn-icon-mg1"></i>
+            {{ _('Forgot your password?') }}
+        </a>
 
         {% include "registration/oauth.html" %}
     </div>

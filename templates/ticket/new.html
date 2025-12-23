@@ -29,6 +29,9 @@
             </div>
         {% endif %}
         <div class="body-block">{{ form.body }}</div>
-        <input style="float:right" type="submit" value="{{ _('Create!') }}" class="button">
+        <button style="float:right" type="submit" class="button">
+            <i class="fa-solid fa-plus btn-icon-mg1"></i>
+            {{ _('Create!') }}
+        </button>
     </form>
 {% endblock %}

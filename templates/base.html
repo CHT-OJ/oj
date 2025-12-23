@@ -58,10 +58,10 @@
         <link rel="stylesheet" href="{{ static('source_sans_pro.css') }}">
         <link rel="stylesheet" type="text/css" href="{{ static('libs/clipboard/tooltip.css') }}">
         <link rel="stylesheet" type="text/css" href="{{ static('libs/select2/select2.css') }}">
-        <link rel="stylesheet"
-              href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-              crossorigin="anonymous" referrerpolicy="no-referrer"
-        />
+        <!-- <link rel="stylesheet" -->
+              <!-- href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" -->
+              <!-- crossorigin="anonymous" referrerpolicy="no-referrer" -->
+        <!-- /> -->
     {% endcompress %}
     <link rel="canonical"
           href="{{ DMOJ_SCHEME }}://{{ DMOJ_CANONICAL|default(site.domain) }}{{ request.get_full_path() }}">
@@ -302,7 +302,6 @@
           border-color: #ff0029 !important;
         }
         {% endif %}
-        
         .close {
           transition: all .2s ease !important;
         }
@@ -704,6 +703,7 @@
         </div>
         {% if current_contest.can_see_own_scoreboard(request.user) %}
             <div data-href="{{ url('contest_ranking', current_contest.key) }}" class="a-transform-gotoranking">
+                <i class="fa-solid fa-ranking-star btn-icon-mg1"></i>
                 {{ _('Go to Rankings') }}
             </div>
         {% endif %}

@@ -1,5 +1,5 @@
 <tr id="ticket-{{ ticket.id }}">
-    <td style="width: 2.5em;"><i class="fa {% if ticket.is_open %}fa-exclamation-circle{% else %}fa-check-circle-o{% endif %}"></i>
+    <td style="width: 2.5em;"><i class="fa {% if ticket.is_open %}fa-exclamation-circle{% else %}fa-check-circle{% endif %}"></i>
         <i class="fa {% if ticket.is_contributive%}fa-arrow-up{% else %}fa-minus{% endif %}"></i></td>
     <td>{{ ticket.id }}</td>
     <td><a href="{{ url('ticket', ticket.id) }}">{{ ticket.title }}</a></td>
