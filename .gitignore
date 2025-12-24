@@ -44,4 +44,5 @@ local_urls.
 judge/migrations/*
 <desired bridge log path>
 run1.sh
+run2.sh
 recollect_style.sh

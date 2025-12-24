@@ -27,8 +27,8 @@
                     <div class="usr-ranking-left" style="float:left">
                         <!-- USR LOGO --!>
                         <div class="u-logo-ranking">
-                        {% if user.u_logo and user.u_logo.url %}
-                            <img id="avatarPreview" src="{{ user.u_logo.url }}">
+                        {% if user.user_rank_logo and user.user_rank_logo.url %}
+                            <img id="avatarPreview" src="{{ user.user_rank_logo.url }}">
                         {% else %}
                             <div id="avatarPlaceholder" data-username="{{ user.user.username }}"></div>
                         {% endif %}

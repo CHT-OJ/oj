@@ -45,14 +45,14 @@
             <br>
         {% endif %}
 
-        {% if user.u_logo and user.u_logo.url %}
+        {% if user.user_rank_logo and user.user_rank_logo.url %}
             <h4>Logo</h4>
             <div class="u-logo-container">
                 <div class="u-logo-frag">
-                    <img src="{{ user.u_logo.url }}" title="{{ user.u_logo.name }}" />
+                    <img src="{{ user.user_rank_logo.url }}" title="{{ user.user_rank_logo.name }}" />
                 </div>
                 <div class="u-logo-name-wrapper">
-                    <p>{{ user.u_logo.name }}</p>
+                    <p>{{ user.user_rank_logo.name }}</p>
                 </div>
             </div>
         {% else %}

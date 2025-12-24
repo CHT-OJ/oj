@@ -31,7 +31,7 @@ from judge.ratings import rating_class
 from judge.utils.float_compare import float_compare_equal
 from judge.utils.two_factor import webauthn_decode
 
-__all__ = ['Organization', 'Profile', 'OrganizationRequest', 'WebAuthnCredential', 'WarningLog']
+__all__ = ['Organization', 'Profile', 'OrganizationRequest', 'WebAuthnCredential', 'WarningLog', 'Logo']
 
 
 class ContentTypeRestrictedFileField(VersatileImageField):
@@ -167,7 +167,7 @@ def user_directory_path(instance, _):
 
 
 class Profile(models.Model):
-    u_logo = models.ForeignKey(Logo, verbose_name = "logo URL", blank=True, null=True, on_delete=models.SET_NULL)
+    user_rank_logo = models.ForeignKey(Logo, verbose_name = "logo URL", blank=True, null=True, on_delete=models.SET_NULL)
 
     user = models.OneToOneField(User, verbose_name=_('user associated'), on_delete=models.CASCADE)
     about = models.TextField(verbose_name=_('self-description'), null=True, blank=True)
