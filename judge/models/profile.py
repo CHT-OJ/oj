@@ -157,7 +157,7 @@ class Badge(models.Model):
 
 class Logo(models.Model):
     name = models.CharField(max_length=128, verbose_name=_('logo name'), default="cht")
-    url = models.URLField(blank = True, verbose_name = "logo URL")
+    image = ContentTypeRestrictedFileField(upload_to = "logo/", content_types=["image/*"], null=True, verbose_name = "logo file")
     def __str__(self):
         return self.name
 

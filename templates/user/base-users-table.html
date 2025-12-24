@@ -25,16 +25,16 @@
             <td class="user-name">
                 <div>
                     <div class="usr-ranking-left" style="float:left">
-                        <!-- USR LOGO --!>
+                        {# USR LOGO  #}
                         <div class="u-logo-ranking">
-                        {% if user.user_rank_logo and user.user_rank_logo.url %}
-                            <img id="avatarPreview" src="{{ user.user_rank_logo.url }}">
+                        {% if user.user_rank_logo and user.user_rank_logo.image.url %}
+                            <img id="avatarPreview" src="/media{{ user.user_rank_logo.image.url }}">
                         {% else %}
                             <div id="avatarPlaceholder" data-username="{{ user.user.username }}"></div>
                         {% endif %}
                         </div>
                         <div class="u-logo-sep1"></div>
-                        <!-- END LOGO --!>
+                        {# END LOGO #}
                         <div style="display:block">
                             {% block user_name_display scoped %} {{ link_user(user) }} {% endblock %}
                             <div class="personal-info">
