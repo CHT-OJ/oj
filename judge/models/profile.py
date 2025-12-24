@@ -157,7 +157,7 @@ class Badge(models.Model):
 
 class Logo(models.Model):
     name = models.CharField(max_length=128, verbose_name=_('logo name'), default="cht")
-    url = models.URLField(blank = True, verbose_name = "logo URL")
+    image = ContentTypeRestrictedFileField(upload_to = "logo/", content_types=["image/*"], null=True, verbose_name = "logo file")
     def __str__(self):
         return self.name
 
@@ -167,7 +167,7 @@ def user_directory_path(instance, _):
 
 
 class Profile(models.Model):
-    user_rank_logo = models.ForeignKey(Logo, verbose_name = "logo URL", blank=True, null=True, on_delete=models.SET_NULL)
+    user_rank_logo = models.ForeignKey(Logo, verbose_name = "Profile Logo", blank=True, null=True, on_delete=models.SET_NULL)
 
     user = models.OneToOneField(User, verbose_name=_('user associated'), on_delete=models.CASCADE)
     about = models.TextField(verbose_name=_('self-description'), null=True, blank=True)
