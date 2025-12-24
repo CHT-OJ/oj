@@ -558,8 +558,14 @@
                     <select id="org-check-list" name="orgs[]" multiple="multiple"></select>
                 </div>
             </div>
-            <button id="reveal-problem-btn" class="inline-button">Trình diễn theo bài</button>
-            <button id="reveal-user-btn" class="inline-button">Trình diễn theo người dùng</button>
+            <button id="reveal-problem-btn" class="inline-button">
+                <i class="fa-solid fa-file-alt btn-icon-mg1"></i>
+                Trình diễn theo bài
+            </button>
+            <button id="reveal-user-btn" class="inline-button">
+                <i class="fa-solid fa-user btn-icon-mg1"></i>
+                Trình diễn theo người dùng
+            </button>
             <span id="next-user" style="font-weight:bold; color:#007bff;"></span>
         {% endif %}
         {% if tab != 'official_ranking' %}
@@ -570,7 +576,7 @@
             <input id="show-virtual-participations-checkbox" type="checkbox" style="vertical-align: bottom">
             <label for="show-virtual-participations-checkbox" style="vertical-align: bottom">{{ _('Show virtual participations') }}</label>
             {% if not is_ICPC_format %}
-            <a href="#" onclick="download_table_as_csv()" style="float: right;">{{ _('Download as CSV') }}</a>
+            <a href="#" onclick="download_table_as_csv()" style="float: right;"><i class="fa-solid fa-download btn-icon-mg1"></i>{{ _('Download as CSV') }}</a>
             {% endif %}
         {% endif %}
     </div>

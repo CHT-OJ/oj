@@ -1,11 +1,45 @@
+.subm-status {
+    font-size: 1.25rem;
+    font-weight: 600;
+    padding: 1px;
+    border-radius: 50px;
+    width: calc(100% - 2px); /* For padding */
+    transition: all .2s ease;
+}
+
+.AC .subm-status {
+    background: rgb(28 165 0) !important;
+}
+
+.score {
+    font-size: 0.96rem;
+    margin-top: 3px;
+}
+.language {
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
 .AB {
     background-color: #CCC;
     color: black;
 }
 
+.AB .subm-status {
+    background: rgb(178 178 178) !important;
+}
+
 .AC {
     background-color: #53f23f;
-    color: green;
+    color: #fff;
+}
+
+.AC .language {
+    color: rgb(17 100 1) !important;
+}
+
+.submission-row:hover .AC .subm-status {
+    box-shadow: 1px 1px 12px rgba(0, 0, 0, .2);
 }
 
 ._AC {
@@ -13,9 +47,17 @@
     color: green;
 }
 
+._AC .subm-status {
+    background: rgb(131 196 0) !important;
+}
+
 .WA {
     background-color: #CCC;
-    color: #ef1b53;
+    color: red;
+}
+
+.WA .subm-status {
+    background: rgb(224 224 224) !important;
 }
 
 .TLE, .MLE {
@@ -23,9 +65,17 @@
     color: black;
 }
 
+.TLE .subm-status, .MLE .subm-status {
+    background: rgb(224 224 224) !important;
+}
+
 .OLE, .IR, .RTE, .OTH {
     background-color: #FAB623;
     color: black;
+}
+
+.OLE .subm-status, .IR .subm-status, .RTE .subm-status, .OTH .subm-status {
+    background: rgb(255 225 57) !important;
 }
 
 .CE {
@@ -33,12 +83,24 @@
     color: black;
 }
 
+.CE .subm-status {
+    background: rgb(178 178 178) !important;
+}
+
 .IE {
-    background-color: red;
-    color: black;
+    background-color: rgb(255 51 26);
+    color: white;
+}
+
+.IE .subm-status {
+    background: rgb(194 0 0) !important;
 }
 
 .QU, .G {
     background: white;
     color: black;
+}
+
+.QU .subm-status, .G .subm-status {
+    background: rgb(233 233 233) !important;
 }

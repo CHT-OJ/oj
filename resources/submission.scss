@@ -91,12 +91,29 @@
             }
         }
     }
+    
+    .sub-main-options {
+        background: rgb(174 174 174 / 21%);
+        border-radius: 10px;
+        box-shadow: none;
+        padding: 5px;
+        transition: background 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .sub-main:hover .sub-main-options {
+        border: 1px solid rgba(123, 123, 123, .2);
+        background: rgb(200 200 200 / 45%);
+    }
+    
+    .sub-main-options:hover {
+        box-shadow: 0 0 12px rgb(148 148 148 / 19%);
+    }
 
     .sub-usage {
-        min-width: 70px;
-        width: 70px;
+        min-width: 85px;
+        width: 87px;
         white-space: nowrap;
-        text-align: center;
+        text-align: left;
         border-left: $color_primary25 1px solid;
 
         .time {

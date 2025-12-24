@@ -37,6 +37,9 @@
         <div><label class="inline-header grayed">{{ _('Enter a new key for the cloned contest:') }}</label></div>
         <div id="contest-key-container"><span class="fullwidth">{{ form.key }}</span></div>
         <hr>
-        <button style="float: right;" type="submit">{{ _('Clone!') }}</button>
+        <button style="float: right;" type="submit">
+            <i class="fa-solid fa-copy btn-icon-mg1"></i>
+            {{ _('Clone!') }}
+        </button>
     </form>
 {% endblock %}

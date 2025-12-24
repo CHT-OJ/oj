@@ -17,8 +17,8 @@ from judge.admin.ticket import TicketAdmin
 from judge.models import Badge, BlogPost, Comment, CommentLock, Contest, ContestParticipation, \
     ContestTag, Judge, Language, License, MiscConfig, NavigationBar, Organization, \
     OrganizationRequest, Problem, ProblemGroup, ProblemType, Profile, Submission, Tag, \
-    TagGroup, TagProblem, Ticket, WarningLog
-
+    TagGroup, TagProblem, Ticket, WarningLog, Logo
+admin.site.register(Logo)
 admin.site.register(WarningLog, WarningLogAdmin)
 admin.site.register(BlogPost, BlogPostAdmin)
 admin.site.register(Comment, CommentAdmin)

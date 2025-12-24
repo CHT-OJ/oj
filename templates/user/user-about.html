@@ -45,6 +45,20 @@
             <br>
         {% endif %}
 
+        {% if user.user_rank_logo and user.user_rank_logo.image.url %}
+            <h4>Logo</h4>
+            <div class="u-logo-container">
+                <div class="u-logo-frag">
+                    <img src="/media{{ user.user_rank_logo.image.url }}" title="{{ user.user_rank_logo.name }}" />
+                </div>
+                <div class="u-logo-name-wrapper">
+                    <p>{{ user.user_rank_logo.name }}</p>
+                </div>
+            </div>
+        {% else %}
+            <h4>Chưa đặt Logo</h4>
+        {% endif %}
+
         <h4>{{ _('Badges & Awards') }}</h4>
         {% for badge in user.badges.all() %}
             <div style="display: inline-block; margin-left: 1em; margin-right: 1em;">

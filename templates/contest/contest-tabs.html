@@ -8,7 +8,7 @@
 
     {% if contest.start_time <= now or perms.judge.see_private_contest %}
         {% if contest.allow_spotlight or perms.judge.can_view_spotlight %}
-            {{ make_tab('spotlight_ranking', 'fa-star-half-o', url('spotlight_ranking', contest.key), _('Spotlight Ranking'))}}
+            {{ make_tab('spotlight_ranking', 'fa-star', url('spotlight_ranking', contest.key), _('Spotlight Ranking'))}}
         {% endif %}
         {% if contest.can_see_own_scoreboard(request.user) %}
             {{ make_tab('ranking', 'fa-bar-chart', url('contest_ranking', contest.key), _('Rankings')) }}

@@ -110,6 +110,7 @@
                 </div>
                 <div id="submit-bar" class="form-submit-group">
                     <button id="prepare-download" type="submit" class="main-download-action">
+                        <i class="fa-solid fa-gears btn-icon-mg1"></i>
                         {% if can_download_data %}
                             {{ _('Prepare new download') }}
                         {% else %}
@@ -117,7 +118,10 @@
                         {% endif %}
                     </button>
                     {% if can_download_data %}
-                        <a class="button main-download-action" href="{{ url('contest_download_data', contest.key) }}">{{ _('Download prepared data') }}</a>
+                        <a class="button main-download-action" href="{{ url('contest_download_data', contest.key) }}">
+                            <i class="fa-solid fa-download btn-icon-mg1"></i>
+                            {{ _('Download prepared data') }}
+                        </a>
                     {% endif %}
                 </div>
             </form>
@@ -127,7 +131,10 @@
                 <br>
                 {{ _('You will need to wait %(countdown)s to prepare a new data download.', countdown=as_countdown(time_until_can_prepare)) }}
             </div>
-            <a class="button aux-download-action" href="{{ url('contest_download_data', contest.key) }}">{{ _('Download data') }}</a>
+            <a class="button aux-download-action" href="{{ url('contest_download_data', contest.key) }}">
+                <i class="fa-solid fa-download btn-icon-mg1"></i>
+                {{ _('Download data') }}
+            </a>
         {% endif %}
     </div>
 {% endblock %}
