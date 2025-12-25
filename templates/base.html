@@ -388,6 +388,8 @@
           {% else %}
           rgba(200, 200, 200, 0.5)
           {% endif %}
+          {% else %}
+          rgba(99, 99, 99, 0.5)
           {% endif %}
           ;
           height: 4em;
@@ -440,6 +442,9 @@
             border: 1.5px solid rgb(123 123 123 / 24%);
             box-shadow: 1.3px 1.5px 9px rgb(180 180 180 / 14%);
           {% endif %}
+          {% else %}
+            border: 2px solid rgba(123, 123, 123, .3);
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
           {% endif %}
           /*---*/
 		  display: flex;
@@ -462,6 +467,8 @@
           {% else %}
           1px solid rgba(220, 220, 220, .8)
           {% endif %}
+          {% else %}
+          1px solid rgba(100, 100, 100, .5)
           {% endif %}
           ;
 		  border-radius: 50%;
@@ -474,6 +481,8 @@
           {% else %}
           rgba(222,222,222,0.1)
           {% endif %}
+          {% else %}
+          rgba(0,0,0,0.1)
           {% endif %}
           ;
 		  display: flex;
@@ -487,6 +496,9 @@
           background: linear-gradient(135deg, #bbb, rgba(11, 11, 11, .3));
           color: #ededed;
           {% endif %}
+          {% else %}
+          background: linear-gradient(135deg, #bbb, rgba(200, 200, 200, .3));
+          color: #474747;
           {% endif %}
           
 		  font-size: 1.8rem;
