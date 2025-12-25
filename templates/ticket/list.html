@@ -65,10 +65,10 @@
                 if ($row.length) {
                     var $status = $row.find('td').first().find('i');
                     if (ticket.open) {
-                        $status.removeClass('fa-check-circle').addClass('fa-exclamation-circle');
+                        $status.removeClass('fa-check-circle-o').addClass('fa-exclamation-circle');
                         notify('ticket', '{{ _('Reopened: ') }}' + ticket.title);
                     } else {
-                        $status.removeClass('fa-exclamation-circle').addClass('fa-check-circle');
+                        $status.removeClass('fa-exclamation-circle').addClass('fa-check-circle-o');
                         notify('ticket', '{{ _('Closed: ') }}' + ticket.title);
                     }
                 }
@@ -184,7 +184,7 @@
                         </select>
                     </div>
 
-                    <button type="submit" style="margin-left: auto" class="submit"><i class="fa-solid fa-magnifying-glass btn-icon-mg1"></i>{{ _('Go') }}</button>
+                    <button type="submit" style="margin-left: auto" class="submit">{{ _('Go') }}</button>
                 </form>
             </div>
         </aside>
