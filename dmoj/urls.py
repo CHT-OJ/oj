@@ -474,10 +474,3 @@ try:
         exec(f.read(), globals())
 except IOError:
     pass
-
-if settings.DEBUG:
-    from django.conf.urls.static import static as stc
-    urlpatterns += stc(
-        '/media/',
-        document_root=settings.MEDIA_ROOT
-    )

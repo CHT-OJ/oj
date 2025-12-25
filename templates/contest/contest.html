@@ -225,7 +225,7 @@
                                 <td style="width: 1em;">
                                     <a href="{{ url('user_submissions', problem.code, request.user.username) }}">
                                         {% if problem.is_public %}
-                                            <i class="attempted-problem-color fa fa-frown"></i>
+                                            <i class="attempted-problem-color fa fa-frown-o"></i>
                                         {% else %}
                                             <i class="attempted-problem-color fa fa-lock"></i>
                                         {% endif %}
@@ -254,10 +254,7 @@
                         {% if metadata.has_public_editorials %}
                             <td>
                                 {% if problem.is_public and problem.has_public_editorial %}
-                                    <a href="{{ url('problem_editorial', problem.code) }}">
-                                        <i class="fa-solid fa-book btn-icon-mg1"></i>
-                                        {{ _('Editorial') }}
-                                    </a>
+                                    <a href="{{ url('problem_editorial', problem.code) }}">{{ _('Editorial') }}</a>
                                 {% endif %}
                             </td>
                         {% endif %}
@@ -266,10 +263,7 @@
                 </tbody>
             </table>
             {% if can_view_all_problems %}
-            <a class="button" style="width: fit-content" href="{{ url('contest_all_problems', contest.key) }}">
-                <i class="fa-solid fa-list-check btn-icon-mg1"></i>
-                {{ _('All problems') }}
-            </a>
+            <a class="button" style="width: fit-content" href="{{ url('contest_all_problems', contest.key) }}">{{ _('All problems') }}</a>
             {% endif %}
         </div>
         {% if has_announcements or can_edit %}
@@ -298,10 +292,7 @@
                 {% if can_edit %}
                     <tr>
                         <td colspan="3">
-                            <a class="button" href="{{ url('contest_announce', contest.key) }}">
-                                <i class="fa-solid fa-plus btn-icon-mg1"></i>
-                                {{ _('Add an announcement') }}
-                            </a>
+                            <a class="button" href="{{ url('contest_announce', contest.key) }}">{{ _('Add an announcement') }}</a>
                         </td>
                     </tr>
                 {% endif %}
@@ -349,8 +340,8 @@
 
     <hr>
     <span class="social">
-        {{ post_to_facebook(request, contest, '<i class="fab fa-facebook"></i>') }}
-        {{ post_to_twitter(request, SITE_NAME + ':', contest, '<i class="fab fa-twitter"></i>') }}
+        {{ post_to_facebook(request, contest, '<i class="fa fa-facebook-official"></i>') }}
+        {{ post_to_twitter(request, SITE_NAME + ':', contest, '<i class="fa fa-twitter"></i>') }}
     </span>
 
 

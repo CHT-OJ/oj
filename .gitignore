@@ -43,7 +43,3 @@ fc_*
 local_urls.
 judge/migrations/*
 <desired bridge log path>
-run1.sh
-run2.sh
-chk_branch.sh
-recollect_style.sh

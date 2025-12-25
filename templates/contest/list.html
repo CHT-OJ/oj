@@ -71,7 +71,6 @@
 {% macro contest_head(contest) %}
     {% spaceless %}
         <a href="{{ url('contest_view', contest.key) }}" class="contest-list-title">
-            <i class="fa-solid fa-award btn-icon-mg1"></i>
             {{- contest.name -}}
         </a>
         <span class="contest-tags">
@@ -151,18 +150,14 @@
             {% if contest.key in finished_contests or request.profile in contest.authors.all() or request.profile in contest.curators.all() or request.profile in contest.testers.all() %}
                 <form action="{{ url('contest_join', contest.key) }}" method="post">
                     {% csrf_token %}
-                    <button type="submit" class="unselectable button full participate-button spectate-warning">
-                        <i class="fas fa-eye btn-icon-mg1"></i>
-                        {{ _('Spectate') }}
-                    </button>
+                    <input type="submit" class="unselectable button full participate-button spectate-warning"
+                           value="{{ _('Spectate') }}">
                 </form>
             {% else %}
                 <form action="{{ url('contest_join', contest.key) }}" method="post">
                     {% csrf_token %}
-                    <button type="submit" class="unselectable button full participate-button join-warning">
-                        <i class="fas fa-sign-in-alt btn-icon-mg1"></i>
-                        {{ _('Join') }}
-                    </button>
+                    <input type="submit" class="unselectable button full participate-button join-warning"
+                        value="{{ _('Join') }}">
                 </form>
             {% endif %}
         </td>
@@ -183,10 +178,8 @@
             {% else %}
                 <form action="{{ url('contest_register', contest.key) }}" method="post">
                     {% csrf_token %}
-                    <button type="submit" class="unselectable button full participate-button register-warning" style="background: linear-gradient(to bottom, #87ab69 0, #4b6043 100%) repeat-x">
-                        <i class="fas fa-pen btn-icon-mg1"></i>
-                        {{ _('Register') }}
-                    </button>
+                    <input type="submit" class="unselectable button full participate-button register-warning" style="background: linear-gradient(to bottom, #87ab69 0, #4b6043 100%) repeat-x"
+                            value="{{ _('Register') }}">
                 </form>
             {% endif %}
         {% endif %}
@@ -363,10 +356,8 @@
                             {% if not contest.disallow_virtual %}
                                 <td><form action="{{ url('contest_join', contest.key) }}" method="post">
                                     {% csrf_token %}
-                                    <button type="submit" class="unselectable button full participate-button">
-                                        <i class="fas fa-sign-in-alt btn-icon-mg1"></i>
-                                        {{ _('Virtual join') }}
-                                    </button>
+                                    <input type="submit" class="unselectable button full participate-button"
+                                           value="{{ _('Virtual join') }}">
                                 </form></td>
                             {% else %}
                                 <td></td>
