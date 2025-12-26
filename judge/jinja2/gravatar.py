@@ -1,7 +1,7 @@
 import hashlib
 
-from django.contrib.auth.models import AbstractUser
 from django.conf import settings
+from django.contrib.auth.models import AbstractUser
 from django.utils.http import urlencode
 
 from judge.models import Profile
@@ -33,7 +33,7 @@ def gravatar(email, size=80, default=None):
         except Profile.DoesNotExist:
             return fallback(email, size, default)
     else:
-        return "https://www.gravatar.com/avatar/"
+        return 'https://www.gravatar.com/avatar/'
 
 
 def fallback(email, size, default):
