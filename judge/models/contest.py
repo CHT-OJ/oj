@@ -35,7 +35,7 @@ class ContestTag(models.Model):
     color_validator = RegexValidator('^#(?:[A-Fa-f0-9]{3}){1,2}$', _('Invalid colour.'))
 
     key = models.CharField(max_length=50, verbose_name=_('tag key'), unique=True,
-                            validators=[RegexValidator(r'^[a-z-]+$', message=_('Lowercase letters and hyphens only.'))])
+                           validators=[RegexValidator(r'^[a-z-]+$', message=_('Lowercase letters and hyphens only.'))])
 
     display_name = models.CharField(max_length=90, verbose_name=_('tag display name'), unique=True, default='')
 
@@ -61,6 +61,7 @@ class ContestTag(models.Model):
     class Meta:
         verbose_name = _('contest tag')
         verbose_name_plural = _('contest tags')
+
 
 class Contest(models.Model):
     SCOREBOARD_VISIBLE = 'V'

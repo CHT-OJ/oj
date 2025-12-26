@@ -44,7 +44,7 @@ from judge.contest_format import ICPCContestFormat
 from judge.forms import ContestAnnouncementForm, ContestCloneForm, ContestDownloadDataForm, ContestForm, \
     ProposeContestProblemFormSet
 from judge.models import Contest, ContestAnnouncement, ContestMoss, ContestParticipation, ContestProblem, ContestTag, \
-    Organization, Problem, ProblemClarification, Profile, Submission, WarningLog, tag
+    Organization, Problem, ProblemClarification, Profile, Submission, WarningLog
 from judge.tasks import on_new_contest, prepare_contest_data, run_moss
 from judge.utils.celery import redirect_to_task_status, task_status_by_id, task_status_url_by_id
 from judge.utils.cms import parse_csv_ranking
@@ -162,6 +162,7 @@ class ContestList(QueryStringSortMixin, DiggPaginatorMixin, TitleMixin, ContestL
         context.update(self.get_sort_paginate_context())
         return context
 
+
 class ContestTagList(QueryStringSortMixin, DiggPaginatorMixin, TitleMixin, ContestListMixin, ListView):
     model = Contest
     paginate_by = 20
@@ -233,6 +234,7 @@ class ContestTagList(QueryStringSortMixin, DiggPaginatorMixin, TitleMixin, Conte
         context.update(self.get_sort_context())
         context.update(self.get_sort_paginate_context())
         return context
+
 
 class PrivateContestError(Exception):
     def __init__(self, name, is_private, is_organization_private, orgs):
@@ -1510,7 +1512,6 @@ class ContestTagDetail(TitleMixin, ContestTagDetailAjax):
 
     def get_title(self):
         return _('Contest tag: %s') % self.object.name
-    
 
 
 class CreateContest(PermissionRequiredMixin, TitleMixin, CreateView):
