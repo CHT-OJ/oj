@@ -31,7 +31,7 @@ from judge.ratings import rating_class
 from judge.utils.float_compare import float_compare_equal
 from judge.utils.two_factor import webauthn_decode
 
-__all__ = ['Organization', 'Profile', 'OrganizationRequest', 'WebAuthnCredential', 'WarningLog', 'Logo']
+__all__ = ['Organization', 'Profile', 'OrganizationRequest', 'WebAuthnCredential', 'WarningLog']
 
 
 class ContentTypeRestrictedFileField(VersatileImageField):

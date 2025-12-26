@@ -291,17 +291,11 @@
                         {% if form.display_badge %}
                             <td><div class="block-header grayed">{{ _('Display badge') }}:</div></td>
                         {% endif %}
-                        {% if form.user_rank_logo %}
-                            <td><div class="block-header grayed">Logo:</div></td>
-                        {% endif %}
                     </tr>
                     <tr>
                         <td>{{ form_user.first_name }}</td>
                         {% if form.display_badge %}
                             <td>{{ form.display_badge }}</td>
-                        {% endif %}
-                        {% if form.user_rank_logo %}
-                            <td>{{ form.user_rank_logo }}</td>
                         {% endif %}
                     </tr>
                 </table>
@@ -375,7 +369,6 @@
                         </td></tr>
                         <tr><td>
                             <a href="{{ url('password_change') }}" class="inline-header">
-                                <i class="fa-solid fa-key btn-icon-mg1"></i>
                                 {{ _('Change your password') }}
                             </a>
                         </td></tr>
@@ -459,10 +452,7 @@
             </div>
             <hr>
 
-            <button type="submit" class="submit-bar">
-                <i class="fa-solid fa-arrows-rotate btn-icon-mg1"></i>
-                {{ _('Update profile') }}
-            </button>
+            <input type="submit" class="submit-bar" value="{{ _('Update profile') }}">
         </form>
     </div>
 {% endblock %}

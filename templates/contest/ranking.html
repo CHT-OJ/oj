@@ -539,7 +539,7 @@
             <input id="show-virtual-participations-checkbox" type="checkbox" style="vertical-align: bottom">
             <label for="show-virtual-participations-checkbox" style="vertical-align: bottom">{{ _('Show virtual participations') }}</label>
             {% if not is_ICPC_format %}
-            <a href="#" onclick="download_table_as_csv()" style="float: right;"><i class="fa-solid fa-download btn-icon-mg1"></i>{{ _('Download as CSV') }}</a>
+            <a href="#" onclick="download_table_as_csv()" style="float: right;">{{ _('Download as CSV') }}</a>
             {% endif %}
         {% endif %}
     </div>

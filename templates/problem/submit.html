@@ -320,11 +320,8 @@
         {% else %}
             <div class="submit-bar">
                 {{ form.judge }}
-                <button type="submit" class="button"
+                <input type="submit" value="{{ _('Submit!') }}" class="button"
                        {% if request.in_contest and submission_limit and not submissions_left %}disabled{% endif %}>
-                    <i class="fa-solid fa-file-arrow-up btn-icon-mg1"></i>
-                    {{ _('Submit!') }}
-                </button>
             </div>
         {% endif %}
     </form>

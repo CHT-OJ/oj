@@ -78,7 +78,7 @@
     <div class="problem-title">
         {% if request.user.is_authenticated %}
             {% if problem.id in completed_problem_ids %}
-                <a href="{{ url('user_submissions', problem.code, request.user.username) }}" style="margin-right:9px">
+                <a href="{{ url('user_submissions', problem.code, request.user.username) }}">
                     {% if problem.is_public or request.in_contest %}
                         <i class="solved-problem-color title-state fa fa-check-circle"></i>
                     {% else %}
@@ -86,9 +86,9 @@
                     {% endif %}
                 </a>
             {% elif problem.id in attempted_problems %}
-                <a href="{{ url('user_submissions', problem.code, request.user.username) }}" style="margin-right:9px">
+                <a href="{{ url('user_submissions', problem.code, request.user.username) }}">
                     {% if problem.is_public or request.in_contest %}
-                        <i class="attempted-problem-color title-state fa fa-frown"></i>
+                        <i class="attempted-problem-color title-state fa fa-frown-o"></i>
                     {% else %}
                         <i class="attempted-problem-color title-state fa fa-lock"></i>
                     {% endif %}
@@ -114,7 +114,8 @@
         <a id="pdf_button" class="view-pdf" href='#'>
         {% endif %}
             <span class="pdf-icon">
-                <span class="fa fa-file-pdf pdf-icon-logo"></span>
+                <span class="fa fa-file-pdf-o pdf-icon-logo"></span>
+                <span class="pdf-icon-bar"></span>
             </span>
             {{ _('View as PDF') }}
         </a>
@@ -125,7 +126,6 @@
     {% if request.user.is_authenticated and request.in_contest and submission_limit %}
         {% if submissions_left > 0 %}
             <a href="{{ url('problem_submit', problem.code) }}" class="unselectable button full">
-                <i class="fa-solid fa-paper-plane btn-icon-mg1"></i>
                 {{ _('Submit solution') }}
             </a>
             <div class="submissions-left">
@@ -136,38 +136,34 @@
                 {% endtrans %}
             </div>
         {% else %}
-            <a class="unselectable button full disabled">
-                <i class="fa-solid fa-paper-plane btn-icon-mg1"></i>
-                {{ _('Submit solution') }}
-            </a>
+            <a class="unselectable button full disabled">{{ _('Submit solution') }}</a>
             <div class="no-submissions-left submissions-left">{{ _('0 submissions left') }}</div>
         {% endif %}
     {% else %}
-        <a href="{{ url('problem_submit', problem.code) }}" class="unselectable button full submit-btn">
-            <i class="fa-solid fa-paper-plane btn-icon-mg1"></i>
+        <a href="{{ url('problem_submit', problem.code) }}" class="unselectable button full">
             {{ _('Submit solution') }}
         </a>
     {% endif %}
 
     <hr style="padding-bottom: 0.3em">
-    <div><a href="{{ url('view_public_testcase',problem.code) }}"><i class="fa-solid fa-file-lines btn-icon-mg1"></i>{{ _('View testcase') }}</a></div>
+    <div><a href="{{ url('view_public_testcase',problem.code) }}">{{ _('View testcase') }}</a></div>
     {% if request.in_contest and contest_problem %}
         {% set contest = contest_problem.contest %}
-        <div><a href="{{ url('contest_user_submissions', contest.key, request.user.username, problem.code) }}"><i class="fa-solid fa-file-arrow-up btn-icon-mg1"></i>{{ _('My submissions') }}</a></div>
+        <div><a href="{{ url('contest_user_submissions', contest.key, request.user.username, problem.code) }}">{{ _('My submissions') }}</a></div>
         {% if contest.can_see_full_submission_list(request.user) %}
-            <div><a href="{{ url('chronological_submissions', problem.code) }}"><i class="fa-solid fa-list btn-icon-mg1"></i>{{ _('All submissions') }}</a></div>
-            <div><a href="{{ url('contest_ranked_submissions', contest.key, problem.code) }}"><i class="fa-solid fa-star btn-icon-mg1"></i>{{ _('Best submissions') }}</a></div>
+            <div><a href="{{ url('chronological_submissions', problem.code) }}">{{ _('All submissions') }}</a></div>
+            <div><a href="{{ url('contest_ranked_submissions', contest.key, problem.code) }}">{{ _('Best submissions') }}</a></div>
         {% endif %}
     {% else %}
         {% if request.user.is_authenticated and has_submissions %}
             <div>
-                <a href="{{ url('user_submissions', problem.code, request.user.username) }}"><i class="fa-solid fa-file-arrow-up btn-icon-mg1"></i>{{ _('My submissions') }}</a>
+                <a href="{{ url('user_submissions', problem.code, request.user.username) }}">{{ _('My submissions') }}</a>
             </div>
         {% endif %}
         {% if request.user.is_authenticated %}
         {% endif %}
-        <div><a href="{{ url('chronological_submissions', problem.code) }}"><i class="fa-solid fa-list btn-icon-mg1"></i>{{ _('All submissions') }}</a></div>
-        <div><a href="{{ url('ranked_submissions', problem.code) }}"><i class="fa-solid fa-star btn-icon-mg1"></i>{{ _('Best submissions') }}</a></div>
+        <div><a href="{{ url('chronological_submissions', problem.code) }}">{{ _('All submissions') }}</a></div>
+        <div><a href="{{ url('ranked_submissions', problem.code) }}">{{ _('Best submissions') }}</a></div>
     {% endif %}
     {% if (editorial and editorial.is_accessible_by(request.user)) and not request.in_contest %}
         <hr>
@@ -176,18 +172,18 @@
     {% if can_edit_problem %}
         <hr>
         <div>
-            <a href="{{ url('problem_ticket_list', problem.code) }}"><i class="fa-solid fa-chart-pie btn-icon-mg1"></i>{{ _('Manage tickets') }}
+            <a href="{{ url('problem_ticket_list', problem.code) }}">{{ _('Manage tickets') }}
                 {% if num_open_tickets %}<span class="badge">{{ num_open_tickets }}</span>{% endif %}
             </a>
         </div>
-        <div><a href="{{ url('problem_edit', problem.code) }}"><i class="fa-solid fa-pen-to-square btn-icon-mg1"></i>{{ _('Edit problem') }}</a></div>
+        <div><a href="{{ url('problem_edit', problem.code) }}">{{ _('Edit problem') }}</a></div>
         {% if not problem.is_manually_managed %}
-            <div><a href="{{ url('problem_data', problem.code) }}"><i class="fa-solid fa-pen btn-icon-mg1"></i>{{ _('Edit test data') }}</a></div>
+            <div><a href="{{ url('problem_data', problem.code) }}">{{ _('Edit test data') }}</a></div>
         {% endif %}
     {% elif request.user.is_authenticated and has_tickets %}
         <hr>
         <div>
-            <a href="{{ url('problem_ticket_list', problem.code) }}"><i class="fa-solid fa-file-chart-column btn-icon-mg1"></i>{{ _('My tickets') }}
+            <a href="{{ url('problem_ticket_list', problem.code) }}">{{ _('My tickets') }}
                 {% if num_open_tickets %}<span class="badge">{{ num_open_tickets }}</span>{% endif %}
             </a>
         </div>
@@ -195,13 +191,13 @@
 
     {% if problem.is_subs_manageable_by(request.user) %}
         <div>
-            <a href="{{ url('problem_manage_submissions', problem.code) }}"><i class="fa-solid fa-folder-open btn-icon-mg1"></i>{{ _('Manage submissions') }}</a>
+            <a href="{{ url('problem_manage_submissions', problem.code) }}">{{ _('Manage submissions') }}</a>
         </div>
     {% endif %}
 
     {% if perms.judge.clone_problem and can_edit_problem %}
         <div>
-            <a href="{{ url('problem_clone', problem.code) }}"><i class="fa-solid fa-copy btn-icon-mg1"></i>{{ _('Clone problem') }}</a>
+            <a href="{{ url('problem_clone', problem.code) }}">{{ _('Clone problem') }}</a>
         </div>
     {% endif %}
 
@@ -218,7 +214,7 @@
         </span>
     </div>
     <div class="problem-info-entry">
-        <i class="fa fa-clock fa-fw"></i><span class="pi-name">{{ _('Time limit:') }}</span>
+        <i class="fa fa-clock-o fa-fw"></i><span class="pi-name">{{ _('Time limit:') }}</span>
         <span class="pi-value">{{ problem.time_limit }}s</span>
     </div>
     <div class="problem-lang-limits">
@@ -243,7 +239,7 @@
     </div>
     {% if problem.io_method.method == 'standard' %}
         <div class="problem-info-entry">
-            <i class="fa fa-keyboard fa-fw"></i><span class="pi-name">{{ _('Input:') }}</span>
+            <i class="fa fa-keyboard-o fa-fw"></i><span class="pi-name">{{ _('Input:') }}</span>
             <span class="pi-value">stdin</span>
         </div>
         <div class="problem-info-entry">
@@ -252,7 +248,7 @@
         </div>
     {% elif problem.io_method.method == 'file' %}
         <div class="problem-info-entry">
-            <i class="fa fa-keyboard fa-fw"></i><span class="pi-name">{{ _('Input:') }}</span>
+            <i class="fa fa-keyboard-o fa-fw"></i><span class="pi-name">{{ _('Input:') }}</span>
             <span class="pi-value"><i>{{ problem.io_method.input }}</i></span>
         </div>
         <div class="problem-info-entry">
@@ -268,7 +264,7 @@
             {% with authors=problem.authors.all() %}
                 {% if authors %}
                     <div class="problem-info-entry">
-                        <i class="fa fa-pencil-square fa-fw"></i><span
+                        <i class="fa fa-pencil-square-o fa-fw"></i><span
                             class="pi-name">{% trans trimmed count=authors|length %}
                         Author:
                         {% pluralize count %}
@@ -279,7 +275,7 @@
                 {% endif %}
                 {% if problem.suggester %}
                 <div class="problem-info-entry">
-                    <i class="fa fa-pencil-square fa-fw"></i><span
+                    <i class="fa fa-pencil-square-o fa-fw"></i><span
                         class="pi-name">{{ _("Suggester:") }}</span>
                         <div class="pi-value authors-value">{{ link_user(problem.suggester) }}</div>
                     </div>
@@ -290,7 +286,7 @@
 
     {% if problem.source %}
         <div class="problem-info-entry">
-            <i class="fa fa-pencil-square fa-fw"></i><span
+            <i class="fa fa-pencil-square-o fa-fw"></i><span
                 class="pi-name">{{ _('Problem source:') }}</span>
             <div class="pi-value authors-value">{{ problem.source }}</div>
         </div>
@@ -373,10 +369,8 @@
     {% if request.user.is_authenticated and not request.profile.mute %}
         <a href="{{ url('new_problem_ticket', problem.code) }}" class="button clarify">
             {%- if comment_lock and request.profile.current_contest.live -%}
-                <i class="fa-solid fa-bug btn-icon-mg1"></i>
                 {{ _('Request clarification') }}
             {%- else -%}
-                <i class="fa-solid fa-flag btn-icon-mg1"></i>
                 {{ _('Report an issue') }}
             {%- endif -%}
         </a>

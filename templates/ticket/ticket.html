@@ -11,9 +11,9 @@
 
             function update_ticket_state(open) {
                 if (open)
-                    $status.removeClass('fa-check-circle').addClass('fa-exclamation-circle');
+                    $status.removeClass('fa-check-circle-o').addClass('fa-exclamation-circle');
                 else
-                    $status.removeClass('fa-exclamation-circle').addClass('fa-check-circle');
+                    $status.removeClass('fa-exclamation-circle').addClass('fa-check-circle-o');
                 $('.close-ticket').toggle(open);
                 $('.open-ticket').toggle(!open);
             }
@@ -171,7 +171,7 @@
             <i class="fa {% if ticket.is_contributive %}fa-arrow-up{% else %}fa-minus{% endif %}"></i>
         </div>
         <div class="status">
-            <i class="fa {% if ticket.is_open %}fa-exclamation-circle{% else %}fa-check-circle{% endif %}"></i>
+            <i class="fa {% if ticket.is_open %}fa-exclamation-circle{% else %}fa-check-circle-o{% endif %}"></i>
         </div>
         <div class="title">{{ ticket.title }}</div>
         <small>#{{ ticket.id }}</small>
@@ -203,10 +203,7 @@
                             </div>
                         {% endif %}
                         <div class="body-block">{{ form.body }}</div>
-                        <button style="float:right" type="submit" class="button">
-                            <i class="fa-solid fa-pen-to-square btn-icon-mg1"></i>
-                            {{ _('Post!') }}
-                        </button>
+                        <input style="float:right" type="submit" value="{{ _('Post!') }}" class="button">
                     </form>
                 </div>
             </section>
@@ -252,15 +249,15 @@
                     </div>
 
                     <button data-ajax="{{ url('ticket_good', ticket.id) }}" data-contributive="1" class="vote-good"
-                        {% if ticket.is_contributive %}style="display: none"{% endif %}><i class="fa-solid fa-arrow-up btn-icon-mg1"></i>{{ _('Upvote') }}</button>
+                        {% if ticket.is_contributive %}style="display: none"{% endif %}>{{ _('Upvote') }}</button>
                     <button data-ajax="{{ url('ticket_norm', ticket.id) }}" data-contributive="0" class="vote-norm"
-                        {% if not ticket.is_contributive %}style="display: none"{% endif %}><i class="fa-solid fa-rotate-left btn-icon-mg1"></i>{{ _('Undo vote') }}</button>
+                        {% if not ticket.is_contributive %}style="display: none"{% endif %}>{{ _('Undo vote') }}</button>
                 {% endif %}
 
                 <button data-ajax="{{ url('ticket_close', ticket.id) }}" data-open="0" class="close-ticket"
-                        {% if not ticket.is_open %}style="display: none"{% endif %}><i class="fa-solid fa-xmark btn-icon-mg1"></i>{{ _('Close ticket') }}</button>
+                        {% if not ticket.is_open %}style="display: none"{% endif %}>{{ _('Close ticket') }}</button>
                 <button data-ajax="{{ url('ticket_open', ticket.id) }}" data-open="1" class="open-ticket"
-                        {% if ticket.is_open %}style="display: none"{% endif %}><i class="fa-solid fa-arrows-rotate btn-icon-mg1"></i>{{ _('Reopen ticket') }}</button>
+                        {% if ticket.is_open %}style="display: none"{% endif %}>{{ _('Reopen ticket') }}</button>
             </div>
         </aside>
     </div>
