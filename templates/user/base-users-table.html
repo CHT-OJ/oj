@@ -30,7 +30,9 @@
                         {% if user.user_rank_logo and user.user_rank_logo.image.url %}
                             <img id="avatarPreview" src="/media{{ user.user_rank_logo.image.url }}">
                         {% else %}
-                            <div id="avatarPlaceholder" data-username="{{ user.user.username }}"></div>
+                            <div id="avatarPlaceholder" data-username="{{ user.user.username }}">
+                                <i class="fa-solid fa-graduation-cap"></i>
+                            </div>
                         {% endif %}
                         </div>
                         <div class="u-logo-sep1"></div>

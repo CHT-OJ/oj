@@ -771,15 +771,6 @@ function initialsFromUsername(name) {
     if (parts.length === 1) return parts[0].slice(0,2).toUpperCase();
     return (parts[0][0] + (parts[1][0] || '')).toUpperCase();
 }
-document.addEventListener('DOMContentLoaded', function () {
-    const placeholder = document.querySelectorAll("#avatarPlaceholder");
-    if (placeholder.length < 1) return;
-    placeholder.forEach((imgAvt) => {
-        // console.log(imgAvt);
-        const userNameToGet = imgAvt.dataset.username;
-        imgAvt.innerHTML = `<i class="fa-solid fa-graduation-cap"></i>`;
-    });
-});
 </script>
 </html>
 
