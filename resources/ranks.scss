@@ -76,7 +76,46 @@
     color: #e7191f !important;
 }
 
+.Firefly a, .Firefly {
 
+    font-weight: bold !important;
+    background: linear-gradient(90deg, #FE7220 20%, #FFFE80 50%, #80EE87 100%);
+
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+
+    filter: drop-shadow(0px 0px 1.7px rgba(254, 114, 32, 0.3))
+            drop-shadow(0 0 0.5px rgba(254,114,32,0.6))
+            drop-shadow(0 0 0.5px rgba(128,238,135,0.5));
+            
+    display: inline-block;
+}
+
+.Firefly a::before {
+    content: "🔥";
+    -webkit-text-fill-color: initial;
+}
+
+.outline a, .outline {
+    font-weight: bold !important;
+
+    -webkit-text-fill-color: transparent;
+    -webkit-text-stroke: 1.2px #c30202;
+
+    text-decoration: none !important;
+}
+
+.custom3 a, .custom3 {
+
+    font-weight: bold !important;
+    background: url("https://sanctuarymentalhealth.org/wp-content/uploads/2021/03/The-Starry-Night-1200x630-1.jpg.webp");
+    background-size: 100% 100%;
+
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+
+    display: inline-block;
+}
 
 .deleted-user, .deleted-user a {
     color: #999;

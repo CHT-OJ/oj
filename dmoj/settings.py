@@ -77,6 +77,9 @@ VNOJ_DISPLAY_RANKS = (
     ('custom1', _('Sakura')),
     ('custom2', _('Rainbow')),
     ('tourist', _('Tourist')),
+    ('Firefly', _('Firefly')),
+    ('outline', _('Outline')),
+    ('custom3', _('custom3'))
 )
 
 # Maximum number of organization a single user can be admin, to be able to
