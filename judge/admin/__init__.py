@@ -15,9 +15,9 @@ from judge.admin.tag import TagAdmin, TagGroupAdmin, TagProblemAdmin
 from judge.admin.taxon import ProblemGroupAdmin, ProblemTypeAdmin
 from judge.admin.ticket import TicketAdmin
 from judge.models import Badge, BlogPost, Comment, CommentLock, Contest, ContestParticipation, \
-    ContestTag, Judge, Language, License, MiscConfig, NavigationBar, Organization, \
+    ContestTag, Judge, Language, License, Logo, MiscConfig, NavigationBar, Organization, \
     OrganizationRequest, Problem, ProblemGroup, ProblemType, Profile, Submission, Tag, \
-    TagGroup, TagProblem, Ticket, WarningLog, Logo
+    TagGroup, TagProblem, Ticket, WarningLog
 admin.site.register(Logo)
 admin.site.register(WarningLog, WarningLogAdmin)
 admin.site.register(BlogPost, BlogPostAdmin)
