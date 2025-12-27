@@ -157,9 +157,10 @@ class Badge(models.Model):
 
 
 class Logo(models.Model):
-    name = models.CharField(max_length=128, verbose_name=_('logo name'), default='cht')
+    name = models.CharField(max_length=128, verbose_name=_('logo name'))
+    is_admin_exclusive = models.BooleanField(verbose_name=_('admin exclusive'), default=False)
     image = ContentTypeRestrictedFileField(upload_to='logo/', content_types=['image/*'],
-                                           null=True, verbose_name='logo file')
+                                           null=True, verbose_name=_('logo file'))
 
     def __str__(self):
         return self.name
@@ -170,8 +171,8 @@ def user_directory_path(instance, _):
 
 
 class Profile(models.Model):
-    user_rank_logo = models.ForeignKey(Logo, verbose_name='Profile Logo', blank=True,
-                                       null=True, on_delete=models.SET_NULL)
+    user_rank_logo = models.ForeignKey(Logo, verbose_name='Profile Logo',
+                                       blank=True, null=True, on_delete=models.SET_NULL)
 
     user = models.OneToOneField(User, verbose_name=_('user associated'), on_delete=models.CASCADE)
     about = models.TextField(verbose_name=_('self-description'), null=True, blank=True)
@@ -472,8 +473,8 @@ class Profile(models.Model):
 class WarningLog(models.Model):
     offender = models.ForeignKey(Profile, on_delete=models.CASCADE,
                                  related_name='warning_offender', verbose_name=_('offender'))
-    judge = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='warning_judge',
-                              verbose_name=_('judge_admin'))
+    judge = models.ForeignKey(Profile, on_delete=models.CASCADE,
+                              related_name='warning_judge', verbose_name=_('judge_admin'))
     reason = models.CharField(max_length=255, null=False, blank=False, verbose_name=_('warning reason'))
     timestamp = models.DateTimeField(auto_now_add=True, verbose_name=_('timestamp'))
 
