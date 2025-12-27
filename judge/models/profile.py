@@ -158,6 +158,7 @@ class Badge(models.Model):
 
 class Logo(models.Model):
     name = models.CharField(max_length=128, verbose_name=_('logo name'))
+    is_admin_exclusive = models.BooleanField(verbose_name=_('admin exclusive'), default=False)
     image = ContentTypeRestrictedFileField(upload_to='logo/', content_types=['image/*'],
                                            null=True, verbose_name=_('logo file'))
 

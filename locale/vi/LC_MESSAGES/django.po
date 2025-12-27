@@ -7653,6 +7653,10 @@ msgstr "Chọn tất cả"
 msgid "logo name"
 msgstr "Tên logo"
 
-#: judge/models/profile.py: 162
+#: judge/models/profile.py: 163
 msgid "logo file"
 msgstr "File logo"
+
+#: judge/models/profile.py: 161
+msgid "admin exclusive"
+msgstr "Chỉ cho admin"
