@@ -479,5 +479,5 @@ if settings.DEBUG:
     from django.conf.urls.static import static as stc
     urlpatterns += stc(
         '/media/',
-        document_root=settings.MEDIA_ROOT
+        document_root=settings.MEDIA_ROOT,
     )
