@@ -12,7 +12,10 @@
             <form action="{{ kick_url }}" method="POST" class="kick-form">
                 {% csrf_token %}
                 <input type="hidden" name="user" value="{{ user.id }}">
-                <a href="#" class="button">{{ _('Kick') }}</a>
+                <a href="#" class="button">
+                    <i class="fa-solid fa-user-slash btn-icon-mg1"></i>
+                    {{ _('Kick') }}
+                </a>
             </form>
         </td>
     {% endif %}

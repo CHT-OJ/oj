@@ -31,7 +31,10 @@
                     </tr>
                 {% endfor %}
             </table>
-            <button type="submit">{{ _('Update') }}</button>
+            <button type="submit">
+                <i class="fa-solid fa-rotate btn-icon-mg1"></i>
+                {{ _('Update') }}
+            </button>
         </form>
     {% else %}
         <p>{{ _('There are no requests to approve.') }}</p>

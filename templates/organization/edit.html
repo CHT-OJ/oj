@@ -21,8 +21,10 @@
         <div style="display: flex; justify-content: flex-end;">
             <button class="submit-bar" type="submit">
                 {% if request.resolver_match.url_name == 'organization_create' %}
+                    <i class="fa-solid fa-circle-plus btn-icon-mg1"></i>
                     {{ _('Create') }}
                 {% else %}
+                    <i class="fa-solid fa-rotate btn-icon-mg1"></i>
                     {{ _('Update') }}
                 {% endif %}
             </button>
