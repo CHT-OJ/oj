@@ -99,7 +99,10 @@ class ProfileForm(ModelForm):
     def __init__(self, *args, **kwargs):
         user = kwargs.pop('user', None)
         super(ProfileForm, self).__init__(*args, **kwargs)
-
+        if not user.is_staff:
+            self.fields['user_rank_logo'].queryset = (
+                self.fields['user_rank_logo'].queryset.filter(is_admin_exclusive=False)
+            )
         self.fields['display_badge'].required = False
         self.fields['display_badge'].queryset = self.instance.badges.all()
         if not self.fields['display_badge'].queryset:
