@@ -470,20 +470,12 @@ class Profile(models.Model):
 
 
 class WarningLog(models.Model):
-<<<<<<< HEAD
     offender = models.ForeignKey(Profile, on_delete=models.CASCADE,
                                  related_name='warning_offender', verbose_name=_('offender'))
     judge = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='warning_judge',
                               verbose_name=_('judge_admin'))
     reason = models.CharField(max_length=255, null=False, blank=False, verbose_name=_('warning reason'))
     timestamp = models.DateTimeField(auto_now_add=True, verbose_name=_('timestamp'))
-=======
-    offender = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='warning_offender')
-    judge = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='warning_judge')
-    reason = models.CharField(max_length=255, null=False, blank=False)
-    timestamp = models.DateTimeField(auto_now_add=True)
->>>>>>> 300b4d89 (Revert "Update contest and profile models: rename fields and enhance translations")
-
     class Meta:
         db_table = 'judge_warninglog'
         constraints = [
