@@ -477,6 +477,7 @@ class WarningLog(models.Model):
     reason = models.CharField(max_length=255, null=False, blank=False,
                               verbose_name=_('warning reason'))
     timestamp = models.DateTimeField(auto_now_add=True, verbose_name=_('timestamp'))
+
     class Meta:
         db_table = 'judge_warninglog'
         constraints = [
