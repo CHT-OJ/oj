@@ -31,7 +31,7 @@ from judge.ratings import rating_class
 from judge.utils.float_compare import float_compare_equal
 from judge.utils.two_factor import webauthn_decode
 
-__all__ = ['Organization', 'Profile', 'OrganizationRequest', 'WebAuthnCredential', 'WarningLog']
+__all__ = ['Organization', 'Profile', 'OrganizationRequest', 'WebAuthnCredential', 'WarningLog', 'Logo']
 
 
 class ContentTypeRestrictedFileField(VersatileImageField):
@@ -157,10 +157,9 @@ class Badge(models.Model):
 
 
 class Logo(models.Model):
-    name = models.CharField(max_length=128, verbose_name=_('logo name'), default='cht')
+    name = models.CharField(max_length=128, verbose_name=_('logo name'))
     image = ContentTypeRestrictedFileField(upload_to='logo/', content_types=['image/*'],
                                            null=True, verbose_name='logo file')
-
     def __str__(self):
         return self.name
 

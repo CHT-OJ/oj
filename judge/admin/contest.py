@@ -153,9 +153,10 @@ class ContestAdmin(NoBatchDeleteMixin, VersionAdmin):
         (None, {'fields': ('key', 'name', 'authors', 'curators', 'testers')}),
         (_('Settings'), {'fields': ('is_visible', 'use_clarifications', 'push_announcements', 'disallow_virtual',
                                     'hide_problem_tags', 'hide_problem_authors', 'show_short_display',
-                                    'run_pretests_only', 'locked_after', 'scoreboard_visibility',
-                                    'ranking_access_code', 'scoreboard_cache_timeout', 'show_submission_list',
-                                    'points_precision', 'banned_judges', 'allow_spotlight')}),
+                                    'run_pretests_only', 'rank_display_options', 'locked_after',
+                                    'scoreboard_visibility', 'ranking_access_code', 'scoreboard_cache_timeout',
+                                    'show_submission_list','points_precision', 'banned_judges',
+                                    'allow_spotlight',)}),
         (_('Scheduling'), {'fields': ('start_time', 'end_time', 'registration_start', 'registration_end',
                                       'time_limit')}),
         (_('Details'), {'fields': ('description', 'og_image', 'logo_override_image', 'tags', 'summary')}),
@@ -167,7 +168,7 @@ class ContestAdmin(NoBatchDeleteMixin, VersionAdmin):
         (_('Ranking'), {'fields': ('csv_ranking',)}),
     )
     list_display = ('key', 'name', 'is_visible', 'is_rated', 'locked_after', 'start_time', 'end_time', 'time_limit',
-                    'user_count', 'allow_spotlight')
+                    'user_count', 'allow_spotlight', 'rank_display_options')
     search_fields = ('key', 'name')
     inlines = [ContestProblemInline, ContestAnnouncementInline]
     actions_on_top = True
