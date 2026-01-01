@@ -916,7 +916,7 @@ ContestRankingProfile = namedtuple(
     'ContestRankingProfile',
     'id user css_class username avt_url points cumtime tiebreaker organization '
     'participation participation_rating problem_cells result_cell virtual '
-    'display_name user_rank_logo'
+    'display_name user_rank_logo',
 )
 
 BestSolutionData = namedtuple('BestSolutionData', 'code points time state is_pretested')

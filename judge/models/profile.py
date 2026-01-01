@@ -160,6 +160,7 @@ class Logo(models.Model):
     name = models.CharField(max_length=128, verbose_name=_('logo name'))
     image = ContentTypeRestrictedFileField(upload_to='logo/', content_types=['image/*'],
                                            null=True, verbose_name='logo file')
+
     def __str__(self):
         return self.name
 
@@ -473,7 +474,8 @@ class WarningLog(models.Model):
                                  related_name='warning_offender', verbose_name=_('offender'))
     judge = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='warning_judge',
                               verbose_name=_('judge_admin'))
-    reason = models.CharField(max_length=255, null=False, blank=False, verbose_name=_('warning reason'))
+    reason = models.CharField(max_length=255, null=False, blank=False,
+                              verbose_name=_('warning reason'))
     timestamp = models.DateTimeField(auto_now_add=True, verbose_name=_('timestamp'))
     class Meta:
         db_table = 'judge_warninglog'
