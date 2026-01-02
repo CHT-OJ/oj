@@ -31,7 +31,7 @@ from judge.ratings import rating_class
 from judge.utils.float_compare import float_compare_equal
 from judge.utils.two_factor import webauthn_decode
 
-__all__ = ['Organization', 'Profile', 'OrganizationRequest', 'WebAuthnCredential', 'WarningLog']
+__all__ = ['Organization', 'Profile', 'OrganizationRequest', 'WebAuthnCredential', 'WarningLog', 'Logo']
 
 
 class ContentTypeRestrictedFileField(VersatileImageField):
@@ -157,7 +157,7 @@ class Badge(models.Model):
 
 
 class Logo(models.Model):
-    name = models.CharField(max_length=128, verbose_name=_('logo name'), default='cht')
+    name = models.CharField(max_length=128, verbose_name=_('logo name'))
     image = ContentTypeRestrictedFileField(upload_to='logo/', content_types=['image/*'],
                                            null=True, verbose_name='logo file')
 
@@ -474,8 +474,10 @@ class WarningLog(models.Model):
                                  related_name='warning_offender', verbose_name=_('offender'))
     judge = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='warning_judge',
                               verbose_name=_('judge_admin'))
-    reason = models.CharField(max_length=255, null=False, blank=False, verbose_name=_('warning reason'))
+    reason = models.CharField(max_length=255, null=False, blank=False,
+                              verbose_name=_('warning reason'))
     timestamp = models.DateTimeField(auto_now_add=True, verbose_name=_('timestamp'))
+
     class Meta:
         db_table = 'judge_warninglog'
         constraints = [

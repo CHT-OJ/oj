@@ -24,12 +24,44 @@
             {% block after_rank scoped %}{% endblock %}
             <td class="user-name">
                 <div>
-                    <div style="float:left">
-                        {% block user_name_display scoped %} {{ link_user(user) }} {% endblock %}
-                        <div class="personal-info">
-                            {% block personal_info_display scoped %}
-                                <span>{{ user.user.first_name }}</span>
-                            {% endblock %}
+                    <div class="usr-ranking-left" style="float:left">
+                        {#
+                           Options:
+                           1 = Avatar
+                           2 = Logo
+                           3 = Hide
+                        #}
+                        
+                        {% if contest.rank_display_options != 3 %}
+                        {# USR Picture (Logo / Avatar) #}
+                        <div class="u-logo-ranking">
+                        {% if contest.rank_display_options == 1 %}
+                            {% if user.avt_url %}
+                                <img id="avatarPreview" src="/media/{{ user.avt_url }}">
+                            {% else %}
+                                <div id="avatarPlaceholder"><i class="fa fa-user"></i></div>
+                            {% endif %}
+                        {% elif contest.rank_display_options == 2 %}
+                            {% if user.user_rank_logo and user.user_rank_logo.image.url %}
+                                <img id="avatarPreview" src="/media{{ user.user_rank_logo.image.url }}">
+                            {% else %}
+                                <div id="avatarPlaceholder"><i class="fa fa-graduation-cap"></i></div>
+                            {% endif %}
+                        {% else %}
+                            {# fallback #}
+                            <div id="avatarPlaceholder"><i class="fa fa-question-circle"></i></div>
+                        {% endif %}
+                        </div>
+                        <div class="u-logo-sep1"></div>
+                        {# END LOGO #}
+                        {% endif %}
+                        <div style="display:block">
+                            {% block user_name_display scoped %} {{ link_user(user) }} {% endblock %}
+                            <div class="personal-info">
+                                {% block personal_info_display scoped %}
+                                    <span>{{ user.user.first_name }}</span>
+                                {% endblock %}
+                            </div>
                         </div>
                     </div>
                     <div style="float:right">

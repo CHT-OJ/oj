@@ -60,6 +60,12 @@ class ContestTag(models.Model):
         verbose_name_plural = _('contest tags')
 
 
+class RankDisplayOptions(models.IntegerChoices):
+    AVATAR = 1, _('Avatar')
+    LOGO = 2, _('Logo')
+    HIDDEN = 3, _('Hidden')
+
+
 class Contest(models.Model):
     SCOREBOARD_VISIBLE = 'V'
     SCOREBOARD_HIDDEN = 'H'
@@ -193,6 +199,8 @@ class Contest(models.Model):
                                            blank=True, default='', max_length=255)
     allow_spotlight = models.BooleanField(verbose_name=_('Allow spotlight ranking'),
                                           default=False)
+    rank_display_options = models.IntegerField(default=RankDisplayOptions.HIDDEN, choices=RankDisplayOptions.choices,
+                                               verbose_name=_('rank display options'))
 
     @cached_property
     def format_class(self):

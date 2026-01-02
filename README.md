@@ -28,6 +28,13 @@ Refer to the install documentation [here](https://vnoi-admin.github.io/vnoj-docs
 
 - To support `testlib.h`, you need to copy [testlib.h](https://github.com/MikeMirzayanov/testlib/blob/master/testlib.h) to `g++`'s include path in the judge server. To speed up compile time, you can also create a precompiled header for `testlib.h`.
 
+- You **must** add the following to `nginx.conf`.
+  ```nginx
+    location /media {
+        alias <path to media>;
+    }
+  ```
+
 ## Contributing ![PR's Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)
 
 Take a look at [our contribution guideline](contributing.md).

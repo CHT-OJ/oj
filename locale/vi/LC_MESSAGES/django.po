@@ -7644,3 +7644,15 @@ msgstr "Số bài"
 #: templates/widgets/select_all.html:8
 msgid "Check all"
 msgstr "Chọn tất cả"
+
+#: judge/models/profile.py: 160
+msgid "logo name"
+msgstr "Tên logo"
+
+#: judge/models/profile.py: 162
+msgid "logo file"
+msgstr "File logo"
+
+#: judge/models/contest.py: 203
+msgid "rank display options"
+msgstr "Hiển thị đại diện trong rank"
