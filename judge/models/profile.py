@@ -9,8 +9,8 @@ import pyotp
 import webauthn
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.core.validators import RegexValidator
 from django.core.files.storage import FileSystemStorage
+from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models import F, Max, Sum
 from django.forms import forms
@@ -159,7 +159,7 @@ class Badge(models.Model):
 
 class MediaPrefixedStorage(FileSystemStorage):
     def url(self, name):
-        return f"/media/{name}"
+        return f'/media/{name}'
 
 
 class Logo(models.Model):
