@@ -10,6 +10,7 @@ import webauthn
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
+from django.core.files.storage import FileSystemStorage
 from django.db import models
 from django.db.models import F, Max, Sum
 from django.forms import forms
@@ -156,10 +157,16 @@ class Badge(models.Model):
         return self.name
 
 
+class MediaPrefixedStorage(FileSystemStorage):
+    def url(self, name):
+        return f"/media/{name}"
+
+
 class Logo(models.Model):
     name = models.CharField(max_length=128, verbose_name=_('logo name'))
     image = ContentTypeRestrictedFileField(upload_to='logo/', content_types=['image/*'],
-                                           null=True, verbose_name='logo file')
+                                           null=True, verbose_name=_('logo file'),
+                                           storage=MediaPrefixedStorage())
 
     def __str__(self):
         return self.name
