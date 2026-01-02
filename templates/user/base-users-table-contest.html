@@ -43,7 +43,7 @@
                             {% endif %}
                         {% elif contest.rank_display_options == 2 %}
                             {% if user.user_rank_logo and user.user_rank_logo.image.url %}
-                                <img id="avatarPreview" src="/media{{ user.user_rank_logo.image.url }}">
+                                <img id="avatarPreview" src="{{ user.user_rank_logo.image.url }}">
                             {% else %}
                                 <div id="avatarPlaceholder"><i class="fa fa-graduation-cap"></i></div>
                             {% endif %}
