@@ -7656,3 +7656,7 @@ msgstr "File logo"
 #: judge/models/contest.py: 203
 msgid "rank display options"
 msgstr "Hiển thị đại diện trong rank"
+
+#: judge/models/profile.py: 167
+msgid "unpublic logo"
+msgstr "Không công khai logo"

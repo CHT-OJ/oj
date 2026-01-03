@@ -111,6 +111,11 @@ class ProfileForm(ModelForm):
             )
         if not self.fields['organizations'].queryset:
             self.fields.pop('organizations')
+        
+        if not user.is_staff:
+            self.fields['user_rank_logo'].queryset = (
+                self.fields['user_rank_logo'].queryset.filter(is_admin_exclusive=False)
+            )
 
 
 class UserForm(ModelForm):

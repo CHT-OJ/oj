@@ -164,6 +164,8 @@ class MediaPrefixedStorage(FileSystemStorage):
 
 class Logo(models.Model):
     name = models.CharField(max_length=128, verbose_name=_('logo name'))
+    is_admin_exclusive = models.BooleanField(verbose_name=_('unpublic logo'),
+                                             default=False)
     image = ContentTypeRestrictedFileField(upload_to='logo/', content_types=['image/*'],
                                            null=True, verbose_name=_('logo file'),
                                            storage=MediaPrefixedStorage())
