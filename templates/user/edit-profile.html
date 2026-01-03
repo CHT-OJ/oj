@@ -291,11 +291,17 @@
                         {% if form.display_badge %}
                             <td><div class="block-header grayed">{{ _('Display badge') }}:</div></td>
                         {% endif %}
+                        {% if form.user_rank_logo %}
+                            <td><div class="block-header grayed">Logo:</div></td>
+                        {% endif %}
                     </tr>
                     <tr>
                         <td>{{ form_user.first_name }}</td>
                         {% if form.display_badge %}
                             <td>{{ form.display_badge }}</td>
+                        {% endif %}
+                        {% if form.user_rank_logo %}
+                            <td>{{ form.user_rank_logo }}</td>
                         {% endif %}
                     </tr>
                 </table>
