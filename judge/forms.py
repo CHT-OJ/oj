@@ -112,10 +112,23 @@ class ProfileForm(ModelForm):
         if not self.fields['organizations'].queryset:
             self.fields.pop('organizations')
         
+        # Logo form
+        logo_qs = self.fields['user_rank_logo'].queryset
+        #0. Begin filter if user is not a staff
         if not user.is_staff:
-            self.fields['user_rank_logo'].queryset = (
-                self.fields['user_rank_logo'].queryset.filter(is_admin_exclusive=False)
-            )
+            #1. Filter by public logo
+            logo_qs = logo_qs.filter(is_admin_exclusive=False)
+            
+            #2. Filter by selected organization
+            #    - public (is_organization_private = False)
+            #    - or private but about org of user
+            user_orgs = user.profile.organizations.all()
+            logo_qs = logo_qs.filter(
+                Q(is_organization_private=False) |
+                Q(is_organization_private=True, organizations__in=user_orgs)
+            ).distinct()
+        self.fields['user_rank_logo'].queryset = logo_qs
+
 
 
 class UserForm(ModelForm):
