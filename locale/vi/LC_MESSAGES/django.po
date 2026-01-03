@@ -7656,3 +7656,11 @@ msgstr "File logo"
 #: judge/models/contest.py: 203
 msgid "rank display options"
 msgstr "Hiển thị đại diện trong rank"
+
+#: judge/models/profile.py: 167
+msgid "unpublic logo"
+msgstr "Không công khai logo"
+
+#: judge/models/profile.py: 174
+msgid "If private, only these organizations may choose the logo"
+msgstr "Nếu cho private, chỉ những tổ chức trên mới có thể chọn logo"
