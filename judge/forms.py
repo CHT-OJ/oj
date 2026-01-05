@@ -85,9 +85,23 @@ class ProfileForm(ModelForm):
                                   % settings.VNOJ_INTERACT_MIN_PROBLEM_COUNT)
         return self.cleaned_data['about']
 
+    def clean_user_rank_logo(self):
+        logo = self.cleaned_data.get('user_rank_logo')
+        if not logo:
+            return logo
+
+        if not logo.is_usable_by(self.user):
+            raise ValidationError(_('You are not allowed to use this logo'))
+
+        return logo
+
     def clean(self):
         organizations = self.cleaned_data.get('organizations') or []
+        logo = self.cleaned_data.get('user_rank_logo') or None
         max_orgs = settings.DMOJ_USER_MAX_ORGANIZATION_COUNT
+
+        if logo and not logo.is_usable_by(self.user):
+            raise ValidationError(_('You are not allowed to use this logo'))
 
         if sum(org.is_open for org in organizations) > max_orgs:
             raise ValidationError(ngettext_lazy('You may not be part of more than {count} public organization.',
@@ -97,8 +111,9 @@ class ProfileForm(ModelForm):
         return self.cleaned_data
 
     def __init__(self, *args, **kwargs):
-        user = kwargs.pop('user', None)
+        self.user = kwargs.pop('user', None)
         super(ProfileForm, self).__init__(*args, **kwargs)
+        user = self.user
 
         self.fields['display_badge'].required = False
         self.fields['display_badge'].queryset = self.instance.badges.all()
@@ -114,18 +129,32 @@ class ProfileForm(ModelForm):
 
         # Logo form
         logo_qs = self.fields['user_rank_logo'].queryset
-        # 0. Begin filter if user is not a staff
-        if not user.is_staff:
-            # 1. Filter by public logo
-            logo_qs = logo_qs.filter(is_admin_exclusive=False)
+        
+        profile = user.profile
+        user_orgs = profile.organizations.all()
 
-            # 2. Filter by selected organization
-            #    - public (is_organization_private = False)
-            #    - or private but about org of user
-            user_orgs = user.profile.organizations.all()
+        # Only Administrators or users with permission of Profile or Logo can make changes
+        # Don't use 'user.is_staff' here, it is dangerous!
+        is_privileged_admin = (
+            user.has_perm('judge.change_logo')
+            or user.has_perm('judge.change_profile')
+        )
+
+        if not is_privileged_admin:
             logo_qs = logo_qs.filter(
-                Q(is_organization_private=False) |
-                Q(is_organization_private=True, organizations__in=user_orgs),
+                # 1: Public logo  -> everybody can see & use
+                Q(is_not_public=False)
+                |
+                # 2: Private logo -> users were allowed
+                Q(
+                    is_not_public=True,
+                    allowed_users=profile,
+                )
+                |
+                Q(
+                    is_not_public=True,
+                    organizations__in=user_orgs,
+                ),
             ).distinct()
         self.fields['user_rank_logo'].queryset = logo_qs
 

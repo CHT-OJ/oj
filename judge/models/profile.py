@@ -167,11 +167,75 @@ class Logo(models.Model):
     image = ContentTypeRestrictedFileField(upload_to='logo/', content_types=['image/*'],
                                            null=True, verbose_name=_('logo file'),
                                            storage=MediaPrefixedStorage())
-    is_admin_exclusive = models.BooleanField(verbose_name=_('unpublic logo'),
-                                             default=False)
-    is_organization_private = models.BooleanField(verbose_name=_('private to organizations'), default=False)
-    organizations = models.ManyToManyField(Organization, blank=True, verbose_name=_('organizations'),
+    is_not_public = models.BooleanField(verbose_name=_('unpublic logo'), default=False, 
+                                        help_text=_('If enabled, only selected users or users within '
+                                                    'the organization selected below will be able to use '
+                                                    'the logo. Leave the fields below blank so no one can '
+                                                    'see this logo'))
+    allowed_users = models.ManyToManyField('Profile', blank=True, verbose_name=_('users are permitted'),
+                                           help_text=_('If private, only these users may choose the logo'))
+    organizations = models.ManyToManyField('Organization', blank=True, verbose_name=_('organizations'),
                                            help_text=_('If private, only these organizations may choose the logo'))
+
+    def _resolve_user(self, obj):
+        """
+        Resolve User from User / Profile / ContestRankingProfile-like objects.
+        Return None if cannot resolve.
+        """
+        # User
+        if hasattr(obj, 'is_authenticated'):
+            return obj
+
+        # Profile
+        user = getattr(obj, 'user', None)
+        if user and hasattr(user, 'is_authenticated'):
+            return user
+
+        # Fallback: object.profile.user
+        profile = getattr(obj, 'profile', None)
+        if profile:
+            user = getattr(profile, 'user', None)
+            if user and hasattr(user, 'is_authenticated'):
+                return user
+
+        return None
+
+    def is_usable_by(self, subject):
+        """
+        Check whether subject (User / Profile / ContestRankingProfile)
+        is allowed to use this logo.
+        """
+
+        user = self._resolve_user(subject)
+        if not user or not user.is_authenticated:
+            return False
+
+        # 1. Public logo
+        if not self.is_not_public:
+            return True
+
+        # 2. Privileged admins
+        if (
+            user.has_perm('judge.change_logo')
+            or user.has_perm('judge.change_profile')
+        ):
+            return True
+
+        # From here: need profile
+        profile = getattr(user, 'profile', None)
+        if not profile:
+            return False
+
+        # 3. Explicit allowed users
+        if self.allowed_users.filter(pk=profile.pk).exists():
+            return True
+
+        # 4. Organization-based permission
+        user_orgs = profile.organizations.all()
+        if self.organizations.filter(pk__in=user_orgs).exists():
+            return True
+
+        return False
 
     def __str__(self):
         return self.name
