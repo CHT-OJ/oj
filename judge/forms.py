@@ -142,13 +142,13 @@ class ProfileForm(ModelForm):
         if not is_privileged_admin:
             logo_qs = logo_qs.filter(
                 # 1: Public logo  -> everybody can see & use
-                Q(is_not_public=False)
+                Q(is_not_public=False) |
                 # 2: Private logo -> users were allowed
-                | Q(
+                Q(
                     is_not_public=True,
                     allowed_users=profile,
-                )
-                | Q(
+                ) |
+                Q(
                     is_not_public=True,
                     organizations__in=user_orgs,
                 ),

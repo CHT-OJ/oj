@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.forms import ModelForm
-from judge.models import Logo
 
+from judge.models import Logo
 from judge.widgets import AdminSelect2MultipleWidget
 
 
