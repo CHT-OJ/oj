@@ -167,7 +167,7 @@ class Logo(models.Model):
     image = ContentTypeRestrictedFileField(upload_to='logo/', content_types=['image/*'],
                                            null=True, verbose_name=_('logo file'),
                                            storage=MediaPrefixedStorage())
-    is_not_public = models.BooleanField(verbose_name=_('unpublic logo'), default=False, 
+    is_not_public = models.BooleanField(verbose_name=_('unpublic logo'), default=False,
                                         help_text=_('If enabled, only selected users or users within '
                                                     'the organization selected below will be able to use '
                                                     'the logo. Leave the fields below blank so no one can '
@@ -215,10 +215,7 @@ class Logo(models.Model):
             return True
 
         # 2. Privileged admins
-        if (
-            user.has_perm('judge.change_logo')
-            or user.has_perm('judge.change_profile')
-        ):
+        if user.has_perm('judge.change_logo') or user.has_perm('judge.change_profile'):
             return True
 
         # From here: need profile

@@ -1,7 +1,9 @@
 from django.contrib import admin
 from django.forms import ModelForm
-from judge.widgets import AdminSelect2MultipleWidget
 from judge.models import Logo
+
+from judge.widgets import AdminSelect2MultipleWidget
+
 
 class LogoForm(ModelForm):
     class Meta:
@@ -11,6 +13,7 @@ class LogoForm(ModelForm):
             'allowed_users': AdminSelect2MultipleWidget(attrs={'style': 'width: 100%'}),
             'organizations': AdminSelect2MultipleWidget(attrs={'style': 'width: 100%'}),
         }
+
 
 class LogoAdmin(admin.ModelAdmin):
     form = LogoForm
