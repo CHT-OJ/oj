@@ -73,9 +73,8 @@
         }
 
         @keyframes yellowFade {
-            0% { background-color: transparent; }
             30% { background-color: #fff7b2; }
-            100% { background-color: transparent; }
+            100% { background-color: inherit; }
         }
 
         .cell-change { 
@@ -616,8 +615,16 @@ window.onload = function () {
     }
 
     function updateZebra() {
+        const getThemeColor = document.documentElement.dataset.theme;
+        let evenColor = "#f2f2f2";
+        let oddColor = "white";
+        if (getThemeColor === "dark") {
+            evenColor = "#2c2c2c";
+            oddColor = "#252525";
+        }
         tableBody.querySelectorAll("tr").forEach((row, i) => {
-            row.style.backgroundColor = (i % 2 === 0) ? "white" : "#f2f2f2";
+            row.style.backgroundColor = (i % 2 === 0) ? oddColor : evenColor;
+            // Because 'i' variable starting count from 0(zero)
         });
     }
 
