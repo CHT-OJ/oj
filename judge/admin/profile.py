@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as OldUserAdmin
+from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.forms import ModelForm
 from django.urls import reverse_lazy
@@ -26,7 +27,7 @@ class ProfileForm(ModelForm):
                 lambda obj: '%s v%d' % (obj.contest.name, obj.virtual) if obj.virtual else obj.contest.name
         # Profile logo form filter
         if 'user_rank_logo' not in self.fields or not hasattr(self, 'user'):
-                return
+            return
         user = self.user
         profile = self.instance
         logo_qs = self.fields['user_rank_logo'].queryset
@@ -36,9 +37,17 @@ class ProfileForm(ModelForm):
         if not is_privileged_admin:
             user_orgs = profile.organizations.all()
             logo_qs = logo_qs.filter(
+                # 1: Public logo  -> everybody can see & use
                 Q(is_not_public=False) |
-                Q(is_not_public=True, allowed_users=profile) |
-                Q(is_not_public=True, organizations__in=user_orgs)
+                # 2: Private logo -> users were allowed
+                Q(
+                    is_not_public=True,
+                    allowed_users=profile,
+                ) |
+                Q(
+                    is_not_public=True,
+                    organizations__in=user_orgs,
+                ),
             ).distinct()
         self.fields['user_rank_logo'].queryset = logo_qs
 
@@ -151,9 +160,17 @@ class ProfileAdmin(NoBatchDeleteMixin, VersionAdmin):
             if profile:
                 user_orgs = profile.organizations.all()
                 kwargs['queryset'] = Logo.objects.filter(
+                    # 1: Public logo  -> everybody can see & use
                     Q(is_not_public=False) |
-                    Q(is_not_public=True, allowed_users=profile) |
-                    Q(is_not_public=True, organizations__in=user_orgs)
+                    # 2: Private logo -> users were allowed
+                    Q(
+                        is_not_public=True,
+                        allowed_users=profile,
+                    ) |
+                    Q(
+                        is_not_public=True,
+                        organizations__in=user_orgs,
+                    ),
                 ).distinct()
             else:
                 kwargs['queryset'] = Logo.objects.none()
@@ -207,6 +224,7 @@ class ProfileAdmin(NoBatchDeleteMixin, VersionAdmin):
             form.base_fields['user_script'].widget = AceWidget(
                 mode='javascript', theme=request.profile.resolved_ace_theme,
             )
+
         class RequestAwareForm(form):
             def __init__(self, *args, **kw):
                 self.user = request.user
