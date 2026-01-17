@@ -7677,8 +7677,12 @@ msgstr "Nếu cho private, chỉ những người dùng trên mới được ch�
 msgid "If private, only these organizations may choose the logo"
 msgstr "Nếu cho private, chỉ những tổ chức trên mới có thể chọn logo"
 
-#: judge/forms.py:129
+#: judge/forms.py:93
 #, python-format
 msgid "You are not allowed to use this logo"
 msgstr ""
 "Bạn không có quyền sử dụng logo này!"
+
+#: judge/admin/profile.py:62
+msgid "This user is not allowed to use this logo"
+msgstr "Người dùng này không có quyền sử dụng logo này!"

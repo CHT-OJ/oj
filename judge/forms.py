@@ -89,19 +89,14 @@ class ProfileForm(ModelForm):
         logo = self.cleaned_data.get('user_rank_logo')
         if not logo:
             return logo
-
-        if not logo.is_usable_by(self.user):
+        if not logo.is_usable_by(self.instance):
             raise ValidationError(_('You are not allowed to use this logo'))
 
         return logo
 
     def clean(self):
         organizations = self.cleaned_data.get('organizations') or []
-        logo = self.cleaned_data.get('user_rank_logo') or None
         max_orgs = settings.DMOJ_USER_MAX_ORGANIZATION_COUNT
-
-        if logo and not logo.is_usable_by(self.user):
-            raise ValidationError(_('You are not allowed to use this logo'))
 
         if sum(org.is_open for org in organizations) > max_orgs:
             raise ValidationError(ngettext_lazy('You may not be part of more than {count} public organization.',
@@ -129,30 +124,22 @@ class ProfileForm(ModelForm):
 
         # Logo form
         logo_qs = self.fields['user_rank_logo'].queryset
-
-        profile = user.profile
+        profile = self.instance
         user_orgs = profile.organizations.all()
 
-        # Only Administrators or users with permission of Profile or Logo can make changes
-        # Don't use 'user.is_staff' here, it is dangerous!
-        is_privileged_admin = (
-            user.has_perm('judge.change_logo') or user.has_perm('judge.change_profile')
-        )
-
-        if not is_privileged_admin:
-            logo_qs = logo_qs.filter(
-                # 1: Public logo  -> everybody can see & use
-                Q(is_not_public=False) |
-                # 2: Private logo -> users were allowed
-                Q(
-                    is_not_public=True,
-                    allowed_users=profile,
-                ) |
-                Q(
-                    is_not_public=True,
-                    organizations__in=user_orgs,
-                ),
-            ).distinct()
+        logo_qs = logo_qs.filter(
+            # 1: Public logo  -> everybody can see & use
+            Q(is_not_public=False) |
+            # 2: Private logo -> users were allowed
+            Q(
+                is_not_public=True,
+                allowed_users=profile,
+            ) |
+            Q(
+                is_not_public=True,
+                organizations__in=user_orgs,
+            ),
+        ).distinct()
         self.fields['user_rank_logo'].queryset = logo_qs
 
 

@@ -215,7 +215,7 @@ class Logo(models.Model):
             return True
 
         # 2. Privileged admins
-        if user.has_perm('judge.change_logo') or user.has_perm('judge.change_profile'):
+        if user.has_perm('judge.change_logo'):
             return True
 
         # From here: need profile

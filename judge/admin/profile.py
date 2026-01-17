@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as OldUserAdmin
+from django.db.models import Q
 from django.forms import ModelForm
 from django.urls import reverse_lazy
 from django.utils.html import format_html
@@ -7,7 +8,7 @@ from django.utils.translation import gettext, gettext_lazy as _, ngettext
 from reversion.admin import VersionAdmin
 
 from django_ace import AceWidget
-from judge.models import Profile, WebAuthnCredential
+from judge.models import Logo, Profile, WebAuthnCredential
 from judge.utils.views import NoBatchDeleteMixin
 from judge.widgets import AdminMartorWidget, AdminSelect2MultipleWidget, AdminSelect2Widget
 
@@ -23,6 +24,23 @@ class ProfileForm(ModelForm):
                 .only('contest__name', 'user_id', 'virtual')
             self.fields['current_contest'].label_from_instance = \
                 lambda obj: '%s v%d' % (obj.contest.name, obj.virtual) if obj.virtual else obj.contest.name
+        # Profile logo form filter
+        if 'user_rank_logo' not in self.fields or not hasattr(self, 'user'):
+                return
+        user = self.user
+        profile = self.instance
+        logo_qs = self.fields['user_rank_logo'].queryset
+        is_privileged_admin = (
+            user.has_perm('judge.change_logo')
+        )
+        if not is_privileged_admin:
+            user_orgs = profile.organizations.all()
+            logo_qs = logo_qs.filter(
+                Q(is_not_public=False) |
+                Q(is_not_public=True, allowed_users=profile) |
+                Q(is_not_public=True, organizations__in=user_orgs)
+            ).distinct()
+        self.fields['user_rank_logo'].queryset = logo_qs
 
     class Meta:
         widgets = {
@@ -34,6 +52,15 @@ class ProfileForm(ModelForm):
             'display_badge': AdminSelect2Widget,
             'about': AdminMartorWidget(attrs={'data-markdownfy-url': reverse_lazy('profile_preview')}),
         }
+
+    def clean_user_rank_logo(self):
+        logo = self.cleaned_data.get('user_rank_logo')
+        if not logo:
+            return logo
+        profile = self.instance
+        if not logo.is_usable_by(profile):
+            raise ValidationError(_('This user is not allowed to use this logo'))
+        return logo
 
 
 class TimezoneFilter(admin.SimpleListFilter):
@@ -111,6 +138,27 @@ class ProfileAdmin(NoBatchDeleteMixin, VersionAdmin):
             fields += ('is_totp_enabled',)
         return fields
 
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == 'user_rank_logo':
+            object_id = request.resolver_match.kwargs.get('object_id')
+            if object_id:
+                try:
+                    profile = Profile.objects.get(pk=object_id)
+                except Profile.DoesNotExist:
+                    profile = None
+            else:
+                profile = None
+            if profile:
+                user_orgs = profile.organizations.all()
+                kwargs['queryset'] = Logo.objects.filter(
+                    Q(is_not_public=False) |
+                    Q(is_not_public=True, allowed_users=profile) |
+                    Q(is_not_public=True, organizations__in=user_orgs)
+                ).distinct()
+            else:
+                kwargs['queryset'] = Logo.objects.none()
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
     @admin.display(description='')
     def show_public(self, obj):
         return format_html('<a href="{0}" style="white-space:nowrap;">{1}</a>',
@@ -159,7 +207,11 @@ class ProfileAdmin(NoBatchDeleteMixin, VersionAdmin):
             form.base_fields['user_script'].widget = AceWidget(
                 mode='javascript', theme=request.profile.resolved_ace_theme,
             )
-        return form
+        class RequestAwareForm(form):
+            def __init__(self, *args, **kw):
+                self.user = request.user
+                super().__init__(*args, **kw)
+        return RequestAwareForm
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
