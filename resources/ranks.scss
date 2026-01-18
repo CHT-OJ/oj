@@ -1,5 +1,29 @@
 @import "vars";
 
+%bold {
+    font-weight: bold !important;
+}
+
+%gradient-text {
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+
+/* ---------- KEYFRAMES (SHARED) ---------- */
+@keyframes gradient-flow {
+    from {
+        background-position: 0% 50%;
+    }
+    to {
+        background-position: 200% 50%;
+    }
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-9.75%); }
+}
+
 .admin a, .admin {
     color: $color_primary100 !important;
     font-weight: bold !important;
@@ -67,6 +91,27 @@
     text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
 }
 
+.custom3, .custom3 a {
+    @extend %bold;
+
+    background: linear-gradient(
+        45deg,
+        #ff4fd8,
+        #6a5cff,
+        #2ee59d,
+        #ffd84d,
+        #ff4fd8  // seamless
+    );
+
+    background-size: 200% 100%;
+    animation: gradient-flow 3.65s linear infinite;
+
+    text-shadow: 
+        0 1px 2px rgba(0,0,0,0.25);
+
+    @extend %gradient-text;
+}
+
 .tourist a, .tourist {
     font-weight: bold !important;
     color: black !important;
@@ -74,6 +119,12 @@
 
 .tourist a::first-letter, .tourist::first-letter {
     color: #e7191f !important;
+}
+
+.king a::before {
+    content: "👑 ";
+    display: inline-block;
+    animation: float 2s ease-in-out infinite;
 }
 
 

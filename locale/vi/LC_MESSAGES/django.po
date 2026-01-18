@@ -7645,14 +7645,44 @@ msgstr "Số bài"
 msgid "Check all"
 msgstr "Chọn tất cả"
 
-#: judge/models/profile.py: 160
+#: judge/models/profile.py:160
 msgid "logo name"
 msgstr "Tên logo"
 
-#: judge/models/profile.py: 162
+#: judge/models/profile.py:162
 msgid "logo file"
 msgstr "File logo"
 
-#: judge/models/contest.py: 203
+#: judge/models/contest.py:203
 msgid "rank display options"
 msgstr "Hiển thị đại diện trong rank"
+
+#: judge/models/profile.py:170
+msgid "unpublic logo"
+msgstr "Không công khai logo"
+
+#: judge/models/profile.py:171
+msgid "If enabled, only selected users or users within the organization selected below will be able to use the logo. Leave the fields below blank so no one can see this logo"
+msgstr "Nếu bật, chỉ những người dùng được chọn hoặc người dùng trong tổ chức được chọn bên dưới mới có thể sử dụng logo. Để trống những trường bên dưới để ẩn đi logo này"
+
+#: judge/models/profile.py:175
+msgid "users are permitted"
+msgstr "Người dùng được phép"
+
+#: judge/models/profile.py:176
+msgid "If private, only these users may choose the logo"
+msgstr "Nếu cho private, chỉ những người dùng trên mới được chọn logo"
+
+#: judge/models/profile.py:178
+msgid "If private, only these organizations may choose the logo"
+msgstr "Nếu cho private, chỉ những tổ chức trên mới có thể chọn logo"
+
+#: judge/forms.py:93
+#, python-format
+msgid "You are not allowed to use this logo"
+msgstr ""
+"Bạn không có quyền sử dụng logo này!"
+
+#: judge/admin/profile.py:62
+msgid "This user is not allowed to use this logo"
+msgstr "Người dùng này không có quyền sử dụng logo này!"
