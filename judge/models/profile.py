@@ -200,6 +200,10 @@ class Logo(models.Model):
 
         return None
 
+    def _has_privileged_logo_perm(self, user):
+        perms = getattr(settings, 'VNOJ_LOGO_DISPLAY_PERMISSIONS', [])
+        return any(user.has_perm(perm) for perm in perms)
+
     def is_usable_by(self, subject):
         """
         Check whether subject (User / Profile / ContestRankingProfile)
@@ -215,7 +219,7 @@ class Logo(models.Model):
             return True
 
         # 2. Privileged admins
-        if user.has_perm('judge.change_logo'):
+        if self._has_privileged_logo_perm(user):
             return True
 
         # From here: need profile

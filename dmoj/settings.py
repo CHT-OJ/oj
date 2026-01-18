@@ -81,6 +81,11 @@ VNOJ_DISPLAY_RANKS = (
     ('king', _('King')),
 )
 
+VNOJ_LOGO_DISPLAY_PERMISSIONS = [
+    'judge.view_logo',
+    'judge.change_logo',
+]
+
 # Maximum number of organization a single user can be admin, to be able to
 # create new organization, without the `spam_organization` permission
 VNOJ_ORGANIZATION_ADMIN_LIMIT = 3

@@ -127,19 +127,27 @@ class ProfileForm(ModelForm):
         profile = self.instance
         user_orgs = profile.organizations.all()
 
-        logo_qs = logo_qs.filter(
-            # 1: Public logo  -> everybody can see & use
-            Q(is_not_public=False) |
-            # 2: Private logo -> users were allowed
-            Q(
-                is_not_public=True,
-                allowed_users=profile,
-            ) |
-            Q(
-                is_not_public=True,
-                organizations__in=user_orgs,
-            ),
-        ).distinct()
+        privileged_perms = getattr(settings, 'VNOJ_LOGO_DISPLAY_PERMISSIONS', [])
+        is_privileged_admin = (
+            profile.user
+            and profile.user.is_authenticated
+            and any(profile.user.has_perm(perm) for perm in privileged_perms)
+        )
+
+        if not is_privileged_admin:
+            logo_qs = logo_qs.filter(
+                # 1: Public logo  -> everybody can see & use
+                Q(is_not_public=False) |
+                # 2: Private logo -> users were allowed
+                Q(
+                    is_not_public=True,
+                    allowed_users=profile,
+                ) |
+                Q(
+                    is_not_public=True,
+                    organizations__in=user_orgs,
+                ),
+            ).distinct()
         self.fields['user_rank_logo'].queryset = logo_qs
 
 

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as OldUserAdmin
 from django.core.exceptions import ValidationError
@@ -26,14 +27,16 @@ class ProfileForm(ModelForm):
             self.fields['current_contest'].label_from_instance = \
                 lambda obj: '%s v%d' % (obj.contest.name, obj.virtual) if obj.virtual else obj.contest.name
         # Profile logo form filter
-        if 'user_rank_logo' not in self.fields or not hasattr(self, 'user'):
+        if 'user_rank_logo' not in self.fields:
             return
-        user = self.user
         profile = self.instance
-        logo_qs = self.fields['user_rank_logo'].queryset
+        privileged_perms = getattr(settings, 'VNOJ_LOGO_DISPLAY_PERMISSIONS', [])
         is_privileged_admin = (
-            user.has_perm('judge.change_logo')
+            profile.user
+            and profile.user.is_authenticated
+            and any(profile.user.has_perm(perm) for perm in privileged_perms)
         )
+        logo_qs = self.fields['user_rank_logo'].queryset
         if not is_privileged_admin:
             user_orgs = profile.organizations.all()
             logo_qs = logo_qs.filter(
@@ -148,6 +151,7 @@ class ProfileAdmin(NoBatchDeleteMixin, VersionAdmin):
         return fields
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        # Override the dropdown list logo display form to match the user form, not just the admin form
         if db_field.name == 'user_rank_logo':
             object_id = request.resolver_match.kwargs.get('object_id')
             if object_id:
@@ -158,20 +162,27 @@ class ProfileAdmin(NoBatchDeleteMixin, VersionAdmin):
             else:
                 profile = None
             if profile:
-                user_orgs = profile.organizations.all()
-                kwargs['queryset'] = Logo.objects.filter(
-                    # 1: Public logo  -> everybody can see & use
-                    Q(is_not_public=False) |
-                    # 2: Private logo -> users were allowed
-                    Q(
-                        is_not_public=True,
-                        allowed_users=profile,
-                    ) |
-                    Q(
-                        is_not_public=True,
-                        organizations__in=user_orgs,
-                    ),
-                ).distinct()
+                privileged_perms = getattr(settings, 'VNOJ_LOGO_DISPLAY_PERMISSIONS', [])
+                is_privileged_admin = (
+                    profile.user
+                    and profile.user.is_authenticated
+                    and any(profile.user.has_perm(perm) for perm in privileged_perms)
+                )
+                if not is_privileged_admin:
+                    user_orgs = profile.organizations.all()
+                    kwargs['queryset'] = Logo.objects.filter(
+                        # 1: Public logo  -> everybody can see & use
+                        Q(is_not_public=False) |
+                        # 2: Private logo -> users were allowed
+                        Q(
+                            is_not_public=True,
+                            allowed_users=profile,
+                        ) |
+                        Q(
+                            is_not_public=True,
+                            organizations__in=user_orgs,
+                        ),
+                    ).distinct()
             else:
                 kwargs['queryset'] = Logo.objects.none()
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
