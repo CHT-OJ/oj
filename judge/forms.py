@@ -129,9 +129,9 @@ class ProfileForm(ModelForm):
 
         privileged_perms = getattr(settings, 'VNOJ_LOGO_DISPLAY_PERMISSIONS', [])
         is_privileged_admin = (
-            profile.user
-            and profile.user.is_authenticated
-            and any(profile.user.has_perm(perm) for perm in privileged_perms)
+            profile.user and
+            profile.user.is_authenticated and
+            any(profile.user.has_perm(perm) for perm in privileged_perms)
         )
 
         if not is_privileged_admin:
