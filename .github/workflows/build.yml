@@ -38,7 +38,7 @@ jobs:
         pip install -r requirements.txt
         pip install coverage
         cp .ci.settings.py dmoj/local_settings.py
-        python3 manage.py makemigrations
+        python3 manage.py makemigrations judge
         python3 manage.py migrate
     - name: Run unit tests
       run: coverage run --source=. manage.py test judge
