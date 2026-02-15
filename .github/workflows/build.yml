@@ -10,7 +10,7 @@ jobs:
       with:
         python-version: '3.12'
     - name: Install flake8
-      run: pip install flake8 flake8-import-order flake8-future-import flake8-commas flake8-logging-format flake8-quotes
+      run: pip install 'setuptools<81' flake8 flake8-import-order flake8-future-import flake8-commas flake8-logging-format flake8-quotes
     - name: Lint with flake8
       run: |
         flake8 --version
@@ -34,10 +34,9 @@ jobs:
         mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS dmoj CHARACTER SET utf8mb4;"
     - name: Install unit test dependencies
       run: |
-        pip install wheel
+        pip install 'setuptools<81' wheel
         pip install -r requirements.txt
         pip install coverage
-        pip install --upgrade setuptools
         cp .ci.settings.py dmoj/local_settings.py
         python3 manage.py makemigrations
         python3 manage.py migrate auth
