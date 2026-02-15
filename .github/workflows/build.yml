@@ -39,7 +39,7 @@ jobs:
         pip install coverage
         cp .ci.settings.py dmoj/local_settings.py
         python3 manage.py makemigrations
-        python3 manage.py migrate auth
+        python3 manage.py migrate
     - name: Run unit tests
       run: coverage run --source=. manage.py test judge
     - name: Generate coverage report
