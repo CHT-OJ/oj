@@ -77,6 +77,7 @@ class Contest(models.Model):
         (SCOREBOARD_AFTER_CONTEST, _('Hidden for duration of contest')),
         (SCOREBOARD_AFTER_PARTICIPATION, _('Hidden for duration of participation')),
     )
+    sort_order = models.IntegerField(verbose_name=_('sort order'), default=0, db_index=True)
     key = models.CharField(max_length=32, verbose_name=_('contest id'), unique=True,
                            validators=[RegexValidator('^[a-z0-9_]+$', _('Contest id must be ^[a-z0-9_]+$'))])
     name = models.CharField(max_length=100, verbose_name=_('contest name'), db_index=True)
@@ -553,6 +554,7 @@ class Contest(models.Model):
         )
         verbose_name = _('contest')
         verbose_name_plural = _('contests')
+        ordering = ('sort_order', 'key')
 
 
 class ContestAnnouncement(models.Model):

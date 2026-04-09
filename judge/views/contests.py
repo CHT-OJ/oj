@@ -54,6 +54,8 @@ from judge.utils.ranker import ranker
 from judge.utils.stats import get_bar_chart, get_pie_chart, get_stacked_bar_chart
 from judge.utils.views import DiggPaginatorMixin, QueryStringSortMixin, SingleObjectFormView, TitleMixin, \
     add_file_response, generic_message
+from django.contrib.admin.views.decorators import staff_member_required
+from django.utils.decorators import method_decorator
 
 __all__ = ['ContestList', 'ContestDetail', 'ContestRanking', 'ContestJoin', 'ContestLeave', 'ContestCalendar',
            'ContestClone', 'ContestStats', 'ContestMossView', 'ContestMossDelete',
@@ -114,7 +116,7 @@ class ContestList(QueryStringSortMixin, DiggPaginatorMixin, TitleMixin, ContestL
 
     def get_queryset(self):
         self.search_query = None
-        query_set = self._get_queryset().order_by(self.order, 'key').filter(end_time__lt=self._now)
+        query_set = self._get_queryset().order_by('sort_order', self.order, 'key').filter(end_time__lt=self._now)
         if 'search' in self.request.GET:
             self.search_query = search_query = ' '.join(self.request.GET.getlist('search')).strip()
             if search_query:
@@ -147,9 +149,13 @@ class ContestList(QueryStringSortMixin, DiggPaginatorMixin, TitleMixin, ContestL
                     active.append(participation)
                     present.remove(participation.contest)
 
-        active.sort(key=attrgetter('end_time', 'key'))
-        present.sort(key=attrgetter('end_time', 'key'))
-        future.sort(key=attrgetter('start_time'))
+        active.sort(key=lambda p: (p.contest.sort_order, p.contest.key))
+        present.sort(key=lambda c: (c.sort_order, c.key))
+        future.sort(key=lambda c: (c.sort_order, c.key))
+
+        # active.sort(key=attrgetter('end_time', 'key'))
+        # present.sort(key=attrgetter('end_time', 'key'))
+        # future.sort(key=attrgetter('start_time'))
         context['active_participations'] = active
         context['current_contests'] = present
         context['future_contests'] = future
@@ -1744,3 +1750,22 @@ class ContestDownloadData(ContestDataMixin, SingleObjectMixin, View):
         response['Content-Type'] = 'application/zip'
         response['Content-Disposition'] = 'attachment; filename=%s-data.zip' % self.object.key
         return response
+
+
+@method_decorator(staff_member_required, name='dispatch')
+class ContestReorder(View):
+    def get(self, request):
+        now = timezone.now()
+        contests = Contest.objects.order_by('sort_order', 'key')
+        return render(request, 'contest/reorder.html', {
+            'title': _('Reorder Contests'),
+            'future_contests': contests.filter(start_time__gt=now),
+            'current_contests': contests.filter(start_time__lte=now, end_time__gte=now),
+            'past_contests': contests.filter(end_time__lt=now),
+        })
+
+    def post(self, request):
+        order = json.loads(request.body).get('order', [])
+        for idx, contest_key in enumerate(order):
+            Contest.objects.filter(key=contest_key).update(sort_order=idx)
+        return JsonResponse({'status': 'ok'})
