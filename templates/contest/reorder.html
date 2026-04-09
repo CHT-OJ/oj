@@ -178,11 +178,11 @@
                         <td>{{ contest.user_count }}</td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="3"><i>{{ _('No contests') }}</i></td></tr>
+                    <tr><td colspan="3" class="no-contest-nc"><i>{{ _('No contests') }}</i></td></tr>
                     {% endfor %}
                 </tbody>
             </table>
-        </div>{# /.sortable-scroll-wrapper #}
+        </div>
         <br>
     {% endmacro %}
 
@@ -199,7 +199,7 @@
     var scrollRaf     = null;
     var pointerY      = 0;
     var ZONE          = 43;   /* px – vùng nhạy gần mép trên/dưới wrapper */
-    var MAX_SPEED     = 20;   /* px/frame – tốc độ cuộn tối đa             */
+    var MAX_SPEED     = 26;   /* px/frame – tốc độ cuộn tối đa             */
 
     document.addEventListener('pointermove', function (e) {
         pointerY = e.clientY;
@@ -226,6 +226,8 @@
     }
 
     document.querySelectorAll('.sortable-list').forEach(function (el) {
+        var chk = el.querySelectorAll('.no-contest-nc');
+        if (chk.length > 0) return;
         var wrapper = el.closest('.sortable-scroll-wrapper');
 
         Sortable.create(el, {
