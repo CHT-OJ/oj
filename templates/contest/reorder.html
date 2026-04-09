@@ -12,25 +12,34 @@
 
 {% block body %}
 <div class="content-description">
-    <form method="get" style="display:flex;gap:1em;align-items:center;margin-bottom:1em">
-        <label>{{ _('Year') }}:
-            <select name="year" onchange="this.form.submit()">
+    <form class="contest-filter-form" method="get">
+        <div class="contest-filter-row">
+            <label for="year-filter">
+                <i class="fa fa-calendar"></i>{{ _('Contest year') }}:
+            </label>
+            <select id="year-filter" name="year" onchange="this.form.submit()">
                 <option value="">{{ _('All') }}</option>
                 {% for year in all_years %}
                     <option value="{{ year }}" {{ 'selected' if current_year == year|string }}>{{ year }}</option>
                 {% endfor %}
             </select>
-        </label>
-        <label>{{ _('Tag') }}:
-            <select name="tag" onchange="this.form.submit()">
+        </div>
+
+        <div class="contest-filter-row">
+            <label for="tag-filter">
+                <i class="fa fa-tag"></i>{{ _('Contest tag') }}:
+            </label>
+            <select id="tag-filter" name="tag" onchange="this.form.submit()">
                 <option value="">{{ _('All') }}</option>
                 {% for tag in all_tags %}
                     <option value="{{ tag.key }}" {{ 'selected' if current_tag == tag.key }}>{{ tag.display_name }}</option>
                 {% endfor %}
             </select>
-        </label>
+        </div>
+
         {% if current_year or current_tag %}
-            <a href="?" class="button">{{ _('Clear filters') }}</a>
+        <span></span>
+        <a href="?" class="button">{{ _('Clear filters') }}</a>
         {% endif %}
     </form>
 

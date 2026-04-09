@@ -7686,3 +7686,19 @@ msgstr ""
 #: judge/admin/profile.py:62
 msgid "This user is not allowed to use this logo"
 msgstr "Người dùng này không có quyền sử dụng logo này!"
+
+#: judge/view/contest.py:1776
+msgid "Reorder contests"
+msgstr "Sắp xếp lại các cuộc thi"
+
+#: templates/contest/reorder.html
+msgid "Contest year"
+msgstr "Năm tổ chức"
+
+#: templates/contest/reorder.html
+msgid "Contest tag"
+msgstr "Thẻ kỳ thi"
+
+#: templates/contest/reorder.html
+msgid "Clear filters"
+msgstr "Xoá bộ lọc"
