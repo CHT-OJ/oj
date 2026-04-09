@@ -229,6 +229,7 @@ urlpatterns = [
     path('contests.ics', contests.ContestICal.as_view(), name='contest_ical'),
     path('contests/<int:year>/<int:month>/', contests.ContestCalendar.as_view(), name='contest_calendar'),
     path('contests/new', contests.CreateContest.as_view(), name='contest_new'),
+    path('contests/reorder/', contests.ContestReorder.as_view(), name='contest_reorder'),
     re_path(r'^contests/tag/(?P<key>[a-z-]+)', include([
         path('', paged_list_view(contests.ContestTagList, 'contest_tag_list')),
     ])),

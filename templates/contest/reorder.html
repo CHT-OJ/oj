@@ -1,0 +1,46 @@
+{% extends "common-content.html" %}
+
+{% macro sortable_section(title, contests, section_id) %}
+<h4>{{ title }}</h4>
+<ul id="{{ section_id }}" class="sortable-list" style="list-style:none;padding:0;max-width:700px;min-height:40px">
+    {% for contest in contests %}
+    <li data-key="{{ contest.key }}" style="padding:10px;margin:6px 0;background:#2a2a2a;border:1px solid #444;cursor:grab;border-radius:4px">
+        ⠿ {{ contest.name }} <small style="opacity:0.5;margin-left:8px">{{ contest.start_time }}</small>
+    </li>
+    {% endfor %}
+</ul>
+{% endmacro %}
+
+{% block body %}
+{{ sortable_section('Ongoing', current_contests, 'present-sortable') }}
+{{ sortable_section('Upcoming', future_contests, 'future-sortable') }}
+{{ sortable_section('Past', past_contests, 'past-sortable') }}
+
+<button id="save-btn" style="margin-top:12px" class="button">Save Order</button>
+<span id="save-status" style="margin-left:10px;opacity:0.6"></span>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+<script>
+document.querySelectorAll('.sortable-list').forEach(el => {
+    Sortable.create(el, { animation: 150 });
+});
+
+document.getElementById('save-btn').onclick = function() {
+    const order = [...document.querySelectorAll('.sortable-list li')]
+        .map(el => el.dataset.key);
+    console.log('Saving order:', order);
+    fetch('', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}',
+        },
+        body: JSON.stringify({ order }),
+    }).then(r => r.json()).then(data => {
+        console.log('Response:', data);
+        document.getElementById('save-status').textContent = 'Saved ✓';
+        setTimeout(() => document.getElementById('save-status').textContent = '', 2000);
+    });
+};
+</script>
+{% endblock %}
