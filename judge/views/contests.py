@@ -225,9 +225,13 @@ class ContestTagList(QueryStringSortMixin, DiggPaginatorMixin, TitleMixin, Conte
                     active.append(participation)
                     present.remove(participation.contest)
 
-        active.sort(key=attrgetter('end_time', 'key'))
-        present.sort(key=attrgetter('end_time', 'key'))
-        future.sort(key=attrgetter('start_time'))
+        active.sort(key=lambda p: (p.contest.sort_order, p.contest.key))
+        present.sort(key=lambda c: (c.sort_order, c.key))
+        future.sort(key=lambda c: (c.sort_order, c.key))
+
+        # active.sort(key=attrgetter('end_time', 'key'))
+        # present.sort(key=attrgetter('end_time', 'key'))
+        # future.sort(key=attrgetter('start_time'))
         context['title'] = _('Các kỳ thi thuộc mục "%s"') % self.tag.display_name
         context['active_participations'] = active
         context['current_contests'] = present
@@ -1756,16 +1760,38 @@ class ContestDownloadData(ContestDataMixin, SingleObjectMixin, View):
 class ContestReorder(View):
     def get(self, request):
         now = timezone.now()
-        contests = Contest.objects.order_by('sort_order', 'key')
+        contests = Contest.objects.prefetch_related('tags', 'organizations').order_by('sort_order', 'key')
+
+        year = request.GET.get('year')
+        tag_key = request.GET.get('tag')
+
+        if year:
+            contests = contests.filter(start_time__year=year)
+        if tag_key:
+            contests = contests.filter(tags__key=tag_key)
+
+        all_years = Contest.objects.dates('start_time', 'year', order='DESC')
+        all_tags = ContestTag.objects.all().order_by('key')
         return render(request, 'contest/reorder.html', {
-            'title': _('Reorder Contests'),
+            'title': _('Reorder contests'),
             'future_contests': contests.filter(start_time__gt=now),
             'current_contests': contests.filter(start_time__lte=now, end_time__gte=now),
             'past_contests': contests.filter(end_time__lt=now),
+            'all_years': [d.year for d in all_years],
+            'all_tags': all_tags,
+            'current_year': year,
+            'current_tag': tag_key,
         })
 
     def post(self, request):
-        order = json.loads(request.body).get('order', [])
-        for idx, contest_key in enumerate(order):
-            Contest.objects.filter(key=contest_key).update(sort_order=idx)
+        data = json.loads(request.body)
+        for section in ('future', 'present', 'past'):
+            keys = data.get(section, [])
+            if not keys:
+                continue
+            current_orders = sorted(
+                Contest.objects.filter(key__in=keys).values_list('sort_order', flat=True)
+            )
+            for key, sort_val in zip(keys, current_orders):
+                Contest.objects.filter(key=key).update(sort_order=sort_val)
         return JsonResponse({'status': 'ok'})
