@@ -1,46 +1,142 @@
 {% extends "common-content.html" %}
 
-{% macro sortable_section(title, contests, section_id) %}
-<h4>{{ title }}</h4>
-<ul id="{{ section_id }}" class="sortable-list" style="list-style:none;padding:0;max-width:700px;min-height:40px">
-    {% for contest in contests %}
-    <li data-key="{{ contest.key }}" style="padding:10px;margin:6px 0;background:#2a2a2a;border:1px solid #444;cursor:grab;border-radius:4px">
-        ⠿ {{ contest.name }} <small style="opacity:0.5;margin-left:8px">{{ contest.start_time }}</small>
-    </li>
-    {% endfor %}
-</ul>
-{% endmacro %}
+{% block title_ruler %}{% endblock %}
+
+{% block title_row %}
+    <h2 class="content-title">{{ _('Reorder contests') }}</h2>
+{% endblock %}
+
+{% block content_js_media %}
+<script src="{{static('Sortable.min.js')}}"></script>
+{% endblock %}
 
 {% block body %}
-{{ sortable_section('Ongoing', current_contests, 'present-sortable') }}
-{{ sortable_section('Upcoming', future_contests, 'future-sortable') }}
-{{ sortable_section('Past', past_contests, 'past-sortable') }}
+<div class="content-description">
+    <form method="get" style="display:flex;gap:1em;align-items:center;margin-bottom:1em">
+        <label>{{ _('Year') }}:
+            <select name="year" onchange="this.form.submit()">
+                <option value="">{{ _('All') }}</option>
+                {% for year in all_years %}
+                    <option value="{{ year }}" {{ 'selected' if current_year == year|string }}>{{ year }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>{{ _('Tag') }}:
+            <select name="tag" onchange="this.form.submit()">
+                <option value="">{{ _('All') }}</option>
+                {% for tag in all_tags %}
+                    <option value="{{ tag.key }}" {{ 'selected' if current_tag == tag.key }}>{{ tag.display_name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        {% if current_year or current_tag %}
+            <a href="?" class="button">{{ _('Clear filters') }}</a>
+        {% endif %}
+    </form>
 
-<button id="save-btn" style="margin-top:12px" class="button">Save Order</button>
-<span id="save-status" style="margin-left:10px;opacity:0.6"></span>
+    {% macro sortable_section(title, contests, section_id) %}
+        <h4>{{ title }}</h4>
+        <table class="contest-list table striped">
+            <thead>
+                <tr>
+                    <th style="width:3%"></th>
+                    <th style="width:80%">{{ _('Contest') }}</th>
+                    <th>{{ _('Users') }}</th>
+                </tr>
+            </thead>
+            <tbody id="{{ section_id }}" class="sortable-list" data-section="{{ section_id }}">
+                {% for contest in contests %}
+                <tr data-key="{{ contest.key }}" style="cursor:grab">
+                    <td style="text-align:center;opacity:0.4;user-select:none">⠿</td>
+                    <td>
+                        <div class="contest-block">
+                            <a href="{{ url('contest_view', contest.key) }}" class="contest-list-title">
+                                {{ contest.name }}
+                            </a>
+                            <span class="contest-tags">
+                                {% if not contest.is_visible %}
+                                    <span style="background-color:#000000;color:#ffffff" class="contest-tag">
+                                        <i class="fa fa-eye-slash"></i> {{ _('hidden') }}
+                                    </span>
+                                {% endif %}
+                                {% if contest.is_organization_private %}
+                                    {% for org in contest.organizations.all() %}
+                                        <span style="background-color:#cccccc" class="contest-tag">
+                                            <a href="{{ org.get_absolute_url() }}" style="color:#000000">
+                                                <i class="fa fa-lock"></i> {{ org.name }}
+                                            </a>
+                                        </span>
+                                    {% endfor %}
+                                {% elif contest.is_private %}
+                                    <span style="background-color:#666666;color:#ffffff" class="contest-tag">
+                                        <i class="fa fa-lock"></i> {{ _('private') }}
+                                    </span>
+                                {% endif %}
+                                {% if contest.is_rated %}
+                                    <span style="background-color:#e54c14;color:#ffffff" class="contest-tag">
+                                        <i class="fa fa-bar-chart"></i> {{ _('rated') }}
+                                    </span>
+                                {% endif %}
+                                {% for tag in contest.tags.all() %}
+                                    <span style="background-color:{{ tag.color }}" class="contest-tag">
+                                        <a href="{{ url('contest_tag_list', tag.key) }}" style="color:{{ tag.text_color }}">
+                                            {{ tag.display_name }}
+                                        </a>
+                                    </span>
+                                {% endfor %}
+                            </span>
+                            <br>
+                            <div class="time time-left">
+                                {{ contest.start_time|date(_("M j, Y, G:i")) }}
+                                {% if contest.time_limit %}
+                                    - {{ contest.end_time|date(_("M j, Y, G:i")) }}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                    <td>{{ contest.user_count }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3"><i>{{ _('No contests.') }}</i></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <br>
+    {% endmacro %}
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    {{ sortable_section(_('Ongoing contests'), current_contests, 'present') }}
+    {{ sortable_section(_('Upcoming contests'), future_contests, 'future') }}
+    {{ sortable_section(_('Past contests'), past_contests, 'past') }}
+
+    <button id="save-btn" class="button">{{ _('Save Order') }}</button>
+    <span id="save-status" style="margin-left:10px;opacity:0.6"></span>
+
+</div>
+
 <script>
-document.querySelectorAll('.sortable-list').forEach(el => {
-    Sortable.create(el, { animation: 150 });
-});
-
-document.getElementById('save-btn').onclick = function() {
-    const order = [...document.querySelectorAll('.sortable-list li')]
-        .map(el => el.dataset.key);
-    console.log('Saving order:', order);
-    fetch('', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token }}',
-        },
-        body: JSON.stringify({ order }),
-    }).then(r => r.json()).then(data => {
-        console.log('Response:', data);
-        document.getElementById('save-status').textContent = 'Saved ✓';
-        setTimeout(() => document.getElementById('save-status').textContent = '', 2000);
+    document.querySelectorAll('.sortable-list').forEach(el => {
+        Sortable.create(el, { animation: 150 });
     });
-};
+
+    document.getElementById('save-btn').onclick = function () {
+        const payload = {};
+        document.querySelectorAll('.sortable-list').forEach(el => {
+            const section = el.dataset.section;
+            payload[section] = [...el.querySelectorAll('tr[data-key]')]
+                .map(row => row.dataset.key);
+        });
+        console.log('Saving:', payload);
+        fetch('', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: JSON.stringify(payload),
+        }).then(r => r.json()).then(() => {
+            document.getElementById('save-status').textContent = 'Saved ✓';
+            setTimeout(() => document.getElementById('save-status').textContent = '', 2000);
+        });
+    };
 </script>
 {% endblock %}
