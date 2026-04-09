@@ -7702,3 +7702,19 @@ msgstr "Thẻ kỳ thi"
 #: templates/contest/reorder.html
 msgid "Clear filters"
 msgstr "Xoá bộ lọc"
+
+#: templates/contest/reorder.html
+msgid "Save order"
+msgstr "Lưu thứ tự này"
+
+#: templates/contest/reorder.html
+msgid "No contests"
+msgstr "Không có kỳ thi"
+
+#: templates/contest/reorder.html
+msgid "Order saved"
+msgstr "Đã cập nhật thứ tự này"
+
+#: templates/contest/reorder.html
+msgid "Error while saving order"
+msgstr "Lỗi khi cập nhật thứ tự mới"
