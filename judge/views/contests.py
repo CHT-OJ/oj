@@ -241,6 +241,7 @@ class ContestTagList(QueryStringSortMixin, DiggPaginatorMixin, TitleMixin, Conte
         context['first_page_href'] = '.'
         context['page_suffix'] = '#past-contests'
         context['search_query'] = self.search_query
+        context['current_tag_key'] = self.tag.key if self.tag else None
         context.update(self.get_sort_context())
         context.update(self.get_sort_paginate_context())
         return context
