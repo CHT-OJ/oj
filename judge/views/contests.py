@@ -9,6 +9,7 @@ from operator import attrgetter, itemgetter
 from bs4 import BeautifulSoup
 from django import forms
 from django.conf import settings
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.context_processors import PermWrapper
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.auth.models import User as UserModel
@@ -24,6 +25,7 @@ from django.template.defaultfilters import date as date_filter, floatformat
 from django.template.loader import get_template
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.decorators import method_decorator
 from django.utils.functional import cached_property
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
@@ -54,8 +56,6 @@ from judge.utils.ranker import ranker
 from judge.utils.stats import get_bar_chart, get_pie_chart, get_stacked_bar_chart
 from judge.utils.views import DiggPaginatorMixin, QueryStringSortMixin, SingleObjectFormView, TitleMixin, \
     add_file_response, generic_message
-from django.contrib.admin.views.decorators import staff_member_required
-from django.utils.decorators import method_decorator
 
 __all__ = ['ContestList', 'ContestDetail', 'ContestRanking', 'ContestJoin', 'ContestLeave', 'ContestCalendar',
            'ContestClone', 'ContestStats', 'ContestMossView', 'ContestMossDelete',
@@ -1790,7 +1790,7 @@ class ContestReorder(View):
             if not keys:
                 continue
             current_orders = sorted(
-                Contest.objects.filter(key__in=keys).values_list('sort_order', flat=True)
+                Contest.objects.filter(key__in=keys).values_list('sort_order', flat=True),
             )
             for key, sort_val in zip(keys, current_orders):
                 Contest.objects.filter(key=key).update(sort_order=sort_val)
