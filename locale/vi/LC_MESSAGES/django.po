@@ -7718,3 +7718,7 @@ msgstr "Đã cập nhật thứ tự này"
 #: templates/contest/reorder.html
 msgid "Error while saving order"
 msgstr "Lỗi khi cập nhật thứ tự mới"
+
+#: templates/contest/reorder.html
+msgid "Your changes may not have been saved yet. Do you want to leave the page"
+msgstr "Các thay đổi của bạn có thể chưa được lưu. Bạn có muốn rời khỏi trang không"

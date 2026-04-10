@@ -88,7 +88,7 @@
             <label for="year-filter">
                 <i class="fa fa-calendar"></i>{{ _('Contest year') }}:
             </label>
-            <select id="year-filter" name="year" onchange="this.form.submit()">
+            <select id="year-filter" name="year">
                 <option value="">{{ _('All') }}</option>
                 {% for year in all_years %}
                     <option value="{{ year }}" {{ 'selected' if current_year == year|string }}>{{ year }}</option>
@@ -100,7 +100,7 @@
             <label for="tag-filter">
                 <i class="fa fa-tag"></i>{{ _('Contest tag') }}:
             </label>
-            <select id="tag-filter" name="tag" onchange="this.form.submit()">
+            <select id="tag-filter" name="tag">
                 <option value="">{{ _('All') }}</option>
                 {% for tag in all_tags %}
                     <option value="{{ tag.key }}" {{ 'selected' if current_tag == tag.key }}>{{ tag.display_name }}</option>
@@ -195,64 +195,113 @@
 
 <script>
 (function () {
+    var ZONE       = 72;
+    var SPEED_MIN  = 2;
+    var SPEED_MAX  = 34;
+    var ACCEL_TIME = 1400;
+
     var activeWrapper = null;
-    var scrollRaf     = null;
+    var isDragging    = false;
     var pointerY      = 0;
-    var ZONE          = 43;   /* px – vùng nhạy gần mép trên/dưới wrapper */
-    var MAX_SPEED     = 26;   /* px/frame – tốc độ cuộn tối đa             */
+    var accelStart    = null;
+    var lastDir       = 0;
+    var rafId         = null;
+    var isDirty       = false;
 
-    document.addEventListener('pointermove', function (e) {
-        pointerY = e.clientY;
-    }, { passive: true });
+    var cachedRect = null;
 
-    function scrollTick() {
-        if (activeWrapper) {
-            var rect = activeWrapper.getBoundingClientRect();
-            var relY = pointerY - rect.top;
-            var speed = 0,
-                upd_speed = 0;
+    function updatePointerY(e) {
+        if (isDragging) pointerY = e.clientY;
+    }
+    document.addEventListener('mousemove',   updatePointerY, { passive: true });
+    document.addEventListener('pointermove', updatePointerY, { passive: true });
+
+    function scrollTick(now) {
+        if (!isDragging) {
+            rafId = null;
+            return;
+        }
+
+        if (activeWrapper && cachedRect) {
+            var relY = pointerY - cachedRect.top;
+            var dir  = 0;
+            var dist = 0;
 
             if (relY < ZONE) {
-                var t = Math.min(1, Math.max(0, 1 - relY / ZONE));
-                speed = -MAX_SPEED * t / 1.03;
-            } else if (relY > rect.height - ZONE) {
-                var t = Math.min(1, Math.max(0, 1 - (rect.height - relY) / ZONE));
-                speed = MAX_SPEED * t / 1.03;
+                dir  = -1;
+                dist = Math.min(1, Math.max(0, 1 - relY / ZONE));
+            } else if (relY > cachedRect.height - ZONE) {
+                dir  = 1;
+                dist = Math.min(1, Math.max(0, 1 - (cachedRect.height - relY) / ZONE));
             }
 
-            if (speed !== 0) activeWrapper.scrollTop += speed + upd_speed;
+            if (dir === 0) {
+                accelStart = null;
+                lastDir    = 0;
+            } else {
+                if (dir !== lastDir) {
+                    accelStart = now;
+                    lastDir    = dir;
+                }
+                var t     = Math.min(1, (now - accelStart) / ACCEL_TIME);
+                var speed = dist * (SPEED_MIN + (SPEED_MAX - SPEED_MIN) * t);
+                activeWrapper.scrollTop += dir * speed;
+            }
         }
-        scrollRaf = requestAnimationFrame(scrollTick);
+
+        rafId = requestAnimationFrame(scrollTick);
+    }
+
+    function startScrollLoop() {
+        if (rafId !== null) {
+            cancelAnimationFrame(rafId);
+            rafId = null;
+        }
+        rafId = requestAnimationFrame(scrollTick);
     }
 
     document.querySelectorAll('.sortable-list').forEach(function (el) {
         var chk = el.querySelectorAll('.no-contest-nc');
         if (chk.length > 0) return;
+
         var wrapper = el.closest('.sortable-scroll-wrapper');
 
         Sortable.create(el, {
             animation:         90,
-
-            forceFallback:     true,   /* dùng CSS transform, không dùng native drag API */
-            fallbackOnBody:    true,   /* append clone vào body, thoát overflow wrapper  */
-            fallbackTolerance: 3,      /* tránh kích hoạt drag khi chỉ click             */
+            forceFallback:     true,
+            fallbackOnBody:    true,
+            fallbackTolerance: 3,
             fallbackClass:     'sortable-fallback',
-
             ghostClass:        'sortable-ghost',
-            scroll:            false,  /* tắt scroll tích hợp, dùng rAF thủ công        */
-
+            scroll:            false,
             group: { name: el.id, pull: false, put: false },
 
-            onStart: function () {
+            onMove: function (evt) {
+                if (isDragging && evt.originalEvent) pointerY = evt.originalEvent.clientY;
+            },
+
+            onStart: function (evt) {
+                if (evt.originalEvent) pointerY = evt.originalEvent.clientY;
+
                 document.body.classList.add('is-dragging');
                 activeWrapper = wrapper;
-                if (!scrollRaf) scrollRaf = requestAnimationFrame(scrollTick);
+
+                cachedRect = wrapper.getBoundingClientRect();
+
+                accelStart = null;
+                lastDir    = 0;
+                isDragging = true;
+                startScrollLoop();
             },
+
             onEnd: function () {
-                document.body.classList.remove('is-dragging');
+                isDragging    = false;
+                isDirty       = true;
                 activeWrapper = null;
-                cancelAnimationFrame(scrollRaf);
-                scrollRaf = null;
+                cachedRect    = null;
+                accelStart    = null;
+                lastDir       = 0;
+                document.body.classList.remove('is-dragging');
             },
         });
     });
@@ -295,9 +344,33 @@
             if (!r.ok) throw new Error(r.status);
             return r.json();
         })
-        .then(function ()  { showStatus('ok',  '{{ _("Order saved") }}'); })
+        .then(function ()  { isDirty = false; showStatus('ok',  '{{ _("Order saved") }}'); })
         .catch(function () { showStatus('err', '{{ _("Error while saving order") }}'); })
         .finally(function () { saveBtn.disabled = false; });
+    });
+
+    /* Giữ lại giá trị ban đầu khi trang load để revert nếu user cancel */
+    document.querySelectorAll('.contest-filter-form select').forEach(function (sel) {
+        var previousValue = sel.value;
+
+        sel.addEventListener('change', function () {
+            if (isDirty) {
+                var confirmed = window.confirm('{{ _("Your changes may not have been saved yet. Do you want to leave the page") }}');
+                if (!confirmed) {
+                    sel.value = previousValue;
+                    return;
+                }
+            }
+            isDirty = false;
+            previousValue = sel.value;
+            sel.closest('form').submit();
+        });
+    });
+
+    window.addEventListener('beforeunload', function (e) {
+        if (!isDirty) return;
+        e.preventDefault();
+        e.returnValue = '';
     });
 })();
 </script>
