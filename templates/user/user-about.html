@@ -44,7 +44,7 @@
             </i>
             <br>
         {% endif %}
-        {% if user.user_rank_logo and user.user_rank_logo.image.url %}
+        {% if user.user_rank_logo and user.user_rank_logo.is_usable_by(user) and user.user_rank_logo.image.url %}
             <h4>Logo</h4>
             <div class="u-logo-container">
                 <div class="u-logo-frag">

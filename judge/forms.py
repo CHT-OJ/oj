@@ -85,6 +85,15 @@ class ProfileForm(ModelForm):
                                   % settings.VNOJ_INTERACT_MIN_PROBLEM_COUNT)
         return self.cleaned_data['about']
 
+    def clean_user_rank_logo(self):
+        logo = self.cleaned_data.get('user_rank_logo')
+        if not logo:
+            return logo
+        if not logo.is_usable_by(self.instance):
+            raise ValidationError(_('You are not allowed to use this logo'))
+
+        return logo
+
     def clean(self):
         organizations = self.cleaned_data.get('organizations') or []
         max_orgs = settings.DMOJ_USER_MAX_ORGANIZATION_COUNT
@@ -97,8 +106,9 @@ class ProfileForm(ModelForm):
         return self.cleaned_data
 
     def __init__(self, *args, **kwargs):
-        user = kwargs.pop('user', None)
+        self.user = kwargs.pop('user', None)
         super(ProfileForm, self).__init__(*args, **kwargs)
+        user = self.user
 
         self.fields['display_badge'].required = False
         self.fields['display_badge'].queryset = self.instance.badges.all()
@@ -111,6 +121,34 @@ class ProfileForm(ModelForm):
             )
         if not self.fields['organizations'].queryset:
             self.fields.pop('organizations')
+
+        # Logo form
+        logo_qs = self.fields['user_rank_logo'].queryset
+        profile = self.instance
+        user_orgs = profile.organizations.all()
+
+        privileged_perms = getattr(settings, 'VNOJ_LOGO_DISPLAY_PERMISSIONS', [])
+        is_privileged_admin = (
+            profile.user and
+            profile.user.is_authenticated and
+            any(profile.user.has_perm(perm) for perm in privileged_perms)
+        )
+
+        if not is_privileged_admin:
+            logo_qs = logo_qs.filter(
+                # 1: Public logo  -> everybody can see & use
+                Q(is_not_public=False) |
+                # 2: Private logo -> users were allowed
+                Q(
+                    is_not_public=True,
+                    allowed_users=profile,
+                ) |
+                Q(
+                    is_not_public=True,
+                    organizations__in=user_orgs,
+                ),
+            ).distinct()
+        self.fields['user_rank_logo'].queryset = logo_qs
 
 
 class UserForm(ModelForm):
