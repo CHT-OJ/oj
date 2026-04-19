@@ -1,0 +1,377 @@
+{% extends "common-content.html" %}
+
+{% block title_ruler %}{% endblock %}
+
+{% block title_row %}
+    <h2 class="content-title">{{ _('Reorder contests') }}</h2>
+{% endblock %}
+
+{% block content_js_media %}
+<script src="{{static('Sortable.min.js')}}"></script>
+{% endblock %}
+
+{% block body %}
+<style>
+    /* ── Scroll wrapper ── */
+    .sortable-scroll-wrapper {
+        max-height: 420px;
+        overflow-y: auto;
+        margin-bottom: 20px;
+        position: relative;
+    }
+
+    /* Sticky thead */
+    .sortable-scroll-wrapper .contest-list thead {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #f9f9f9;
+    }
+
+    /* Ghost row – placeholder giữ chỗ trong danh sách */
+    .sortable-ghost {
+        opacity: 0.35;
+        background: #d0e8ff !important;
+    }
+
+    .sortable-fallback {
+        opacity: 0.95 !important;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, .22) !important;
+        border-radius: 3px;
+    }
+
+    body.is-dragging {
+        overflow: hidden;
+    }
+    body.is-dragging,
+    body.is-dragging * {
+        cursor: grabbing !important;
+    }
+    
+    body.is-dragging #contest-info{
+        display: none !important;
+    }
+    
+    .content-description * {
+        user-select: none !important;
+        -webkit-user-select: none !important;
+    }
+
+    /* ── Save bar: button + status liền nhau, không khoảng trắng HTML ── */
+    .save-bar {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        line-height: 1;
+    }
+
+    #save-status {
+        display: none;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 12px;
+        border-radius: 5px;
+        font-size: 0.85em;
+        font-weight: 500;
+        line-height: 1.2;
+        white-space: nowrap;
+    }
+    #save-status.visible    { display: inline-flex; }
+    #save-status.status-ok  { background: #eaf7ee; color: #1a7035; border: 1px solid #b2dfca; }
+    #save-status.status-err { background: #fdf2f2; color: #b03030; border: 1px solid #f0b8b8; }
+    #save-icon { font-size: 1em; width: 1em; text-align: center; }
+</style>
+
+<div class="content-description">
+    <form class="contest-filter-form" method="get">
+        <div class="contest-filter-row">
+            <label for="year-filter">
+                <i class="fa fa-calendar"></i>{{ _('Contest year') }}:
+            </label>
+            <select id="year-filter" name="year">
+                <option value="">{{ _('All') }}</option>
+                {% for year in all_years %}
+                    <option value="{{ year }}" {{ 'selected' if current_year == year|string }}>{{ year }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="contest-filter-row">
+            <label for="tag-filter">
+                <i class="fa fa-tag"></i>{{ _('Contest tag') }}:
+            </label>
+            <select id="tag-filter" name="tag">
+                <option value="">{{ _('All') }}</option>
+                {% for tag in all_tags %}
+                    <option value="{{ tag.key }}" {{ 'selected' if current_tag == tag.key }}>{{ tag.display_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        {% if current_year or current_tag %}
+        <span></span>
+        <a href="?" class="button">{{ _('Clear filters') }}</a>
+        {% endif %}
+    </form>
+
+    {% macro sortable_section(title, contests, section_id) %}
+        <h4>{{ title }}</h4>
+        <div class="sortable-scroll-wrapper" id="wrapper-{{ section_id }}">
+            <table class="contest-list table striped">
+                <thead>
+                    <tr>
+                        <th style="width:3%"></th>
+                        <th style="width:80%">{{ _('Contest') }}</th>
+                        <th>{{ _('Users') }}</th>
+                    </tr>
+                </thead>
+                <tbody id="{{ section_id }}" class="sortable-list" data-section="{{ section_id }}">
+                    {% for contest in contests %}
+                    <tr data-key="{{ contest.key }}" style="cursor:grab">
+                        <td style="text-align:center;opacity:0.4;user-select:none">⠿</td>
+                        <td>
+                            <div class="contest-block">
+                                <a href="{{ url('contest_view', contest.key) }}" class="contest-list-title">
+                                    {{ contest.name }}
+                                </a>
+                                <span class="contest-tags">
+                                    {% if not contest.is_visible %}
+                                        <span style="background-color:#000000;color:#ffffff" class="contest-tag">
+                                            <i class="fa fa-eye-slash"></i> {{ _('hidden') }}
+                                        </span>
+                                    {% endif %}
+                                    {% if contest.is_organization_private %}
+                                        {% for org in contest.organizations.all() %}
+                                            <span style="background-color:#cccccc" class="contest-tag">
+                                                <a href="{{ org.get_absolute_url() }}" style="color:#000000">
+                                                    <i class="fa fa-lock"></i> {{ org.name }}
+                                                </a>
+                                            </span>
+                                        {% endfor %}
+                                    {% elif contest.is_private %}
+                                        <span style="background-color:#666666;color:#ffffff" class="contest-tag">
+                                            <i class="fa fa-lock"></i> {{ _('private') }}
+                                        </span>
+                                    {% endif %}
+                                    {% if contest.is_rated %}
+                                        <span style="background-color:#e54c14;color:#ffffff" class="contest-tag">
+                                            <i class="fa fa-bar-chart"></i> {{ _('rated') }}
+                                        </span>
+                                    {% endif %}
+                                    {% for tag in contest.tags.all() %}
+                                        <span style="background-color:{{ tag.color }}" class="contest-tag">
+                                            <a href="{{ url('contest_tag_list', tag.key) }}" style="color:{{ tag.text_color }}">
+                                                {{ tag.display_name }}
+                                            </a>
+                                        </span>
+                                    {% endfor %}
+                                </span>
+                                <br>
+                                <div class="time time-left">
+                                    {{ contest.start_time|date(_("M j, Y, G:i")) }}
+                                    {% if contest.time_limit %}
+                                        - {{ contest.end_time|date(_("M j, Y, G:i")) }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ contest.user_count }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="3" class="no-contest-nc"><i>{{ _('No contests') }}</i></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <br>
+    {% endmacro %}
+
+    {{ sortable_section(_('Ongoing contests'),  current_contests, 'present') }}
+    {{ sortable_section(_('Upcoming contests'), future_contests,  'future') }}
+    {{ sortable_section(_('Past contests'),     past_contests,    'past') }}
+
+    <span class="save-bar"><button id="save-btn" class="button">{{ _('Save order') }}</button><span id="save-status"><i id="save-icon" class="fa"></i><span id="save-text"></span></span></span>
+</div>
+
+<script>
+(function () {
+    var ZONE       = 72;
+    var SPEED_MIN  = 2;
+    var SPEED_MAX  = 34;
+    var ACCEL_TIME = 1400;
+
+    var activeWrapper = null;
+    var isDragging    = false;
+    var pointerY      = 0;
+    var accelStart    = null;
+    var lastDir       = 0;
+    var rafId         = null;
+    var isDirty       = false;
+
+    var cachedRect = null;
+
+    function updatePointerY(e) {
+        if (isDragging) pointerY = e.clientY;
+    }
+    document.addEventListener('mousemove',   updatePointerY, { passive: true });
+    document.addEventListener('pointermove', updatePointerY, { passive: true });
+
+    function scrollTick(now) {
+        if (!isDragging) {
+            rafId = null;
+            return;
+        }
+
+        if (activeWrapper && cachedRect) {
+            var relY = pointerY - cachedRect.top;
+            var dir  = 0;
+            var dist = 0;
+
+            if (relY < ZONE) {
+                dir  = -1;
+                dist = Math.min(1, Math.max(0, 1 - relY / ZONE));
+            } else if (relY > cachedRect.height - ZONE) {
+                dir  = 1;
+                dist = Math.min(1, Math.max(0, 1 - (cachedRect.height - relY) / ZONE));
+            }
+
+            if (dir === 0) {
+                accelStart = null;
+                lastDir    = 0;
+            } else {
+                if (dir !== lastDir) {
+                    accelStart = now;
+                    lastDir    = dir;
+                }
+                var t     = Math.min(1, (now - accelStart) / ACCEL_TIME);
+                var speed = dist * (SPEED_MIN + (SPEED_MAX - SPEED_MIN) * t);
+                activeWrapper.scrollTop += dir * speed;
+            }
+        }
+
+        rafId = requestAnimationFrame(scrollTick);
+    }
+
+    function startScrollLoop() {
+        if (rafId !== null) {
+            cancelAnimationFrame(rafId);
+            rafId = null;
+        }
+        rafId = requestAnimationFrame(scrollTick);
+    }
+
+    document.querySelectorAll('.sortable-list').forEach(function (el) {
+        var chk = el.querySelectorAll('.no-contest-nc');
+        if (chk.length > 0) return;
+
+        var wrapper = el.closest('.sortable-scroll-wrapper');
+
+        Sortable.create(el, {
+            animation:         90,
+            forceFallback:     true,
+            fallbackOnBody:    true,
+            fallbackTolerance: 3,
+            fallbackClass:     'sortable-fallback',
+            ghostClass:        'sortable-ghost',
+            scroll:            false,
+            group: { name: el.id, pull: false, put: false },
+
+            onMove: function (evt) {
+                if (isDragging && evt.originalEvent) pointerY = evt.originalEvent.clientY;
+            },
+
+            onStart: function (evt) {
+                if (evt.originalEvent) pointerY = evt.originalEvent.clientY;
+
+                document.body.classList.add('is-dragging');
+                activeWrapper = wrapper;
+
+                cachedRect = wrapper.getBoundingClientRect();
+
+                accelStart = null;
+                lastDir    = 0;
+                isDragging = true;
+                startScrollLoop();
+            },
+
+            onEnd: function () {
+                isDragging    = false;
+                isDirty       = true;
+                activeWrapper = null;
+                cachedRect    = null;
+                accelStart    = null;
+                lastDir       = 0;
+                document.body.classList.remove('is-dragging');
+            },
+        });
+    });
+
+    var saveBtn   = document.getElementById('save-btn');
+    var statusEl  = document.getElementById('save-status');
+    var iconEl    = document.getElementById('save-icon');
+    var textEl    = document.getElementById('save-text');
+    var hideTimer = null;
+
+    function showStatus(type, label) {
+        clearTimeout(hideTimer);
+        statusEl.className = 'visible status-' + type;
+        iconEl.className   = 'fa ' + (type === 'ok' ? 'fa-check-circle' : 'fa-times-circle');
+        textEl.textContent = label;
+        if (type === 'ok') {
+            hideTimer = setTimeout(function () { statusEl.className = ''; }, 2500);
+        }
+    }
+
+    saveBtn.addEventListener('click', function () {
+        saveBtn.disabled = true;
+
+        var payload = {};
+        document.querySelectorAll('.sortable-list').forEach(function (el) {
+            payload[el.dataset.section] = Array.from(
+                el.querySelectorAll('tr[data-key]')
+            ).map(function (row) { return row.dataset.key; });
+        });
+
+        fetch('', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: JSON.stringify(payload),
+        })
+        .then(function (r) {
+            if (!r.ok) throw new Error(r.status);
+            return r.json();
+        })
+        .then(function ()  { isDirty = false; showStatus('ok',  '{{ _("Order saved") }}'); })
+        .catch(function () { showStatus('err', '{{ _("Error while saving order") }}'); })
+        .finally(function () { saveBtn.disabled = false; });
+    });
+
+    /* Giữ lại giá trị ban đầu khi trang load để revert nếu user cancel */
+    document.querySelectorAll('.contest-filter-form select').forEach(function (sel) {
+        var previousValue = sel.value;
+
+        sel.addEventListener('change', function () {
+            if (isDirty) {
+                var confirmed = window.confirm('{{ _("Your changes may not have been saved yet. Do you want to leave the page") }}');
+                if (!confirmed) {
+                    sel.value = previousValue;
+                    return;
+                }
+            }
+            isDirty = false;
+            previousValue = sel.value;
+            sel.closest('form').submit();
+        });
+    });
+
+    window.addEventListener('beforeunload', function (e) {
+        if (!isDirty) return;
+        e.preventDefault();
+        e.returnValue = '';
+    });
+})();
+</script>
+{% endblock %}

@@ -9,6 +9,7 @@ from operator import attrgetter, itemgetter
 from bs4 import BeautifulSoup
 from django import forms
 from django.conf import settings
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.context_processors import PermWrapper
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.auth.models import User as UserModel
@@ -24,6 +25,7 @@ from django.template.defaultfilters import date as date_filter, floatformat
 from django.template.loader import get_template
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.decorators import method_decorator
 from django.utils.functional import cached_property
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
@@ -114,7 +116,7 @@ class ContestList(QueryStringSortMixin, DiggPaginatorMixin, TitleMixin, ContestL
 
     def get_queryset(self):
         self.search_query = None
-        query_set = self._get_queryset().order_by(self.order, 'key').filter(end_time__lt=self._now)
+        query_set = self._get_queryset().order_by('sort_order', self.order, 'key').filter(end_time__lt=self._now)
         if 'search' in self.request.GET:
             self.search_query = search_query = ' '.join(self.request.GET.getlist('search')).strip()
             if search_query:
@@ -147,9 +149,13 @@ class ContestList(QueryStringSortMixin, DiggPaginatorMixin, TitleMixin, ContestL
                     active.append(participation)
                     present.remove(participation.contest)
 
-        active.sort(key=attrgetter('end_time', 'key'))
-        present.sort(key=attrgetter('end_time', 'key'))
-        future.sort(key=attrgetter('start_time'))
+        active.sort(key=lambda p: (p.contest.sort_order, p.contest.key))
+        present.sort(key=lambda c: (c.sort_order, c.key))
+        future.sort(key=lambda c: (c.sort_order, c.key))
+
+        # active.sort(key=attrgetter('end_time', 'key'))
+        # present.sort(key=attrgetter('end_time', 'key'))
+        # future.sort(key=attrgetter('start_time'))
         context['active_participations'] = active
         context['current_contests'] = present
         context['future_contests'] = future
@@ -219,9 +225,13 @@ class ContestTagList(QueryStringSortMixin, DiggPaginatorMixin, TitleMixin, Conte
                     active.append(participation)
                     present.remove(participation.contest)
 
-        active.sort(key=attrgetter('end_time', 'key'))
-        present.sort(key=attrgetter('end_time', 'key'))
-        future.sort(key=attrgetter('start_time'))
+        active.sort(key=lambda p: (p.contest.sort_order, p.contest.key))
+        present.sort(key=lambda c: (c.sort_order, c.key))
+        future.sort(key=lambda c: (c.sort_order, c.key))
+
+        # active.sort(key=attrgetter('end_time', 'key'))
+        # present.sort(key=attrgetter('end_time', 'key'))
+        # future.sort(key=attrgetter('start_time'))
         context['title'] = _('Các kỳ thi thuộc mục "%s"') % self.tag.display_name
         context['active_participations'] = active
         context['current_contests'] = present
@@ -231,6 +241,7 @@ class ContestTagList(QueryStringSortMixin, DiggPaginatorMixin, TitleMixin, Conte
         context['first_page_href'] = '.'
         context['page_suffix'] = '#past-contests'
         context['search_query'] = self.search_query
+        context['current_tag_key'] = self.tag.key if self.tag else None
         context.update(self.get_sort_context())
         context.update(self.get_sort_paginate_context())
         return context
@@ -1744,3 +1755,44 @@ class ContestDownloadData(ContestDataMixin, SingleObjectMixin, View):
         response['Content-Type'] = 'application/zip'
         response['Content-Disposition'] = 'attachment; filename=%s-data.zip' % self.object.key
         return response
+
+
+@method_decorator(staff_member_required, name='dispatch')
+class ContestReorder(View):
+    def get(self, request):
+        now = timezone.now()
+        contests = Contest.objects.prefetch_related('tags', 'organizations').order_by('sort_order', 'key')
+
+        year = request.GET.get('year')
+        tag_key = request.GET.get('tag')
+
+        if year:
+            contests = contests.filter(start_time__year=year)
+        if tag_key:
+            contests = contests.filter(tags__key=tag_key)
+
+        all_years = Contest.objects.dates('start_time', 'year', order='DESC')
+        all_tags = ContestTag.objects.all().order_by('key')
+        return render(request, 'contest/reorder.html', {
+            'title': _('Reorder contests'),
+            'future_contests': contests.filter(start_time__gt=now),
+            'current_contests': contests.filter(start_time__lte=now, end_time__gte=now),
+            'past_contests': contests.filter(end_time__lt=now),
+            'all_years': [d.year for d in all_years],
+            'all_tags': all_tags,
+            'current_year': year,
+            'current_tag': tag_key,
+        })
+
+    def post(self, request):
+        data = json.loads(request.body)
+        for section in ('future', 'present', 'past'):
+            keys = data.get(section, [])
+            if not keys:
+                continue
+            current_orders = sorted(
+                Contest.objects.filter(key__in=keys).values_list('sort_order', flat=True),
+            )
+            for key, sort_val in zip(keys, current_orders):
+                Contest.objects.filter(key=key).update(sort_order=sort_val)
+        return JsonResponse({'status': 'ok'})
