@@ -314,6 +314,9 @@ class SubmissionSourceDownload(SubmissionDetailBase):
             response['Content-Disposition'] = 'attachment; filename=%s_%s_%s.%s' % (problem_code, username, id, ext)
 
             url_path = submission.source.source
+            if not url_path.startswith('/'):
+                url_path = '/' + url_path
+            
             file_path = default_storage.path(os.path.join(settings.SUBMISSION_FILE_UPLOAD_MEDIA_DIR, problem_code,
                                                           str(user_id), os.path.basename(url_path)))
             add_file_response(request, response, url_path, file_path)
