@@ -3,6 +3,7 @@ import os
 from collections import namedtuple
 from itertools import groupby
 from operator import attrgetter
+from urllib.parse import urlparse
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
@@ -313,7 +314,7 @@ class SubmissionSourceDownload(SubmissionDetailBase):
             response['Content-Type'] = 'application/octet-stream'
             response['Content-Disposition'] = 'attachment; filename=%s_%s_%s.%s' % (problem_code, username, id, ext)
 
-            url_path = submission.source.source
+            url_path = urlparse(submission.source.source).path
             if not url_path.startswith('/'):
                 url_path = '/' + url_path
             
