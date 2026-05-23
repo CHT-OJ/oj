@@ -223,7 +223,7 @@
             "description": "Check options: `scratch-run --check`",
             "extension": "sb3",
             "file_only": true,
-            "file_size_limit": 1,
+            "file_size_limit": 20,
             "include_in_problem": true
         }
     },
