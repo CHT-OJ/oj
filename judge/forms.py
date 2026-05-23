@@ -393,18 +393,6 @@ class ProblemSubmitForm(ModelForm):
                 raise forms.ValidationError(_('File size is too big! Maximum file size is %s')
                                             % filesizeformat(max_file_size))
 
-            if lang_obj.key == 'SCRATCH':
-                try:
-                    archive = zipfile.ZipFile(content.file)
-                    info = archive.getinfo('project.json')
-                    if info.file_size > max_file_size:
-                        raise forms.ValidationError(_('project.json is too big! Maximum file size is %s')
-                                                    % filesizeformat(max_file_size))
-
-                    self.files['submission_file'].file = archive.open('project.json')
-                except (zipfile.BadZipFile, KeyError):
-                    pass
-
     def __init__(self, *args, judge_choices=(), **kwargs):
         super(ProblemSubmitForm, self).__init__(*args, **kwargs)
         self.fields['language'].empty_label = None
