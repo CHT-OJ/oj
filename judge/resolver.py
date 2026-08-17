@@ -1,0 +1,221 @@
+from django.db.models import Count, Prefetch
+
+from judge.jinja2.gravatar import gravatar
+from judge.models import ContestParticipation, Organization
+
+
+SUPPORTED_RESOLVER_FORMATS = frozenset(('default', 'icpc', 'vnoj'))
+FROZEN_RESOLVER_FORMATS = frozenset(('icpc', 'vnoj'))
+
+
+class ResolverPayloadError(ValueError):
+    pass
+
+
+class ResolverUnsupportedFormat(ResolverPayloadError):
+    def __init__(self, format_name):
+        super().__init__('Contest format "%s" is not supported by Resolver.' % format_name)
+        self.format_name = format_name
+
+
+def _number(data, key, default=0):
+    value = data.get(key, default)
+    return default if value is None else value
+
+
+def _serialize_default_cell(problem_id, data, official_freeze_available):
+    return {
+        'problem_id': problem_id,
+        'attempted': True,
+        'final': {
+            'points': _number(data, 'points'),
+            'time': _number(data, 'time'),
+        },
+        'frozen': None,
+    }
+
+
+def _serialize_icpc_cell(problem_id, data, official_freeze_available):
+    frozen = None
+    if official_freeze_available:
+        frozen = {
+            'points': _number(data, 'frozen_points'),
+            # The Python format stores one solve time and uses it for both final and frozen displays.
+            'time': _number(data, 'time'),
+            'tries': _number(data, 'frozen_tries'),
+            'pending': bool(data.get('is_frozen', False)),
+        }
+
+    return {
+        'problem_id': problem_id,
+        'attempted': True,
+        'final': {
+            'points': _number(data, 'points'),
+            'time': _number(data, 'time'),
+            'tries': _number(data, 'tries'),
+        },
+        'frozen': frozen,
+    }
+
+
+def _serialize_vnoj_cell(problem_id, data, official_freeze_available):
+    pending = _number(data, 'pending')
+    frozen = None
+    if official_freeze_available:
+        frozen = {
+            'points': _number(data, 'frozen_points'),
+            'time': _number(data, 'frozen_time'),
+            'penalty': _number(data, 'frozen_penalty'),
+            'pending': pending,
+        }
+
+    return {
+        'problem_id': problem_id,
+        'attempted': True,
+        'final': {
+            'points': _number(data, 'points'),
+            'time': _number(data, 'time'),
+            'penalty': _number(data, 'penalty'),
+            'pending': pending,
+        },
+        'frozen': frozen,
+    }
+
+
+CELL_SERIALIZERS = {
+    'default': _serialize_default_cell,
+    'icpc': _serialize_icpc_cell,
+    'vnoj': _serialize_vnoj_cell,
+}
+
+
+def _serialize_avatar(profile):
+    if profile.avt_url:
+        try:
+            return profile.avt_url.url
+        except ValueError:
+            pass
+    return gravatar(profile.user, 64)
+
+
+def _serialize_rank_logo(profile):
+    if not profile.user_rank_logo:
+        return None
+    try:
+        return profile.user_rank_logo.image.url
+    except ValueError:
+        return None
+
+
+def _serialize_participation(participation, problems, format_name, official_freeze_available):
+    profile = participation.user
+    organization = profile.organization
+    format_data = participation.format_data or {}
+    if not isinstance(format_data, dict):
+        raise ResolverPayloadError(
+            'Participation %s has invalid resolver format data.' % participation.id,
+        )
+
+    cells = {}
+    serializer = CELL_SERIALIZERS[format_name]
+    for problem in problems:
+        problem_id = str(problem.id)
+        data = format_data.get(problem_id)
+        if data is None:
+            continue
+        if not isinstance(data, dict):
+            raise ResolverPayloadError(
+                'Participation %s has invalid resolver data for problem %s.' %
+                (participation.id, problem.id),
+            )
+        cells[problem_id] = serializer(problem.id, data, official_freeze_available)
+
+    frozen = None
+    if official_freeze_available:
+        frozen = {
+            'score': participation.frozen_score,
+            'cumtime': participation.frozen_cumtime,
+            'tiebreaker': participation.frozen_tiebreaker,
+        }
+
+    return {
+        'participation_id': participation.id,
+        'profile_id': profile.id,
+        'username': profile.username,
+        'display_name': profile.display_name,
+        'user_css_class': profile.css_class,
+        'profile_url': profile.get_absolute_url(),
+        'avatar_url': _serialize_avatar(profile),
+        'rank_logo_url': _serialize_rank_logo(profile),
+        'organization': None if organization is None else {
+            'name': organization.name,
+            'short_name': organization.short_name,
+        },
+        'is_disqualified': participation.is_disqualified,
+        'submission_count': participation.submission_count,
+        'final': {
+            'score': participation.score,
+            'cumtime': participation.cumtime,
+            'tiebreaker': participation.tiebreaker,
+        },
+        'frozen': frozen,
+        'problems': cells,
+    }
+
+
+def build_resolver_payload(contest):
+    format_name = contest.format_name
+    if format_name not in SUPPORTED_RESOLVER_FORMATS:
+        raise ResolverUnsupportedFormat(format_name)
+
+    problems = list(
+        contest.contest_problems.select_related('problem').defer('problem__description').order_by('order'),
+    )
+    participations = contest.users.filter(virtual=ContestParticipation.LIVE) \
+        .select_related('user__user', 'user__user_rank_logo') \
+        .prefetch_related(Prefetch(
+            'user__organizations',
+            queryset=Organization.objects.filter(is_unlisted=False),
+        )) \
+        .annotate(submission_count=Count('submission')) \
+        .order_by('id')
+
+    official_freeze_available = (
+        format_name in FROZEN_RESOLVER_FORMATS and contest.frozen_last_minutes > 0
+    )
+    format_config = contest.format.config or {}
+
+    return {
+        'schema_version': 1,
+        'contest': {
+            'id': contest.id,
+            'key': contest.key,
+            'name': contest.name,
+            'format': format_name,
+            'format_config': format_config,
+            'rank_display_options': contest.rank_display_options,
+            'points_precision': contest.points_precision,
+            'frozen_last_minutes': contest.frozen_last_minutes,
+            'official_freeze_available': official_freeze_available,
+        },
+        'problems': [
+            {
+                'id': problem.id,
+                'code': problem.problem.code,
+                'label': contest.get_label_for_problem(index),
+                'name': problem.problem.name,
+                'order': problem.order,
+                'max_score': problem.points,
+            }
+            for index, problem in enumerate(problems)
+        ],
+        'contestants': [
+            _serialize_participation(
+                participation,
+                problems,
+                format_name,
+                official_freeze_available,
+            )
+            for participation in participations
+        ],
+    }
