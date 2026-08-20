@@ -1,18 +1,20 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 from django.conf import settings
 from django.contrib.auth.context_processors import PermWrapper
 from django.core.exceptions import PermissionDenied
-from django.test import RequestFactory, TestCase, override_settings
 from django.template.loader import get_template
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import resolve, reverse
 from django.utils import timezone
 
+from judge.admin.contest import ContestAdmin
 from judge.models import Contest, ContestParticipation
 from judge.models.contest import RankDisplayOptions
 from judge.models.tests.util import create_contest_participation, create_contest_problem, create_organization, \
     create_problem, create_user
-from judge.resolver import ResolverUnsupportedFormat, build_resolver_payload
+from judge.resolver import ResolverUnsupportedFormat, _serialize_avatar, build_resolver_payload
 from judge.views.contests import SpotlightContestRanking
 
 
@@ -213,6 +215,11 @@ class ResolverPayloadTestCase(TestCase):
                 self.assertIn('avatar_url', payload['contestants'][0])
                 self.assertIn('rank_logo_url', payload['contestants'][0])
 
+    def test_uploaded_resolver_avatar_uses_a_64_pixel_thumbnail(self):
+        avatar = SimpleNamespace(thumbnail={'64x64': '/cache/resolver-avatar.jpg'})
+        profile = SimpleNamespace(avt_url=avatar)
+        self.assertEqual(_serialize_avatar(profile), '/avatar/cache/resolver-avatar.jpg')
+
     def test_identity_payload_prefetches_multiple_organizations_without_n_plus_one_queries(self):
         second_user = create_user(username='resolver-second-live')
         second_user.profile.organizations.add(*self.visible_organizations)
@@ -280,6 +287,50 @@ class ResolverPayloadTestCase(TestCase):
             self.assertNotIn('</script><script>alert(1)</script>', script)
             self.assertIn(r'\u003C/script\u003E', script)
 
+    def test_resolver_response_permission_matrix_and_sensitive_cache_headers(self):
+        url = reverse('spotlight_ranking', args=[self.contest.key])
+
+        self.client.force_login(self.normal_user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 403)
+        self.assertNotContains(response, 'id="resolver-data"', status_code=403)
+
+        self.client.force_login(self.editor)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="resolver-data"')
+        cache_control = response['Cache-Control']
+        self.assertIn('no-store', cache_control)
+        self.assertIn('no-cache', cache_control)
+        self.assertIn('private', cache_control)
+        self.assertIn('max-age=0', cache_control)
+
+        self.client.force_login(self.spotlight_user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+        Contest.objects.filter(pk=self.contest.pk).update(
+            start_time=timezone.now() - timezone.timedelta(hours=1),
+            end_time=timezone.now() + timezone.timedelta(hours=1),
+        )
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 403)
+        self.assertNotContains(response, 'id="resolver-data"', status_code=403)
+
+        self.client.force_login(self.editor)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+        Contest.objects.filter(pk=self.contest.pk).update(
+            start_time=timezone.now() - timezone.timedelta(days=2),
+            end_time=timezone.now() - timezone.timedelta(days=1),
+            is_private=True,
+        )
+        self.client.force_login(self.spotlight_user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 403)
+        self.assertNotContains(response, 'id="resolver-data"', status_code=403)
+
     def test_spotlight_tab_visibility_matches_resolver_authorization(self):
         resolver_url = reverse('spotlight_ranking', args=[self.contest.key])
         template = get_template('contest/contest-tabs.html')
@@ -297,12 +348,30 @@ class ResolverPayloadTestCase(TestCase):
                 'is_tester': False,
                 'is_in_contest': False,
                 'has_joined': False,
+                'live_participation': None,
                 'has_moss_api_key': False,
                 'perms': PermWrapper(user),
             })
 
         self.assertNotIn(resolver_url, render_tabs(self.normal_user, False))
         self.assertIn(resolver_url, render_tabs(self.editor, True))
+        self.assertIn(resolver_url, render_tabs(self.spotlight_user, False))
+
+        Contest.objects.filter(pk=self.contest.pk).update(
+            start_time=timezone.now() - timezone.timedelta(hours=1),
+            end_time=timezone.now() + timezone.timedelta(hours=1),
+        )
+        self.assertNotIn(resolver_url, render_tabs(self.spotlight_user, False))
+        self.assertIn(resolver_url, render_tabs(self.editor, True))
+
+    def test_legacy_allow_spotlight_is_not_presented_as_an_access_control(self):
+        admin_fields = {
+            field
+            for _name, options in ContestAdmin.fieldsets
+            for field in options.get('fields', ())
+        }
+        self.assertNotIn('allow_spotlight', admin_fields)
+        self.assertNotIn('allow_spotlight', ContestAdmin.list_display)
 
     def test_unsupported_view_renders_clear_error(self):
         contest = self.fresh_contest(format_name='atcoder', format_config=None)
@@ -321,8 +390,20 @@ class ResolverPayloadTestCase(TestCase):
         self.assertIn('id="resolver-hud"', source)
         self.assertIn('id="resolver-shortcuts"', source)
         self.assertIn('id="resolver-fullscreen"', source)
-        self.assertIn('data-resolver-preset="icpc"', source)
+        self.assertIn('id="resolver-autoplay"', source)
+        self.assertIn('id="resolver-advanced"', source)
+        self.assertNotIn('data-resolver-preset=', source)
         self.assertIn('resolver/resolver.css', source)
         self.assertIn('resolver/bootstrap.js', source)
         self.assertNotIn('resolver-debug-output', source)
         self.assertNotIn('Resolver Phase 1 semantic core loaded.', source)
+
+    def test_vietnamese_resolver_template_translation_loads(self):
+        self.client.force_login(self.editor)
+        response = self.client.get(
+            reverse('spotlight_ranking', args=[self.contest.key]),
+            HTTP_ACCEPT_LANGUAGE='vi',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Bắt đầu trình diễn')
+        self.assertContains(response, 'Trình diễn kết quả')

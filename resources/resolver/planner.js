@@ -4,18 +4,10 @@ import {
   SingleStepTiming,
   usesSingleStepTiming,
 } from "./timing.js";
+import { gettext } from "./i18n.js";
 
 function normalizeId(value) {
   return String(value);
-}
-
-function countResolvableCells(state) {
-  return state.contestants.reduce(
-    (total, contestant) =>
-      total +
-      Object.values(contestant.problems).filter((cell) => cell.attempted && !cell.revealed).length,
-    0,
-  );
 }
 
 export function classifyResolutionResult(transition) {
@@ -45,9 +37,9 @@ export class ResolutionPlanner {
     this.singleStepStartRank = Number.parseInt(singleStepStartRank, 10) || 0;
     this.awardPlaces = Number.parseInt(awardPlaces, 10) || 0;
     this.hardPauses = {
-      singleStep: hardPauses.singleStep !== false,
-      award: hardPauses.award !== false,
-      firstSolve: hardPauses.firstSolve !== false,
+      singleStep: hardPauses.singleStep === true,
+      award: hardPauses.award === true,
+      firstSolve: hardPauses.firstSolve === true,
     };
     this.scoreboardTiming = new ScoreboardTiming();
     this.singleStepTiming = new SingleStepTiming();
@@ -89,15 +81,19 @@ export class ResolutionPlanner {
     let hardPauseReason = null;
     if (this.hardPauses.firstSolve && effects.authoritativeFirstSolveAppeared) {
       hardPauseKind = "first-solve";
-      hardPauseReason = `Authoritative first solve on problem ${
-        problem?.label ?? target.problemId
-      }.`;
+      hardPauseReason = gettext("Authoritative first solve on problem %(problem)s.", {
+        problem: problem?.label ?? target.problemId,
+      });
     } else if (this.hardPauses.award && entersAwardZone) {
       hardPauseKind = "award-boundary";
-      hardPauseReason = `Entered the top ${this.awardPlaces} award zone.`;
+      hardPauseReason = gettext("Entered the top %(rank)s award zone.", {
+        rank: this.awardPlaces,
+      });
     } else if (this.hardPauses.singleStep && entersSingleStepZone) {
       hardPauseKind = "single-step-boundary";
-      hardPauseReason = `Entered the top ${this.singleStepStartRank} single-step region.`;
+      hardPauseReason = gettext("Entered the top %(rank)s single-step region.", {
+        rank: this.singleStepStartRank,
+      });
     }
 
     return {
@@ -113,7 +109,7 @@ export class ResolutionPlanner {
       actualPositionAfterReveal: effects.positionAfter,
       actualRankAfterReveal: effects.rankAfter,
       movementDelta: effects.positionBefore - effects.positionAfter,
-      remainingUnresolvedCells: countResolvableCells(projection.after),
+      remainingUnresolvedCells: effects.remainingResolvableCells,
       resultType,
       isSingleStep,
       entersSingleStepZone,

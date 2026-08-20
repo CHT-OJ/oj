@@ -427,3 +427,107 @@ test("cancelling playback prevents overlapping asynchronous reveal chains", asyn
   assert.equal(session.getHistory().cursor, 0);
   assert.equal(player.getState().running, false);
 });
+
+test("continuous Play crosses narrative pauses and reaches final standings", async () => {
+  const session = new ResolverSession(defaultPayload, {
+    baseline: "beginning",
+    tieOrder: "source",
+  });
+  const policy = new RowSweepPolicy(defaultPayload.problems.map((entry) => entry.id));
+  const planner = new ResolutionPlanner({
+    payload: defaultPayload,
+    targetSelector: (currentSession) => policy.select(currentSession),
+    singleStepStartRank: 1,
+    awardPlaces: 0,
+    hardPauses: { singleStep: false, award: false, firstSolve: false },
+  });
+  let projectionCount = 0;
+  const projectReveal = session.projectReveal.bind(session);
+  session.projectReveal = (...args) => {
+    projectionCount += 1;
+    return projectReveal(...args);
+  };
+  session.getHistory = () => {
+    throw new Error("continuous target selection must not clone full history");
+  };
+  const player = new ResolutionPlayer({
+    session,
+    planner,
+    wait: async () => {},
+  });
+
+  const result = await player.playContinuous(true);
+  assert.equal(result.complete, true);
+  assert.equal(session.getResolvableCount(), 0);
+  assert.equal(session.getHistoryCursor(), 5);
+  assert.equal(
+    projectionCount,
+    5,
+    "the player commits each planner projection without recomputing it",
+  );
+});
+
+test("continuous Play stops only at explicitly enabled hard pauses and resumes deterministically", async () => {
+  const session = new ResolverSession(defaultPayload, {
+    baseline: "beginning",
+    tieOrder: "source",
+  });
+  const policy = new RowSweepPolicy(defaultPayload.problems.map((entry) => entry.id));
+  const planner = new ResolutionPlanner({
+    payload: defaultPayload,
+    targetSelector: (currentSession) => policy.select(currentSession),
+    singleStepStartRank: 1,
+    awardPlaces: 0,
+    hardPauses: { singleStep: false, award: false, firstSolve: true },
+  });
+  const player = new ResolutionPlayer({ session, planner, wait: async () => {} });
+
+  const paused = await player.playContinuous(true);
+  assert.equal(paused.pause.kind, "first-solve");
+  assert.equal(paused.pause.hard, true);
+  assert.equal(session.getResolvableCount() > 0, true);
+  const stateAtPause = session.getState();
+
+  const completed = await player.playContinuous(true);
+  assert.equal(completed.complete, true);
+  assert.notDeepEqual(session.getState(), stateAtPause);
+  assert.equal(session.getResolvableCount(), 0);
+});
+
+test("manual batch cancels continuous playback and resumes from deterministic state", async () => {
+  let releaseDelay;
+  let signalDelayStarted;
+  const delayStarted = new Promise((resolve) => {
+    signalDelayStarted = resolve;
+  });
+  const wait = () =>
+    new Promise((resolve) => {
+      releaseDelay = resolve;
+      signalDelayStarted();
+    });
+  const session = new ResolverSession(defaultPayload, {
+    baseline: "beginning",
+    tieOrder: "source",
+  });
+  const policy = new RowSweepPolicy(defaultPayload.problems.map((entry) => entry.id));
+  const planner = new ResolutionPlanner({
+    payload: defaultPayload,
+    targetSelector: (currentSession) => policy.select(currentSession),
+    hardPauses: { singleStep: false, award: false, firstSolve: false },
+  });
+  const player = new ResolutionPlayer({ session, planner, wait });
+  const run = player.playContinuous(true);
+  await delayStarted;
+  player.cancel("Manual batch");
+  const batch = session.revealBatch(session.getResolvableCellsForProblem(101));
+  releaseDelay();
+  await run;
+  await player.syncAfterExternalChange("Manual batch");
+  assert.equal(batch.changedCells.length, 3);
+  assert.equal(session.getHistoryCursor(), 1);
+
+  player.wait = async () => {};
+  const completed = await player.playContinuous(true);
+  assert.equal(completed.complete, true);
+  assert.equal(session.getResolvableCount(), 0);
+});

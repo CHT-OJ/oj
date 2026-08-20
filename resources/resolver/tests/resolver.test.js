@@ -233,15 +233,17 @@ test("history restores exact states, supports forward, invalidates redo, and res
   const session = new ResolverSession(defaultPayload, { baseline: "beginning", seed: "history" });
   const state0 = session.getState();
   const transitionA = session.revealCell(11, 101);
+  const stateA = session.getState();
   const transitionB = session.revealCell(11, 305);
+  const stateB = session.getState();
   session.revealCell(22, 101);
 
   assert.equal(session.back(), true);
-  assert.deepEqual(session.getState(), transitionB.after);
+  assert.deepEqual(session.getState(), stateB);
   assert.equal(session.back(), true);
-  assert.deepEqual(session.getState(), transitionA.after);
+  assert.deepEqual(session.getState(), stateA);
   assert.equal(session.forward(), true);
-  assert.deepEqual(session.getState(), transitionB.after);
+  assert.deepEqual(session.getState(), stateB);
 
   session.revealCell(22, 305);
   assert.equal(session.forward(), false);
@@ -255,6 +257,12 @@ test("history restores exact states, supports forward, invalidates redo, and res
       { contestantId: 22, problemId: 305 },
     ],
   );
+  assert.equal("before" in transitionA, false);
+  assert.equal("after" in transitionB, false);
+  assert.equal(
+    history.transitions.every((item) => Array.isArray(item.changedCells)),
+    true,
+  );
 
   assert.deepEqual(session.reset(), state0);
   assert.deepEqual(session.replay(), state0);
@@ -263,6 +271,91 @@ test("history restores exact states, supports forward, invalidates redo, and res
     seed: "history",
   });
   assert.deepEqual(secondSession.getState(), state0);
+});
+
+test("batch reveal is one compact undoable transition with deterministic redo", () => {
+  const session = new ResolverSession(defaultPayload, { baseline: "beginning", seed: "batch" });
+  const baseline = session.getState();
+  const targets = session.getResolvableCellsForProblem(101);
+  assert.deepEqual(
+    targets.map((target) => target.contestantId),
+    [11, 22, 33],
+  );
+
+  const transition = session.revealBatch(targets);
+  const revealed = session.getState();
+  assert.equal(transition.type, "reveal-batch");
+  assert.equal(transition.changedCells.length, 3);
+  assert.equal(session.getHistoryCursor(), 1);
+  assert.equal(session.getHistoryLength(), 1);
+  assert.equal("before" in transition, false);
+  assert.equal("after" in transition, false);
+
+  assert.equal(session.back(), true);
+  assert.deepEqual(session.getState(), baseline);
+  assert.equal(session.forward(), true);
+  assert.deepEqual(session.getState(), revealed);
+});
+
+test("contestant batch reveal and branching invalidate redo as one logical action", () => {
+  const session = new ResolverSession(defaultPayload, {
+    baseline: "beginning",
+    seed: "contestant",
+  });
+  const targets = session.getResolvableCellsForContestant(11);
+  session.revealBatch(targets);
+  assert.equal(session.getHistoryLength(), 1);
+  assert.equal(session.back(), true);
+  session.revealCell(22, 101);
+  assert.equal(session.forward(), false);
+  assert.equal(session.getHistoryLength(), 1);
+  assert.deepEqual(session.getLastTransition().target, { contestantId: 22, problemId: 101 });
+});
+
+test("one batch reveal reaches exact final Default, VNOJ, and ICPC standings", () => {
+  for (const source of [defaultPayload, vnojPayload, icpcPayload]) {
+    const baseline = source.contest.official_freeze_available ? "official-freeze" : "beginning";
+    const session = new ResolverSession(source, {
+      baseline,
+      seed: `batch-${source.contest.format}`,
+    });
+    session.revealBatch(session.getResolvableCells());
+    const state = session.getState();
+    assert.equal(session.getResolvableCount(), 0);
+    assert.deepEqual(
+      state.standings.map((standing) => standing.contestantId),
+      [...source.contestants]
+        .sort((left, right) => left.final_order - right.final_order)
+        .map((contestant) => contestant.participation_id),
+    );
+    source.contestants.forEach((contestant) => {
+      const actual = state.contestants.find(
+        (entry) => String(entry.participationId) === String(contestant.participation_id),
+      );
+      assert.deepEqual(
+        {
+          score: actual.score,
+          cumtime: actual.cumtime,
+          tiebreaker: actual.tiebreaker,
+        },
+        contestant.final,
+      );
+    });
+  }
+});
+
+test("resolvable indexes are cached per revision and invalidate on reveal, undo, and redo", () => {
+  const session = new ResolverSession(defaultPayload, { baseline: "beginning" });
+  const initial = session.getResolvableCells();
+  assert.throws(() => initial.pop(), TypeError);
+  assert.equal(session.getResolvableCount(), 5, "callers cannot mutate the cached index");
+  session.revealCell(11, 101);
+  assert.equal(session.getResolvableCount(), 4);
+  assert.equal(session.getResolvableCellsForContestant(11).length, 1);
+  session.back();
+  assert.equal(session.getResolvableCount(), 5);
+  session.forward();
+  assert.equal(session.getResolvableCount(), 4);
 });
 
 test("source payload is immutable and resolver operations do not mutate caller data", () => {
@@ -421,6 +514,12 @@ test("Phase 3 presets are deterministic and Director never starts an automatic p
   );
   assert.equal(CEREMONY_PRESETS.full.baseline, "beginning");
   assert.equal(CEREMONY_PRESETS.director.policy, "manual");
+  assert.equal(CEREMONY_PRESETS.icpc.singleStepStartRank, 0);
+  assert.deepEqual(CEREMONY_PRESETS.icpc.hardPauses, {
+    singleStep: false,
+    award: false,
+    firstSolve: false,
+  });
   assert.deepEqual(
     SPEED_PRESETS.map((preset) => preset.speed),
     [0.5, 1, 2, 4],

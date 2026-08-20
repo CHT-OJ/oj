@@ -13,11 +13,11 @@ export const CEREMONY_PRESETS = Object.freeze({
     tieOrder: "seeded",
     speedIndex: 1,
     awardPlaces: 6,
-    singleStepStartRank: 6,
+    singleStepStartRank: 0,
     hardPauses: Object.freeze({
-      singleStep: true,
-      award: true,
-      firstSolve: true,
+      singleStep: false,
+      award: false,
+      firstSolve: false,
     }),
   }),
   full: Object.freeze({
@@ -31,7 +31,7 @@ export const CEREMONY_PRESETS = Object.freeze({
     hardPauses: Object.freeze({
       singleStep: false,
       award: false,
-      firstSolve: true,
+      firstSolve: false,
     }),
   }),
   director: Object.freeze({

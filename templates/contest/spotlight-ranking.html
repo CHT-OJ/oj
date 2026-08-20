@@ -25,134 +25,81 @@ contest.format_name == 'icpc' %} {% include "contest/media-icpc-css.html" %} {% 
     hidden
   >
     <h3 id="resolver-setup-heading" class="resolver-setup__heading">
-      <i class="fa fa-star-half-o"></i> {{ _('Resolver setup') }}
+      <i class="fa fa-star-half-o"></i> {{ _('Resolver') }}
     </h3>
     <p class="resolver-setup__intro">
-      {{ _('Choose a ceremony preset, then adjust only what you need.') }}
+      {{ _('Present the final standings with an automatic bottom-up ceremony.') }}
     </p>
     <form id="resolver-setup-form">
-      <div class="resolver-presets" role="group" aria-label="{{ _('Resolver preset') }}">
-        <button
-          type="button"
-          class="inline-button resolver-button"
-          data-resolver-preset="icpc"
-          aria-pressed="true"
-        >
-          {{ _('ICPC Ceremony') }}
-        </button>
-        <button
-          type="button"
-          class="inline-button resolver-button"
-          data-resolver-preset="full"
-          aria-pressed="false"
-        >
-          {{ _('Full Reveal') }}
-        </button>
-        <button
-          type="button"
-          class="inline-button resolver-button"
-          data-resolver-preset="director"
-          aria-pressed="false"
-        >
-          {{ _('Director') }}
-        </button>
+      <div class="resolver-start-summary">
+        <strong>{{ _('Start information') }}</strong>
+        <p id="resolver-freeze-note" class="resolver-setup__note"></p>
       </div>
-      <div class="resolver-setup__grid">
+      <div class="resolver-setup__primary">
         <div class="resolver-field">
-          <label for="resolver-baseline">{{ _('Start state') }}</label>
-          <select id="resolver-baseline" name="baseline">
-            <option value="auto">{{ _('Auto') }}</option>
-            <option value="beginning">{{ _('Beginning') }}</option>
-            <option value="official-freeze">{{ _('Official freeze') }}</option>
-          </select>
-          <span class="resolver-field__help"
-            >{{ _('Beginning uses a deterministic non-spoiling tie order.') }}</span
-          >
-        </div>
-        <div class="resolver-field">
-          <label for="resolver-policy">{{ _('Reveal order') }}</label>
-          <select id="resolver-policy" name="policy">
-            <option value="row-sweep">{{ _('ICPC row sweep') }}</option>
-            <option value="bottom-up-sticky">{{ _('Bottom-up sticky') }}</option>
-            <option value="by-problem">{{ _('By problem') }}</option>
-            <option value="by-contestant">{{ _('By contestant') }}</option>
-            <option value="manual">{{ _('Manual only') }}</option>
-          </select>
-          <span class="resolver-field__help"
-            >{{ _('Row sweep stays on the current physical row when a contestant moves upward.')
-            }}</span
-          >
-        </div>
-        <div class="resolver-field">
-          <label for="resolver-granularity">{{ _('Next control') }}</label>
-          <select id="resolver-granularity" name="granularity">
-            <option value="cell">{{ _('One cell') }}</option>
-            <option value="contestant">{{ _('Whole contestant') }}</option>
-          </select>
-          <span class="resolver-field__help"
-            >{{ _('Manual name-cell reveals can still resolve a whole contestant.') }}</span
-          >
-        </div>
-        <div class="resolver-field">
-          <label for="resolver-tie-order">{{ _('Beginning tie order') }}</label>
-          <select id="resolver-tie-order" name="tie_order">
-            <option value="seeded">{{ _('Seeded shuffle') }}</option>
-            <option value="source">{{ _('Source order') }}</option>
-          </select>
-          <span class="resolver-field__help"
-            >{{ _('Seeded shuffle avoids exposing final order and replays identically.') }}</span
-          >
-        </div>
-        <div class="resolver-field">
-          <label for="resolver-speed">{{ _('Autoplay speed') }}</label>
+          <label for="resolver-speed">{{ _('Speed') }}</label>
           <select id="resolver-speed" name="speed">
             <option value="0">0.5×</option>
             <option value="1" selected>1×</option>
             <option value="2">2×</option>
             <option value="3">4×</option>
           </select>
-          <span class="resolver-field__help"
-            >{{ _('Speed changes the pause between settled reveals; row movement remains 700 ms.')
-            }}</span
-          >
         </div>
-        <div class="resolver-field">
-          <label for="resolver-award-places">{{ _('Award places') }}</label>
-          <input id="resolver-award-places" name="award_places" type="number" min="0" value="6" />
-          <span class="resolver-field__help"
-            >{{ _('Ceremony timing metadata only; it does not recolor ranking rows.') }}</span
-          >
-        </div>
-        <div class="resolver-field">
-          <label for="resolver-single-step-start-rank">{{ _('Single-step starts at rank') }}</label>
-          <input
-            id="resolver-single-step-start-rank"
-            name="single_step_start_rank"
-            type="number"
-            min="0"
-            value="6"
-          />
-          <span class="resolver-field__help"
-            >{{ _('This is a one-based displayed rank; use 0 to keep scoreboard timing throughout.')
-            }}</span
-          >
-        </div>
-        <fieldset class="resolver-field resolver-field--beats">
-          <legend>{{ _('Hard pauses') }}</legend>
-          <label
-            ><input name="pause_award" type="checkbox" checked /> {{ _('Enters award zone')
-            }}</label
-          >
-          <label
-            ><input name="pause_first_solve" type="checkbox" checked /> {{ _('Authoritative first
-            solve appears') }}</label
-          >
-        </fieldset>
+        <label class="resolver-check">
+          <input id="resolver-autoplay" name="autoplay" type="checkbox" checked />
+          {{ _('Autoplay after start') }}
+        </label>
       </div>
+      <input id="resolver-granularity" name="granularity" type="hidden" value="cell" />
+      <input id="resolver-tie-order" name="tie_order" type="hidden" value="seeded" />
+      <details id="resolver-advanced" class="resolver-advanced">
+        <summary>{{ _('Advanced') }}</summary>
+        <div class="resolver-setup__grid">
+          <div class="resolver-field">
+            <label for="resolver-baseline">{{ _('Start state') }}</label>
+            <select id="resolver-baseline" name="baseline">
+              <option value="auto">{{ _('Auto') }}</option>
+              <option value="beginning">{{ _('Beginning') }}</option>
+              <option value="official-freeze">{{ _('Official freeze') }}</option>
+            </select>
+          </div>
+          <div class="resolver-field">
+            <label for="resolver-policy">{{ _('Reveal order') }}</label>
+            <select id="resolver-policy" name="policy">
+              <option value="row-sweep">{{ _('ICPC ceremony') }}</option>
+              <option value="by-problem">{{ _('By problem') }}</option>
+              <option value="by-contestant">{{ _('By contestant') }}</option>
+              <option value="manual">{{ _('Manual only') }}</option>
+            </select>
+          </div>
+          <div class="resolver-field">
+            <label for="resolver-single-step-start-rank">{{ _('Single-step from rank') }}</label>
+            <input
+              id="resolver-single-step-start-rank"
+              name="single_step_start_rank"
+              type="number"
+              min="0"
+              value="0"
+            />
+            <span class="resolver-field__help">{{ _('Use 0 to keep continuous playback.') }}</span>
+          </div>
+          <div class="resolver-field">
+            <label for="resolver-award-places">{{ _('Award zone starts at rank') }}</label>
+            <input id="resolver-award-places" name="award_places" type="number" min="0" value="6" />
+          </div>
+          <fieldset class="resolver-field resolver-field--beats">
+            <legend>{{ _('Autoplay stops') }}</legend>
+            <label><input name="pause_award" type="checkbox" /> {{ _('Entering award zone') }}</label>
+            <label
+              ><input name="pause_first_solve" type="checkbox" /> {{ _('Authoritative first solve')
+              }}</label
+            >
+          </fieldset>
+        </div>
+      </details>
       <div class="resolver-setup__footer">
-        <p id="resolver-freeze-note" class="resolver-setup__note"></p>
         <button type="submit" class="button resolver-button resolver-button--primary">
-          <i class="fa fa-play"></i> {{ _('Start resolver') }}
+          <i class="fa fa-play"></i> {{ _('Start Resolver') }}
         </button>
       </div>
     </form>
@@ -161,14 +108,7 @@ contest.format_name == 'icpc' %} {% include "contest/media-icpc-css.html" %} {% 
   <section id="resolver-workspace" aria-label="{{ _('Resolver standings') }}" hidden>
     <div class="resolver-toolbar" role="group" aria-label="{{ _('Resolver controls') }}">
       <div class="resolver-toolbar__group">
-        <button
-          id="resolver-next"
-          type="button"
-          class="inline-button resolver-button resolver-button--primary"
-        >
-          <i class="fa fa-step-forward"></i> {{ _('Forward') }}
-        </button>
-        <button id="resolver-play" type="button" class="inline-button resolver-button">
+        <button id="resolver-play" type="button" class="inline-button resolver-button resolver-button--primary">
           <i class="fa fa-play"></i> {{ _('Play') }}
         </button>
         <button
@@ -193,34 +133,42 @@ contest.format_name == 'icpc' %} {% include "contest/media-icpc-css.html" %} {% 
         <button id="resolver-back" type="button" class="inline-button resolver-button">
           <i class="fa fa-step-backward"></i> {{ _('Back') }}
         </button>
-        <button id="resolver-forward" type="button" class="inline-button resolver-button">
-          <i class="fa fa-forward"></i> {{ _('Fast forward') }}
-        </button>
         <button id="resolver-reset" type="button" class="inline-button resolver-button">
           <i class="fa fa-undo"></i> {{ _('Reset') }}
-        </button>
-        <button id="resolver-replay" type="button" class="inline-button resolver-button">
-          <i class="fa fa-repeat"></i> {{ _('Replay') }}
-        </button>
-      </div>
-      <div class="resolver-toolbar__group">
-        <span id="resolver-progress" class="resolver-progress"></span>
-        <button id="resolver-toggle-hud" type="button" class="inline-button resolver-button">
-          {{ _('HUD') }}
-        </button>
-        <button id="resolver-help" type="button" class="inline-button resolver-button">
-          {{ _('Shortcuts') }}
         </button>
         <button id="resolver-fullscreen" type="button" class="inline-button resolver-button">
           <i class="fa fa-expand"></i> {{ _('Fullscreen') }}
         </button>
-        <button id="resolver-change-setup" type="button" class="inline-button resolver-button">
-          {{ _('Setup') }}
-        </button>
+      </div>
+      <div class="resolver-toolbar__group">
+        <span id="resolver-progress" class="resolver-progress"></span>
+        <details class="resolver-toolbar__more">
+          <summary class="inline-button resolver-button">{{ _('More') }}</summary>
+          <div class="resolver-toolbar__more-panel">
+            <button id="resolver-next" type="button" class="inline-button resolver-button">
+              {{ _('Forward') }}
+            </button>
+            <button id="resolver-forward" type="button" class="inline-button resolver-button">
+              {{ _('Fast forward') }}
+            </button>
+            <button id="resolver-replay" type="button" class="inline-button resolver-button">
+              {{ _('Replay') }}
+            </button>
+            <button id="resolver-toggle-hud" type="button" class="inline-button resolver-button">
+              {{ _('HUD') }}
+            </button>
+            <button id="resolver-help" type="button" class="inline-button resolver-button">
+              {{ _('Shortcuts') }}
+            </button>
+            <button id="resolver-change-setup" type="button" class="inline-button resolver-button">
+              {{ _('Setup') }}
+            </button>
+          </div>
+        </details>
       </div>
     </div>
     <p id="resolver-status" class="resolver-status" aria-live="polite"></p>
-    <aside id="resolver-hud" class="resolver-hud" aria-label="{{ _('Operator HUD') }}">
+    <aside id="resolver-hud" class="resolver-hud" aria-label="{{ _('Operator HUD') }}" hidden>
       <span><strong>{{ _('Mode') }}:</strong> <span id="resolver-hud-mode"></span></span>
       <span><strong>{{ _('Target') }}:</strong> <span id="resolver-hud-target"></span></span>
       <span><strong>{{ _('History') }}:</strong> <span id="resolver-hud-history"></span></span>

@@ -32,6 +32,53 @@
   font-size: 0.92em;
 }
 
+.resolver-start-summary {
+  margin-bottom: 0.8em;
+  border-left: 3px solid #337ab7;
+  background: rgba(51, 122, 183, 0.055);
+  padding: 0.55em 0.7em;
+}
+
+.resolver-start-summary .resolver-setup__note {
+  margin-top: 0.2em;
+}
+
+.resolver-setup__primary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.8em 1.25em;
+}
+
+.resolver-setup__primary .resolver-field {
+  flex: 0 1 220px;
+}
+
+.resolver-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  min-height: 2.25em;
+  color: #444;
+}
+
+.resolver-advanced {
+  margin-top: 0.85em;
+  border-top: 1px solid #ddd;
+  padding-top: 0.65em;
+}
+
+.resolver-advanced > summary {
+  width: max-content;
+  cursor: pointer;
+  color: #337ab7;
+  font-weight: 600;
+}
+
+.resolver-advanced[open] > summary {
+  margin-bottom: 0.75em;
+}
+
 .resolver-setup__grid {
   display: flex;
   flex-wrap: wrap;
@@ -125,6 +172,10 @@
   padding-top: 0.8em;
 }
 
+.resolver-setup__footer .resolver-button--primary {
+  margin-left: auto;
+}
+
 .resolver-setup__note {
   margin: 0;
   color: #777;
@@ -167,6 +218,39 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.4em;
+}
+
+.resolver-toolbar__more {
+  position: relative;
+}
+
+.resolver-toolbar__more > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.resolver-toolbar__more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.resolver-toolbar__more-panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.35em);
+  right: 0;
+  display: grid;
+  min-width: 9.5em;
+  gap: 0.3em;
+  border: 1px solid #bbb;
+  border-radius: 3px;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+  padding: 0.45em;
+}
+
+.resolver-toolbar__more-panel .resolver-button {
+  width: 100%;
+  text-align: left;
 }
 
 .resolver-progress {
@@ -232,6 +316,30 @@
   min-width: 3.6em;
 }
 
+.resolver-problem-header__button {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 2.5em;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0.15em 0.3em;
+  font: inherit;
+  cursor: pointer;
+}
+
+.resolver-problem-header__button:hover:not(:disabled),
+.resolver-problem-header__button:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.75);
+  outline: 0;
+}
+
+.resolver-problem-header__button:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
 .resolver-problem-label,
 .resolver-problem-denominator {
   display: block;
@@ -276,6 +384,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.65em;
+  min-height: 2.4em;
+}
+
+.resolver-contestant--with-visual .resolver-contestant__layout {
   min-height: 4em;
 }
 

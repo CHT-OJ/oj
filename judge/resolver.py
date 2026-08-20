@@ -93,8 +93,8 @@ CELL_SERIALIZERS = {
 def _serialize_avatar(profile):
     if profile.avt_url:
         try:
-            return profile.avt_url.url
-        except ValueError:
+            return '/avatar%s' % profile.avt_url.thumbnail['64x64']
+        except (KeyError, ValueError):
             pass
     if settings.DEBUG:
         return gravatar(profile.user, 64)

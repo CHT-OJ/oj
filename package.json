@@ -4,6 +4,7 @@
   "scripts": {
     "format": "prettier --write websocket",
     "format:check": "prettier --check websocket",
+    "benchmark:resolver": "node --expose-gc resources/resolver/benchmarks/resolver-benchmark.mjs",
     "test:resolver": "node --test resources/resolver/tests/*.test.js"
   },
   "dependencies": {

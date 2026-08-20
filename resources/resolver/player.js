@@ -1,4 +1,5 @@
 import { effectiveDelay, RESOLUTION_STEP_TYPES } from "./timing.js";
+import { gettext } from "./i18n.js";
 import { clone } from "./utils.js";
 
 const RESULT_TYPES = new Set([
@@ -72,7 +73,7 @@ export class ResolutionPlayer {
     this._runSerial = 0;
     this._activeDelay = null;
     this._activeRun = null;
-    this._checkpoints = [this._makeCheckpoint("beginning", "Resolver beginning")];
+    this._checkpoints = [this._makeCheckpoint("beginning", gettext("Resolver beginning"))];
     this._checkpointIndex = 0;
     this._atCheckpoint = true;
   }
@@ -81,7 +82,7 @@ export class ResolutionPlayer {
     return {
       kind,
       reason,
-      historyCursor: this.session.getHistory().cursor,
+      historyCursor: this.session.getHistoryCursor(),
       plan: this._plan,
       cursor: this._cursor,
       presentation: clone(this.presentation),
@@ -115,14 +116,14 @@ export class ResolutionPlayer {
   setSpeed(playbackSpeed) {
     const speed = Number(playbackSpeed);
     if (!Number.isFinite(speed) || speed <= 0) {
-      throw new RangeError("Resolver playback speed must be greater than zero.");
+      throw new RangeError(gettext("Resolver playback speed must be greater than zero."));
     }
     this.playbackSpeed = speed;
     this._notify();
     return this.getState();
   }
 
-  cancel(reason = "Playback paused.", kind = "operator") {
+  cancel(reason = gettext("Playback paused."), kind = "operator") {
     this._runSerial += 1;
     this.running = false;
     this.pauseKind = kind;
@@ -163,11 +164,18 @@ export class ResolutionPlayer {
   }
 
   _applyReveal(target) {
-    const history = this.session.getHistory();
-    const redo = history.transitions[history.cursor];
+    const redo = this.session.getRedoTransition();
     if (redo && sameTarget(redo.target, target)) {
       this.session.forward();
       return redo;
+    }
+    const projection = this._plan?.metadata?.projection;
+    if (
+      projection &&
+      sameTarget(projection.target, target) &&
+      projection.revision === this.session.getRevision()
+    ) {
+      return this.session.commitProjection(projection);
     }
     return this.session.revealCell(target.contestantId, target.problemId);
   }
@@ -197,7 +205,7 @@ export class ResolutionPlayer {
     if (step.type === RESOLUTION_STEP_TYPES.REVEAL_CELL) {
       transition = this._applyReveal(step.target);
       if (!transition) {
-        throw new Error("Resolution plan targeted a cell that is no longer resolvable.");
+        throw new Error(gettext("Resolution plan targeted a cell that is no longer resolvable."));
       }
     }
     this._updatePresentation(step);
@@ -217,7 +225,7 @@ export class ResolutionPlayer {
     return null;
   }
 
-  async _run(serial, includeDelays) {
+  async _run(serial, includeDelays, stopAt) {
     while (serial === this._runSerial) {
       if (!this._plan || this._cursor >= this._plan.steps.length) {
         this._plan = this.planner.planNext(this.session);
@@ -225,7 +233,7 @@ export class ResolutionPlayer {
         if (!this._plan) {
           this.complete = true;
           this.pauseKind = "complete";
-          this.pauseReason = "Resolver complete — final standings reached.";
+          this.pauseReason = gettext("Resolver complete — final standings reached.");
           return { complete: true, pause: null };
         }
       }
@@ -236,14 +244,14 @@ export class ResolutionPlayer {
       if (serial !== this._runSerial) {
         return { complete: false, cancelled: true, pause: null };
       }
-      if (pause) {
+      if (pause && (stopAt === "any" || pause.hard === true)) {
         return { complete: false, pause };
       }
     }
     return { complete: false, cancelled: true, pause: null };
   }
 
-  playToNextPause(includeDelays = true) {
+  _startRun(includeDelays, stopAt) {
     if (this.running) {
       return this._activeRun;
     }
@@ -254,7 +262,7 @@ export class ResolutionPlayer {
     this._atCheckpoint = false;
     const serial = ++this._runSerial;
     this._notify();
-    this._activeRun = this._run(serial, includeDelays).finally(() => {
+    this._activeRun = this._run(serial, includeDelays, stopAt).finally(() => {
       if (serial === this._runSerial) {
         this.running = false;
         this._activeRun = null;
@@ -264,29 +272,34 @@ export class ResolutionPlayer {
     return this._activeRun;
   }
 
+  playContinuous(includeDelays = true) {
+    return this._startRun(includeDelays, "hard");
+  }
+
+  playToNextPause(includeDelays = true) {
+    return this._startRun(includeDelays, "any");
+  }
+
   fastForwardToNextPause() {
     return this.playToNextPause(false);
   }
 
   _restoreHistoryCursor(targetCursor) {
-    let history = this.session.getHistory();
-    while (history.cursor > targetCursor) {
+    while (this.session.getHistoryCursor() > targetCursor) {
       if (!this.session.back()) {
-        throw new Error("Unable to rewind Resolver history to the requested pause.");
+        throw new Error(gettext("Unable to rewind Resolver history to the requested pause."));
       }
-      history = this.session.getHistory();
     }
-    while (history.cursor < targetCursor) {
+    while (this.session.getHistoryCursor() < targetCursor) {
       if (!this.session.forward()) {
-        throw new Error("Unable to replay Resolver history to the requested pause.");
+        throw new Error(gettext("Unable to replay Resolver history to the requested pause."));
       }
-      history = this.session.getHistory();
     }
   }
 
   async rewindToPreviousPause() {
     if (this.running) {
-      this.cancel("Playback paused for rewind.", "operator");
+      this.cancel(gettext("Playback paused for rewind."), "operator");
     }
     const targetIndex = this._atCheckpoint
       ? Math.max(0, this._checkpointIndex - 1)
@@ -308,7 +321,7 @@ export class ResolutionPlayer {
 
   async resetToBeginning() {
     if (this.running) {
-      this.cancel("Playback reset.", "operator");
+      this.cancel(gettext("Playback reset."), "operator");
     }
     this.session.reset();
     this._plan = null;
@@ -316,8 +329,8 @@ export class ResolutionPlayer {
     this.presentation = initialPresentation();
     this.complete = false;
     this.pauseKind = "beginning";
-    this.pauseReason = "Resolver beginning";
-    this._checkpoints = [this._makeCheckpoint("beginning", "Resolver beginning")];
+    this.pauseReason = gettext("Resolver beginning");
+    this._checkpoints = [this._makeCheckpoint("beginning", gettext("Resolver beginning"))];
     this._checkpointIndex = 0;
     this._atCheckpoint = true;
     await this.onRestore(this.getState());
@@ -325,7 +338,7 @@ export class ResolutionPlayer {
     return this.getState();
   }
 
-  async syncAfterExternalChange(reason = "Resolver state changed manually.") {
+  async syncAfterExternalChange(reason = gettext("Resolver state changed manually.")) {
     if (this.running) {
       this.cancel(reason, "manual");
     }

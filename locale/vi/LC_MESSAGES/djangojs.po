@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: dmoj\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-10-01 23:12+0000\n"
+"POT-Creation-Date: 2026-08-20 07:28+0000\n"
 "PO-Revision-Date: 2020-08-23 18:59\n"
 "Last-Translator: \n"
 "Language-Team: Vietnamese\n"
@@ -17,14 +17,406 @@ msgstr ""
 "X-Crowdin-File: djangojs.po\n"
 "X-Crowdin-File-ID: 12\n"
 
-#: resources/common.js:207
+#: resources/common.js:194
 msgctxt "time format with day"
 msgid "%d day %h:%m:%s"
 msgid_plural "%d days %h:%m:%s"
 msgstr[0] "%d ngày %h:%m:%s"
 
-#: resources/common.js:210
+#: resources/common.js:197
 msgctxt "time format without day"
 msgid "%h:%m:%s"
 msgstr "%h:%m:%s"
 
+#: resources/resolver/bootstrap.js:17 resources/resolver/page.js:314
+msgid "Resolver could not start: %(error)s"
+msgstr "Không thể bắt đầu trình diễn: %(error)s"
+
+#: resources/resolver/core.js:21
+msgid "Contest format \"%(format)s\" is not supported by Resolver."
+msgstr "Định dạng cuộc thi \"%(format)s\" chưa được hỗ trợ để trình diễn."
+
+#: resources/resolver/core.js:33
+msgid "Resolver baseline \"%(baseline)s\" is not available for this contest."
+msgstr "Mốc bắt đầu \"%(baseline)s\" không khả dụng cho cuộc thi này."
+
+#: resources/resolver/core.js:50
+msgid "Invalid Resolver schema version 1 payload."
+msgstr "Dữ liệu trình diễn phiên bản 1 không hợp lệ."
+
+#: resources/resolver/core.js:118
+msgid "Unknown Resolver tie order \"%(order)s\"."
+msgstr "Không nhận ra thứ tự đồng hạng \"%(order)s\"."
+
+#: resources/resolver/core.js:342 resources/resolver/core.js:449
+msgid "Unknown Resolver problem \"%(problem)s\"."
+msgstr "Không nhận ra bài \"%(problem)s\"."
+
+#: resources/resolver/core.js:348 resources/resolver/core.js:440
+msgid "Unknown Resolver contestant \"%(contestant)s\"."
+msgstr "Không nhận ra thí sinh \"%(contestant)s\"."
+
+#: resources/resolver/core.js:533
+msgid "Resolver projection is stale and cannot be committed."
+msgstr "Dự báo trình diễn đã cũ và không thể áp dụng."
+
+#: resources/resolver/core.js:572
+msgid "Resolver batch targets must be an array."
+msgstr "Danh sách ô cần mở phải là một mảng."
+
+#: resources/resolver/page.js:56
+msgid "ICPC ceremony"
+msgstr "Trình diễn ICPC"
+
+#: resources/resolver/page.js:57
+msgid "Bottom-up"
+msgstr "Từ dưới lên"
+
+#: resources/resolver/page.js:58
+msgid "By problem"
+msgstr "Theo bài"
+
+#: resources/resolver/page.js:59
+msgid "By contestant"
+msgstr "Theo thí sinh"
+
+#: resources/resolver/page.js:60
+msgid "Manual"
+msgstr "Thủ công"
+
+#: resources/resolver/page.js:84
+msgid "Ready to start Resolver."
+msgstr "Sẵn sàng bắt đầu trình diễn."
+
+#: resources/resolver/page.js:152
+msgid "Auto (official freeze)"
+msgstr "Tự động (bảng đóng băng)"
+
+#: resources/resolver/page.js:153
+msgid "Auto (beginning)"
+msgstr "Tự động (từ đầu)"
+
+#: resources/resolver/page.js:160
+msgid "Official freeze — %(minutes)s min"
+msgstr "Bảng đóng băng — %(minutes)s phút"
+
+#: resources/resolver/page.js:163 resources/resolver/page.js:824
+msgid "Beginning"
+msgstr "Từ đầu"
+
+#: resources/resolver/page.js:219 resources/resolver/page.js:250
+msgid "Playback paused for a manual reveal."
+msgstr "Đã tạm dừng để mở kết quả thủ công."
+
+#: resources/resolver/page.js:229
+msgid "Manual cell reveal"
+msgstr "Mở ô thủ công"
+
+#: resources/resolver/page.js:234 resources/resolver/page.js:585
+msgid "Reveal all results for this contestant"
+msgstr "Mở toàn bộ kết quả của thí sinh"
+
+#: resources/resolver/page.js:257 resources/resolver/tests/i18n.test.js:24
+msgid "Reveal problem %(problem)s"
+msgstr "Mở toàn bộ kết quả bài %(problem)s"
+
+#: resources/resolver/page.js:360
+msgid "Started from %(baseline)s."
+msgstr "Đã bắt đầu từ %(baseline)s."
+
+#: resources/resolver/page.js:401
+msgid "official freeze"
+msgstr "bảng đóng băng"
+
+#: resources/resolver/page.js:402
+msgid "the beginning"
+msgstr "đầu cuộc thi"
+
+#: resources/resolver/page.js:411 resources/resolver/page.js:505
+msgid "Rank"
+msgstr "Hạng"
+
+#: resources/resolver/page.js:412 resources/resolver/page.js:507
+msgid "Username"
+msgstr "Tên truy cập"
+
+#: resources/resolver/page.js:434
+msgid "Reveal all results for problem %(problem)s"
+msgstr "Mở toàn bộ kết quả bài %(problem)s"
+
+#: resources/resolver/page.js:664
+msgid "Reveal %(contestant)s, problem %(problem)s"
+msgstr "Mở kết quả của %(contestant)s ở bài %(problem)s"
+
+#: resources/resolver/page.js:709
+msgid "Total AC"
+msgstr "Tổng AC"
+
+#: resources/resolver/page.js:753
+msgid "%(revealed)s / %(total)s cells resolved"
+msgstr "Đã mở %(revealed)s / %(total)s ô"
+
+#: resources/resolver/page.js:759 resources/resolver/player.js:238
+msgid "Resolver complete — final standings reached."
+msgstr "Đã trình diễn xong — bảng xếp hạng cuối cùng."
+
+#: resources/resolver/page.js:763
+msgid "Pause"
+msgstr "Tạm dừng"
+
+#: resources/resolver/page.js:763 resources/resolver/tests/i18n.test.js:13
+#: resources/resolver/tests/i18n.test.js:22
+msgid "Play"
+msgstr "Chạy"
+
+#: resources/resolver/page.js:793 resources/resolver/page.js:795
+msgid "Forward"
+msgstr "Tiếp"
+
+#: resources/resolver/page.js:795
+msgid "Fast forward"
+msgstr "Tiến nhanh"
+
+#: resources/resolver/page.js:801
+msgid "Exit fullscreen"
+msgstr "Thoát toàn màn hình"
+
+#: resources/resolver/page.js:801
+msgid "Fullscreen"
+msgstr "Toàn màn hình"
+
+#: resources/resolver/page.js:824
+msgid "Freeze"
+msgstr "Đóng băng"
+
+#: resources/resolver/page.js:826
+msgid "playing %(speed)s"
+msgstr "đang chạy %(speed)s"
+
+#: resources/resolver/page.js:827
+msgid "paused %(speed)s"
+msgstr "đang dừng %(speed)s"
+
+#: resources/resolver/page.js:842 resources/resolver/page.js:846
+msgid "#%(position)s (rank %(rank)s)"
+msgstr "#%(position)s (hạng %(rank)s)"
+
+#: resources/resolver/page.js:854
+msgid "Enters top %(rank)s"
+msgstr "Vào top %(rank)s"
+
+#: resources/resolver/page.js:856
+msgid "Top %(rank)s"
+msgstr "Top %(rank)s"
+
+#: resources/resolver/page.js:857
+msgid "Scoreboard timing"
+msgstr "Nhịp bảng xếp hạng"
+
+#: resources/resolver/page.js:868
+msgid "%(cursor)s / %(length)s · pause %(pause)s / %(pauseTotal)s"
+msgstr "%(cursor)s / %(length)s · điểm dừng %(pause)s / %(pauseTotal)s"
+
+#: resources/resolver/page.js:877
+msgid "Top %(rank)s timing boundary"
+msgstr "Mốc nhịp top %(rank)s"
+
+#: resources/resolver/page.js:878
+msgid "Off"
+msgstr "Tắt"
+
+#: resources/resolver/page.js:909 resources/resolver/timing.js:99
+msgid "Selected %(contestant)s."
+msgstr "Đã chọn %(contestant)s."
+
+#: resources/resolver/page.js:913 resources/resolver/timing.js:104
+msgid "Selected problem %(problem)s."
+msgstr "Đã chọn bài %(problem)s."
+
+#: resources/resolver/page.js:918
+msgid "Revealed %(contestant)s, problem %(problem)s."
+msgstr "Đã mở kết quả của %(contestant)s ở bài %(problem)s."
+
+#: resources/resolver/page.js:930
+msgid "%(contestant)s moved up %(count)s position."
+msgid_plural "%(contestant)s moved up %(count)s positions."
+msgstr[0] "%(contestant)s tăng %(count)s bậc."
+
+#: resources/resolver/page.js:936
+msgid "%(contestant)s stays in the same position."
+msgstr "%(contestant)s giữ nguyên vị trí."
+
+#: resources/resolver/page.js:941
+msgid "%(contestant)s received no meaningful score improvement."
+msgstr "%(contestant)s không cải thiện điểm đáng kể."
+
+#: resources/resolver/page.js:945
+msgid "%(reason)s Press Space or Forward to continue."
+msgstr "%(reason)s Nhấn Space hoặc Tiếp để tiếp tục."
+
+#: resources/resolver/page.js:955
+msgid "Resolver state restored."
+msgstr "Đã khôi phục trạng thái trình diễn."
+
+#: resources/resolver/page.js:964
+msgid "Playing at %(speed)s."
+msgstr "Đang chạy ở tốc độ %(speed)s."
+
+#: resources/resolver/page.js:991 resources/resolver/player.js:126
+msgid "Playback paused."
+msgstr "Đã tạm dừng."
+
+#: resources/resolver/page.js:1027
+msgid "%(label)s: %(count)s cell."
+msgid_plural "%(label)s: %(count)s cells."
+msgstr[0] "%(label)s: %(count)s ô."
+
+#: resources/resolver/page.js:1064
+msgid "Stepped back one reveal."
+msgstr "Đã quay lại một lượt mở."
+
+#: resources/resolver/page.js:1065
+msgid "Stepped forward one reveal."
+msgstr "Đã tiến tới một lượt mở."
+
+#: resources/resolver/page.js:1091
+msgid "Replay"
+msgstr "Chạy lại"
+
+#: resources/resolver/page.js:1091
+msgid "Reset"
+msgstr "Đặt lại"
+
+#: resources/resolver/page.js:1090
+msgid "%(action)s from %(baseline)s."
+msgstr "%(action)s từ %(baseline)s."
+
+#: resources/resolver/page.js:1137
+msgid "Fullscreen is unavailable: %(error)s"
+msgstr "Không thể dùng toàn màn hình: %(error)s"
+
+#: resources/resolver/planner.js:84
+msgid "Authoritative first solve on problem %(problem)s."
+msgstr "Lời giải đầu tiên chính thức ở bài %(problem)s."
+
+#: resources/resolver/planner.js:89
+msgid "Entered the top %(rank)s award zone."
+msgstr "Đã vào vùng giải thưởng top %(rank)s."
+
+#: resources/resolver/planner.js:94
+msgid "Entered the top %(rank)s single-step region."
+msgstr "Đã vào vùng thao tác từng bước top %(rank)s."
+
+#: resources/resolver/player.js:76 resources/resolver/player.js:334
+#: resources/resolver/player.js:335
+msgid "Resolver beginning"
+msgstr "Bắt đầu trình diễn"
+
+#: resources/resolver/player.js:119 resources/resolver/timing.js:30
+msgid "Resolver playback speed must be greater than zero."
+msgstr "Tốc độ trình diễn phải lớn hơn 0."
+
+#: resources/resolver/player.js:209
+msgid "Resolution plan targeted a cell that is no longer resolvable."
+msgstr "Kế hoạch đã chọn một ô không còn có thể mở."
+
+#: resources/resolver/player.js:292
+msgid "Unable to rewind Resolver history to the requested pause."
+msgstr "Không thể quay lịch sử về điểm dừng đã chọn."
+
+#: resources/resolver/player.js:297
+msgid "Unable to replay Resolver history to the requested pause."
+msgstr "Không thể chạy lại lịch sử tới điểm dừng đã chọn."
+
+#: resources/resolver/player.js:304
+msgid "Playback paused for rewind."
+msgstr "Đã tạm dừng để quay lại."
+
+#: resources/resolver/player.js:326
+msgid "Playback reset."
+msgstr "Đã đặt lại trình diễn."
+
+#: resources/resolver/player.js:343
+msgid "Resolver state changed manually."
+msgstr "Trạng thái trình diễn đã được thay đổi thủ công."
+
+#: resources/resolver/presentation.js:53
+msgid "%(count)s try"
+msgid_plural "%(count)s tries"
+msgstr[0] "%(count)s lần nộp"
+
+#: resources/resolver/presentation.js:61
+msgid "No submissions"
+msgstr "Chưa có bài nộp"
+
+#: resources/resolver/presentation.js:75 resources/resolver/presentation.js:132
+#: resources/resolver/presentation.js:156
+msgid "Unrevealed"
+msgstr "Chưa mở"
+
+#: resources/resolver/presentation.js:76 resources/resolver/presentation.js:133
+#: resources/resolver/presentation.js:157
+msgid "Unrevealed result"
+msgstr "Kết quả chưa mở"
+
+#: resources/resolver/presentation.js:86
+msgid "%(tries)s, pending"
+msgstr "%(tries)s, đang chờ"
+
+#: resources/resolver/presentation.js:87
+msgid "Pending result"
+msgstr "Kết quả đang chờ"
+
+#: resources/resolver/presentation.js:97
+msgid "No countable submissions"
+msgstr "Không có bài nộp được tính"
+
+#: resources/resolver/presentation.js:103
+msgid "%(tries)s, not solved"
+msgstr "%(tries)s, chưa giải được"
+
+#: resources/resolver/presentation.js:116
+msgid "Solved at %(minute)s minutes in %(tries)s"
+msgstr "Giải được ở phút %(minute)s sau %(tries)s"
+
+#: resources/resolver/presentation.js:143
+#: resources/resolver/presentation.js:192
+msgid "%(score)s points at %(time)s"
+msgstr "%(score)s điểm tại %(time)s"
+
+#: resources/resolver/presentation.js:170
+msgid "%(result)s, pending result"
+msgstr "%(result)s, kết quả đang chờ"
+
+#: resources/resolver/presentation.js:187
+msgid "%(score)s points with %(penalty)s penalties at %(time)s"
+msgstr "%(score)s điểm với %(penalty)s lần phạt tại %(time)s"
+
+#: resources/resolver/presentation.js:207
+msgid "Unsupported Resolver presentation format \"%(format)s\"."
+msgstr "Định dạng trình diễn \"%(format)s\" chưa được hỗ trợ."
+
+#: resources/resolver/presentation.js:214
+msgid "Solved"
+msgstr "Đã giải"
+
+#: resources/resolver/presentation.js:216
+msgid "Penalty"
+msgstr "Phạt"
+
+#: resources/resolver/presentation.js:221
+msgid "Score"
+msgstr "Điểm"
+
+#: resources/resolver/presentation.js:223
+msgid "Time"
+msgstr "Thời gian"
+
+#: resources/resolver/tests/i18n.test.js:14
+msgid "%(count)s cell"
+msgid_plural "%(count)s cells"
+msgstr[0] "%(count)s ô"
+
+#: resources/resolver/timing.js:111
+msgid "Revealed problem %(problem)s."
+msgstr "Đã mở bài %(problem)s."

@@ -1,4 +1,5 @@
 from io import StringIO
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.core.management import call_command
@@ -20,6 +21,17 @@ class ResolverDemoCommandTestCase(TestCase):
         call_command('seed_resolver_demo', stdout=stdout)
 
         self.assertIn('Resolver demo data is ready.', stdout.getvalue())
+        password = next(
+            line.rsplit(' / ', 1)[1]
+            for line in stdout.getvalue().splitlines()
+            if line.startswith('Director login: ')
+        )
+        self.assertNotEqual(password, 'resolver-demo')
+        self.assertTrue(User.objects.get(username='resolver_director').check_password(password))
+        self.assertTrue(all(
+            not User.objects.get(username=username).has_usable_password()
+            for username, _display_name in DEMO_USERS
+        ))
         self.assertEqual(
             set(Contest.objects.filter(summary__contains=DEMO_MARKER).values_list('key', flat=True)),
             {blueprint['key'] for blueprint in CONTEST_BLUEPRINTS.values()},
@@ -43,7 +55,7 @@ class ResolverDemoCommandTestCase(TestCase):
                     'tiebreaker',
                     '-submission_count',
                 )
-                .values_list('id', flat=True)
+                .values_list('id', flat=True),
             )
             self.assertEqual(
                 [contestant['participation_id'] for contestant in payload['contestants']],
@@ -117,6 +129,30 @@ class ResolverDemoCommandTestCase(TestCase):
             ContestSubmission.objects.count(),
             User.objects.count(),
         ))
+
+    @patch('judge.management.commands.seed_resolver_demo.secrets.token_urlsafe')
+    def test_generates_director_password_unless_explicitly_supplied(self, token_urlsafe):
+        token_urlsafe.return_value = 'generated-local-password'
+        stdout = StringIO()
+        call_command('seed_resolver_demo', format='default', stdout=stdout)
+        token_urlsafe.assert_called_once_with(24)
+        self.assertEqual(stdout.getvalue().count('generated-local-password'), 1)
+        self.assertTrue(
+            User.objects.get(username='resolver_director').check_password('generated-local-password'),
+        )
+
+        explicit_stdout = StringIO()
+        call_command(
+            'seed_resolver_demo',
+            format='default',
+            director_password='explicit-local-password',
+            stdout=explicit_stdout,
+        )
+        token_urlsafe.assert_called_once_with(24)
+        self.assertEqual(explicit_stdout.getvalue().count('explicit-local-password'), 1)
+        self.assertTrue(
+            User.objects.get(username='resolver_director').check_password('explicit-local-password'),
+        )
 
     @override_settings(DEBUG=False)
     def test_rejects_non_debug_database(self):
