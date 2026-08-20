@@ -3,7 +3,8 @@
   "type": "module",
   "scripts": {
     "format": "prettier --write websocket",
-    "format:check": "prettier --check websocket"
+    "format:check": "prettier --check websocket",
+    "test:resolver": "node --test resources/resolver/tests/*.test.js"
   },
   "dependencies": {
     "@commander-js/extra-typings": "11.0.0",
