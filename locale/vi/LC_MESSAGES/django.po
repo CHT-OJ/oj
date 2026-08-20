@@ -5493,7 +5493,7 @@ msgstr "Thời gian tham gia đã kết thúc."
 
 #: templates/contest/ranking-table.html:57
 msgid "Penalty"
-msgstr ""
+msgstr "Phạt"
 
 #: templates/contest/ranking.html:311
 msgid "Search organizations"
@@ -7722,3 +7722,258 @@ msgstr "Lỗi khi cập nhật thứ tự mới"
 #: templates/contest/reorder.html
 msgid "Your changes may not have been saved yet. Do you want to leave the page"
 msgstr "Các thay đổi của bạn có thể chưa được lưu. Bạn có muốn rời khỏi trang không"
+#: templates/contest/spotlight-ranking.html
+msgid "Advanced"
+msgstr "Nâng cao"
+
+#: templates/contest/spotlight-ranking.html
+msgid "After reveal"
+msgstr "Sau khi mở"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Authoritative first solve"
+msgstr "Lời giải đầu tiên chính thức"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Auto"
+msgstr "Tự động"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Autoplay after start"
+msgstr "Tự động chạy sau khi bắt đầu"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Autoplay stops"
+msgstr "Điểm dừng tự động"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Award"
+msgstr "Giải thưởng"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Award zone starts at rank"
+msgstr "Vùng giải thưởng bắt đầu từ hạng"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Back"
+msgstr "Quay lại"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Beginning"
+msgstr "Từ đầu"
+
+#: templates/contest/spotlight-ranking.html
+msgid "By contestant"
+msgstr "Theo thí sinh"
+
+#: templates/contest/spotlight-ranking.html
+msgid "By problem"
+msgstr "Theo bài"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Cell legend"
+msgstr "Chú giải ô"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Choose a speed preset"
+msgstr "Chọn một mức tốc độ"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Close help or leave fullscreen"
+msgstr "Đóng trợ giúp hoặc thoát toàn màn hình"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Close shortcuts"
+msgstr "Đóng phím tắt"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Current position"
+msgstr "Vị trí hiện tại"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Entering award zone"
+msgstr "Khi vào vùng giải thưởng"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Failed"
+msgstr "Không đạt"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Partial"
+msgstr "Một phần"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Fast forward"
+msgstr "Tiến nhanh"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Fast forward to the same pause without narrative delays"
+msgstr "Tiến nhanh tới cùng điểm dừng mà không chờ nhịp trình diễn"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Faster"
+msgstr "Nhanh hơn"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Faster autoplay"
+msgstr "Tăng tốc độ tự động"
+
+#: templates/contest/spotlight-ranking.html
+msgid "First solve uses authoritative contest result data"
+msgstr "Lời giải đầu tiên dùng dữ liệu kết quả chính thức của cuộc thi"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Forward"
+msgstr "Tiếp"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Forward to the next narrative pause"
+msgstr "Tiến tới điểm dừng trình diễn tiếp theo"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Fullscreen"
+msgstr "Toàn màn hình"
+
+#: templates/contest/spotlight-ranking.html
+msgid "HUD"
+msgstr "Bảng điều khiển"
+
+#: templates/contest/spotlight-ranking.html
+msgid "ICPC ceremony"
+msgstr "Trình diễn ICPC"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Manual only"
+msgstr "Chỉ thủ công"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Mode"
+msgstr "Chế độ"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Movement"
+msgstr "Thay đổi vị trí"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Official freeze"
+msgstr "Bảng đóng băng"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Operator HUD"
+msgstr "Bảng điều khiển người trình diễn"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Play"
+msgstr "Chạy"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Play or pause autoplay"
+msgstr "Chạy hoặc tạm dừng tự động"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Present the final standings with an automatic bottom-up ceremony."
+msgstr "Trình diễn bảng xếp hạng cuối cùng theo thứ tự tự động từ dưới lên."
+
+#: templates/contest/spotlight-ranking.html
+msgid "Remaining"
+msgstr "Còn lại"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Replay"
+msgstr "Chạy lại"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Reset"
+msgstr "Đặt lại"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Resolver"
+msgstr "Trình diễn kết quả"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Resolver controls"
+msgstr "Điều khiển trình diễn"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Resolver shortcuts"
+msgstr "Phím tắt trình diễn"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Resolver standings"
+msgstr "Bảng xếp hạng trình diễn"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Reveal order"
+msgstr "Thứ tự mở"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Seed"
+msgstr "Mã thứ tự"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Setup"
+msgstr "Thiết lập"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Shortcuts"
+msgstr "Phím tắt"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Show or hide operator HUD"
+msgstr "Hiện hoặc ẩn bảng điều khiển người trình diễn"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Show this help"
+msgstr "Hiện trợ giúp này"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Single-step from rank"
+msgstr "Thao tác từng bước từ hạng"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Slow down or speed up"
+msgstr "Giảm hoặc tăng tốc"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Slower"
+msgstr "Chậm hơn"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Slower autoplay"
+msgstr "Giảm tốc độ tự động"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Speed"
+msgstr "Tốc độ"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Start information"
+msgstr "Thông tin bắt đầu"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Start Resolver"
+msgstr "Bắt đầu trình diễn"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Start state"
+msgstr "Trạng thái bắt đầu"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Target"
+msgstr "Mục tiêu"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Timing zone"
+msgstr "Vùng nhịp"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Toggle fullscreen"
+msgstr "Bật hoặc tắt toàn màn hình"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Total AC"
+msgstr "Tổng AC"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Use 0 to keep continuous playback."
+msgstr "Dùng 0 để tiếp tục chạy liên tục."

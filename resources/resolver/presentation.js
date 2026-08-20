@@ -1,3 +1,5 @@
+import { gettext, ngettext } from "./i18n.js";
+
 function numeric(value) {
   return Number(value ?? 0);
 }
@@ -48,7 +50,7 @@ export function getOrganizationPresentation(organizations) {
 }
 
 function attemptLabel(count) {
-  return `${count} ${count === 1 ? "try" : "tries"}`;
+  return ngettext("%(count)s try", "%(count)s tries", count, { count });
 }
 
 function baseCellPresentation(cell) {
@@ -56,7 +58,7 @@ function baseCellPresentation(cell) {
     state: cell.state,
     primary: "",
     secondary: "",
-    accessibleLabel: "No submissions",
+    accessibleLabel: gettext("No submissions"),
     resolvable: cell.attempted && !cell.revealed,
   };
 }
@@ -70,8 +72,8 @@ function presentICPC(cell) {
     return {
       ...view,
       primary: "?",
-      secondary: "Unrevealed",
-      accessibleLabel: "Unrevealed result",
+      secondary: gettext("Unrevealed"),
+      accessibleLabel: gettext("Unrevealed result"),
     };
   }
   if (cell.state === "pending") {
@@ -80,7 +82,9 @@ function presentICPC(cell) {
       ...view,
       primary: tries ? attemptLabel(tries) : "?",
       secondary: "",
-      accessibleLabel: tries ? `${attemptLabel(tries)}, pending` : "Pending result",
+      accessibleLabel: tries
+        ? gettext("%(tries)s, pending", { tries: attemptLabel(tries) })
+        : gettext("Pending result"),
     };
   }
   if (cell.state === "failed") {
@@ -90,13 +94,13 @@ function presentICPC(cell) {
         ...view,
         state: "empty",
         primary: "",
-        accessibleLabel: "No countable submissions",
+        accessibleLabel: gettext("No countable submissions"),
       };
     }
     return {
       ...view,
       primary: attemptLabel(tries),
-      accessibleLabel: `${attemptLabel(tries)}, not solved`,
+      accessibleLabel: gettext("%(tries)s, not solved", { tries: attemptLabel(tries) }),
     };
   }
 
@@ -109,7 +113,10 @@ function presentICPC(cell) {
     minute,
     tries,
     time: formatDuration(cell.time),
-    accessibleLabel: `Solved at ${minute} minutes in ${attemptLabel(tries)}`,
+    accessibleLabel: gettext("Solved at %(minute)s minutes in %(tries)s", {
+      minute,
+      tries: attemptLabel(tries),
+    }),
   };
 }
 
@@ -122,8 +129,8 @@ function presentDefault(cell, precision) {
     return {
       ...view,
       primary: "?",
-      secondary: "Unrevealed",
-      accessibleLabel: "Unrevealed result",
+      secondary: gettext("Unrevealed"),
+      accessibleLabel: gettext("Unrevealed result"),
     };
   }
   const score = formatScore(cell.points, precision);
@@ -133,7 +140,7 @@ function presentDefault(cell, precision) {
     primary: score,
     secondary: time,
     time,
-    accessibleLabel: `${score} points at ${time}`,
+    accessibleLabel: gettext("%(score)s points at %(time)s", { score, time }),
   };
 }
 
@@ -146,8 +153,8 @@ function presentVNOJ(cell, precision) {
     return {
       ...view,
       primary: "?",
-      secondary: "Unrevealed",
-      accessibleLabel: "Unrevealed result",
+      secondary: gettext("Unrevealed"),
+      accessibleLabel: gettext("Unrevealed result"),
     };
   }
   if (cell.state === "pending") {
@@ -160,7 +167,9 @@ function presentVNOJ(cell, precision) {
       secondary: "?",
       pendingCount: pending,
       penalty: 0,
-      accessibleLabel: `${primary}${pending ? ` [${pending}]` : ""}, pending result`,
+      accessibleLabel: gettext("%(result)s, pending result", {
+        result: `${primary}${pending ? ` [${pending}]` : ""}`,
+      }),
     };
   }
 
@@ -174,7 +183,13 @@ function presentVNOJ(cell, precision) {
     penalty,
     pendingCount: 0,
     time,
-    accessibleLabel: `${score} points${penalty ? ` with ${penalty} penalties` : ""} at ${time}`,
+    accessibleLabel: penalty
+      ? gettext("%(score)s points with %(penalty)s penalties at %(time)s", {
+          score,
+          penalty,
+          time,
+        })
+      : gettext("%(score)s points at %(time)s", { score, time }),
   };
 }
 
@@ -188,22 +203,24 @@ export function getCellPresentation(formatName, cell, precision = 3) {
   if (formatName === "default") {
     return presentDefault(cell, precision);
   }
-  throw new RangeError(`Unsupported Resolver presentation format "${formatName}".`);
+  throw new RangeError(
+    gettext('Unsupported Resolver presentation format "%(format)s".', { format: formatName }),
+  );
 }
 
 export function getMetricPresentation(formatName, contestant, precision = 3) {
   if (formatName === "icpc") {
     return {
-      scoreLabel: "Solved",
+      scoreLabel: gettext("Solved"),
       score: formatScore(contestant.score, precision),
-      timeLabel: "Penalty",
+      timeLabel: gettext("Penalty"),
       time: String(Math.trunc(numeric(contestant.cumtime))),
     };
   }
   return {
-    scoreLabel: "Score",
+    scoreLabel: gettext("Score"),
     score: formatScore(contestant.score, precision),
-    timeLabel: "Time",
+    timeLabel: gettext("Time"),
     time: formatDuration(contestant.cumtime),
   };
 }

@@ -1,3 +1,5 @@
+import secrets
+
 from django.conf import settings
 from django.contrib.auth.models import Permission, User
 from django.core.management.base import BaseCommand, CommandError
@@ -12,7 +14,6 @@ from judge.resolver import build_resolver_payload
 
 DEMO_MARKER = '[CHTOJ resolver demo v1]'
 DIRECTOR_USERNAME = 'resolver_director'
-DEFAULT_DIRECTOR_PASSWORD = 'resolver-demo'
 
 DEMO_USERS = (
     ('resolver_ada', 'Ada Nguyen'),
@@ -200,8 +201,8 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             '--director-password',
-            default=DEFAULT_DIRECTOR_PASSWORD,
-            help='Password for the local resolver_director account.',
+            default=None,
+            help='Password for the local resolver_director account (default: generate a random password).',
         )
 
     def handle(self, *args, **options):
@@ -210,9 +211,10 @@ class Command(BaseCommand):
 
         selected_formats = tuple(CONTEST_BLUEPRINTS) if options['format'] == 'all' else (options['format'],)
         language = self._get_language()
+        director_password = options['director_password'] or secrets.token_urlsafe(24)
 
         with transaction.atomic():
-            director = self._ensure_director(language, options['director_password'])
+            director = self._ensure_director(language, director_password)
             profiles = self._ensure_contestants(language)
             problem_group, problem_type = self._ensure_problem_metadata()
             contests = []
@@ -244,7 +246,7 @@ class Command(BaseCommand):
 
         self.stdout.write('')
         self.stdout.write(self.style.SUCCESS('Resolver demo data is ready.'))
-        self.stdout.write('Director login: %s / %s' % (DIRECTOR_USERNAME, options['director_password']))
+        self.stdout.write('Director login: %s / %s' % (DIRECTOR_USERNAME, director_password))
         self.stdout.write('Contestant accounts have unusable passwords and exist only as ranking data.')
         for contest in contests:
             self._write_contest_summary(contest)
@@ -362,7 +364,6 @@ class Command(BaseCommand):
             format_config=blueprint['format_config'],
             frozen_last_minutes=blueprint['frozen_last_minutes'],
             points_precision=0,
-            allow_spotlight=True,
             locked_after=end_time,
         )
         contest.authors.add(director)

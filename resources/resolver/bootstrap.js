@@ -1,4 +1,5 @@
 import { ResolverPage } from "./page.js";
+import { gettext } from "./i18n.js";
 
 const payloadElement = document.getElementById("resolver-data");
 const rootElement = document.getElementById("resolver-root");
@@ -13,7 +14,9 @@ if (payloadElement && rootElement) {
   } catch (error) {
     if (errorElement) {
       errorElement.hidden = false;
-      errorElement.textContent = `Resolver could not start: ${error.message}`;
+      errorElement.textContent = gettext("Resolver could not start: %(error)s", {
+        error: error.message,
+      });
     }
   }
 }

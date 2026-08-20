@@ -31,6 +31,7 @@ from django.utils.html import escape, format_html, json_script
 from django.utils.safestring import mark_safe
 from django.utils.timezone import make_aware
 from django.utils.translation import gettext as _, gettext_lazy
+from django.views.decorators.cache import never_cache
 from django.views.generic import FormView, ListView, TemplateView, View
 from django.views.generic.detail import DetailView, SingleObjectMixin
 from django.views.generic.edit import CreateView, UpdateView
@@ -1132,6 +1133,7 @@ class ContestRanking(ContestRankingBase):
         return context
 
 
+@method_decorator(never_cache, name='dispatch')
 class SpotlightContestRanking(ContestMixin, TitleMixin, DetailView):
     template_name = 'contest/spotlight-ranking.html'
     tab = 'spotlight_ranking'
@@ -1139,8 +1141,21 @@ class SpotlightContestRanking(ContestMixin, TitleMixin, DetailView):
     def get_title(self):
         return _('%s Resolver') % self.object.name
 
+    def get(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if not self.can_view_resolver:
+            return HttpResponseForbidden()
+        context = self.get_context_data(object=self.object)
+        return self.render_to_response(context)
+
+    @cached_property
+    def can_view_resolver(self):
+        return self.can_edit or (
+            self.object.ended and self.request.user.has_perm('judge.can_view_spotlight')
+        )
+
     def get_context_data(self, **kwargs):
-        if not (self.can_edit or self.request.user.has_perm('judge.can_view_spotlight')):
+        if not self.can_view_resolver:
             raise PermissionDenied
         context = super().get_context_data(**kwargs)
 

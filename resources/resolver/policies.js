@@ -3,8 +3,7 @@ function normalizeId(value) {
 }
 
 function lastRevealedTarget(session) {
-  const history = session.getHistory();
-  return history.cursor ? history.transitions[history.cursor - 1]?.target ?? null : null;
+  return session.getLastTransition()?.target ?? null;
 }
 
 function orderedContestantCells(cells, problemOrder) {
@@ -73,7 +72,7 @@ export class RowSweepPolicy {
 
   select(session) {
     return selectRowSweepTarget(
-      session.getState().standings,
+      session.getStandings(),
       session.getResolvableCells(),
       this.problemOrder,
       this.predeterminedProblems,
@@ -113,7 +112,7 @@ export class BottomUpStickyPolicy {
   select(session) {
     const previous = lastRevealedTarget(session);
     const target = selectBottomUpStickyTarget(
-      session.getState().standings,
+      session.getStandings(),
       session.getResolvableCells(),
       previous?.contestantId ?? null,
     );
@@ -170,7 +169,7 @@ export class ByProblemPolicy {
   select(session) {
     const previous = lastRevealedTarget(session);
     const target = selectByProblemTarget(
-      session.getState().standings,
+      session.getStandings(),
       session.getResolvableCells(),
       this.problemOrder,
       previous?.problemId ?? null,
@@ -209,7 +208,7 @@ export class ByContestantPolicy {
   select(session) {
     const previous = lastRevealedTarget(session);
     const target = selectByContestantTarget(
-      session.getState().standings,
+      session.getStandings(),
       session.getResolvableCells(),
       previous?.contestantId ?? null,
     );

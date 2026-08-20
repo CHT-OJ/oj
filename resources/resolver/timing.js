@@ -1,3 +1,5 @@
+import { gettext } from "./i18n.js";
+
 export const RESOLUTION_STEP_TYPES = Object.freeze({
   SCROLL_ROW: "SCROLL_ROW",
   SELECT_TEAM: "SELECT_TEAM",
@@ -25,7 +27,7 @@ export const ICPC_EVENT_DELAYS_MS = Object.freeze({
 export function effectiveDelay(baseDelay, playbackSpeed) {
   const speed = Number(playbackSpeed);
   if (!Number.isFinite(speed) || speed <= 0) {
-    throw new RangeError("Resolver playback speed must be greater than zero.");
+    throw new RangeError(gettext("Resolver playback speed must be greater than zero."));
   }
   return Number(baseDelay) / speed;
 }
@@ -41,8 +43,8 @@ function delay(afterType) {
   });
 }
 
-function pause(kind, reason) {
-  return action(RESOLUTION_STEP_TYPES.PAUSE, { kind, reason });
+function pause(kind, reason, hard = false) {
+  return action(RESOLUTION_STEP_TYPES.PAUSE, { kind, reason, hard });
 }
 
 function stepDetails(metadata) {
@@ -77,7 +79,7 @@ export class ScoreboardTiming {
       delay(metadata.resultType),
     ];
     if (metadata.hardPauseReason) {
-      steps.push(pause(metadata.hardPauseKind, metadata.hardPauseReason));
+      steps.push(pause(metadata.hardPauseKind, metadata.hardPauseReason, true));
     }
     steps.push(
       action(RESOLUTION_STEP_TYPES.DESELECT, details),
@@ -92,14 +94,22 @@ export class SingleStepTiming {
     const details = stepDetails(metadata);
     return [
       ...commonPrefix(metadata),
-      pause("single-step-team", `Selected ${metadata.contestantLabel}.`),
+      pause(
+        "single-step-team",
+        gettext("Selected %(contestant)s.", { contestant: metadata.contestantLabel }),
+      ),
       action(RESOLUTION_STEP_TYPES.SELECT_PROBLEM, details),
-      pause("single-step-problem", `Selected problem ${metadata.problemLabel}.`),
+      pause(
+        "single-step-problem",
+        gettext("Selected problem %(problem)s.", { problem: metadata.problemLabel }),
+      ),
       action(RESOLUTION_STEP_TYPES.REVEAL_CELL, details),
       action(metadata.resultType, details),
       pause(
         metadata.hardPauseKind ?? "single-step-result",
-        metadata.hardPauseReason ?? `Revealed problem ${metadata.problemLabel}.`,
+        metadata.hardPauseReason ??
+          gettext("Revealed problem %(problem)s.", { problem: metadata.problemLabel }),
+        Boolean(metadata.hardPauseReason),
       ),
       action(RESOLUTION_STEP_TYPES.DESELECT, details),
     ];
