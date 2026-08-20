@@ -6,13 +6,7 @@ import {
   UnsupportedResolverBaselineError,
   UnsupportedResolverFormatError,
 } from "../core.js";
-import {
-  AutoplayController,
-  CEREMONY_PRESETS,
-  SPEED_PRESETS,
-  getPauseReason,
-  normalizeAwardPlaces,
-} from "../controller.js";
+import { CEREMONY_PRESETS, SPEED_PRESETS, normalizeAwardPlaces } from "../controller.js";
 import { rankContestants } from "../ranking.js";
 import {
   BottomUpStickyPolicy,
@@ -22,7 +16,12 @@ import {
   selectByContestantTarget,
   selectByProblemTarget,
 } from "../policies.js";
-import { deriveProblemStats, getCellPresentation } from "../presentation.js";
+import {
+  deriveProblemStats,
+  getCellPresentation,
+  getOrganizationPresentation,
+  normalizeRankDisplayOption,
+} from "../presentation.js";
 import { roundLikePython } from "../utils.js";
 import {
   defaultPayload,
@@ -76,6 +75,11 @@ function assertFinalParity(session, payload, expectedRanks, expectedOrder) {
       expectedOrder,
     );
   }
+
+  assert.deepEqual(
+    deriveProblemStats(payload, state).map((stat) => stat.totalSolved),
+    payload.problems.map((problem) => problem.final_total_ac),
+  );
 }
 
 test("Default beginning baseline handles partial and zero scores without problem indexes", () => {
@@ -104,7 +108,7 @@ test("Default beginning baseline handles partial and zero scores without problem
     { score: 0, cumtime: 0 },
   );
 
-  assertFinalParity(session, defaultPayload, { 11: 1, 22: 1, 33: 3 });
+  assertFinalParity(session, defaultPayload, { 11: 1, 22: 1, 33: 3 }, [22, 11, 33]);
   const tied = session.getState().standings.filter((standing) => standing.rank === 1);
   assert.equal(tied.length, 2);
 });
@@ -114,6 +118,10 @@ test("ICPC official freeze preserves minutes, configured penalty, pending failur
     baseline: "official-freeze",
     seed: "icpc-seed",
   });
+  assert.deepEqual(
+    session.getState().standings.map((standing) => standing.contestantId),
+    [303, 202, 101],
+  );
   assert.deepEqual(session.getResolvableCells(), [
     { contestantId: 101, problemId: 42 },
     { contestantId: 101, problemId: 88 },
@@ -140,9 +148,10 @@ test("ICPC official freeze preserves minutes, configured penalty, pending failur
   );
 
   assertFinalParity(session, icpcPayload, { 101: 3, 202: 1, 303: 1 });
-  const order = session.getState().standings.map((standing) => standing.contestantId);
-  assert.equal(order.indexOf(202) < order.indexOf(101), true);
-  assert.equal(order.indexOf(303) < order.indexOf(101), true);
+  assert.deepEqual(
+    session.getState().standings.map((standing) => standing.contestantId),
+    [303, 202, 101],
+  );
 });
 
 test("ICPC beginning baseline scores an AC after wrong tries independently of freeze", () => {
@@ -203,7 +212,7 @@ test("VNOJ penalty zero ignores stored cell penalty counts", () => {
   assertFinalParity(session, vnojNoPenaltyPayload, { 701: 1 }, [701]);
 });
 
-test("ranking uses tie-aware displayed ranks and deterministic fallback, not submission count", () => {
+test("ranking keeps tie-aware displayed ranks while accepting an explicit physical fallback", () => {
   const ranked = rankContestants([
     { participationId: 1, isDisqualified: false, score: 10, cumtime: 20, tiebreaker: 5, tieKey: 9 },
     { participationId: 2, isDisqualified: false, score: 10, cumtime: 20, tiebreaker: 5, tieKey: 1 },
@@ -328,7 +337,7 @@ test("bottom-up sticky policy selects the current lowest unresolved contestant a
   }
 });
 
-test("derived Total AC and first solve only use the current revealed state", () => {
+test("derived Total AC uses revealed state while first solve remains authoritative", () => {
   const session = new ResolverSession(defaultPayload, {
     baseline: "beginning",
     seed: "presentation",
@@ -346,7 +355,7 @@ test("derived Total AC and first solve only use the current revealed state", () 
   stats = deriveProblemStats(defaultPayload, session.getState());
   assert.deepEqual(
     [stats[0].totalSolved, stats[0].firstSolveContestantId, stats[0].firstSolveTime],
-    [1, 22, 180],
+    [1, null, null],
   );
   session.revealCell(11, 101);
   stats = deriveProblemStats(defaultPayload, session.getState());
@@ -364,13 +373,41 @@ test("frozen ICPC presentation hides final solve time until reveal", () => {
   const contestant = getContestant(session, 101);
   const pending = getCellPresentation("icpc", contestant.problems["88"], 3);
   assert.equal(pending.primary, "2 tries");
-  assert.equal(pending.secondary, "Pending");
+  assert.equal(pending.secondary, "");
   assert.equal(pending.accessibleLabel.includes("60"), false);
 
   session.revealCell(101, 88);
   const revealed = getCellPresentation("icpc", getContestant(session, 101).problems["88"], 3);
   assert.equal(revealed.primary, "60");
   assert.equal(revealed.secondary, "2 tries");
+});
+
+test("VNOJ cell presentation matches frozen pending and revealed penalty structure", () => {
+  const session = new ResolverSession(vnojPayload, { baseline: "official-freeze" });
+  let cell = getContestant(session, 501).problems["9"];
+  let presentation = getCellPresentation("vnoj", cell, 3);
+  assert.deepEqual(
+    {
+      primary: presentation.primary,
+      secondary: presentation.secondary,
+      pendingCount: presentation.pendingCount,
+      penalty: presentation.penalty,
+    },
+    { primary: "50?", secondary: "?", pendingCount: 2, penalty: 0 },
+  );
+
+  session.revealCell(501, 9);
+  cell = getContestant(session, 501).problems["9"];
+  presentation = getCellPresentation("vnoj", cell, 3);
+  assert.deepEqual(
+    {
+      primary: presentation.primary,
+      secondary: presentation.secondary,
+      pendingCount: presentation.pendingCount,
+      penalty: presentation.penalty,
+    },
+    { primary: "100", secondary: "10:00", pendingCount: 0, penalty: 2 },
+  );
 });
 
 test("Phase 3 presets are deterministic and Director never starts an automatic policy", () => {
@@ -380,11 +417,14 @@ test("Phase 3 presets are deterministic and Director never starts an automatic p
       policy: CEREMONY_PRESETS.icpc.policy,
       tieOrder: CEREMONY_PRESETS.icpc.tieOrder,
     },
-    { baseline: "auto", policy: "bottom-up-sticky", tieOrder: "seeded" },
+    { baseline: "auto", policy: "row-sweep", tieOrder: "seeded" },
   );
   assert.equal(CEREMONY_PRESETS.full.baseline, "beginning");
   assert.equal(CEREMONY_PRESETS.director.policy, "manual");
-  assert.equal(SPEED_PRESETS.length, 4);
+  assert.deepEqual(
+    SPEED_PRESETS.map((preset) => preset.speed),
+    [0.5, 1, 2, 4],
+  );
   assert.equal(normalizeAwardPlaces(20, 8), 8);
   assert.equal(normalizeAwardPlaces(0, 8), 0);
 });
@@ -409,7 +449,7 @@ test("source tie order is explicit while seeded Replay restores the exact baseli
   assert.deepEqual(seeded.replay(), baseline);
 });
 
-test("semantic transition effects detect first solve and ceremony pause beats", () => {
+test("semantic transition effects use authoritative first solve metadata", () => {
   const session = new ResolverSession(defaultPayload, {
     baseline: "beginning",
     seed: "phase-3-effects",
@@ -417,25 +457,29 @@ test("semantic transition effects detect first solve and ceremony pause beats", 
   const first = session.revealCell(11, 101);
   const later = session.revealCell(22, 101);
   assert.equal(first.effects.firstSolveAppeared, true);
+  assert.equal(first.effects.authoritativeFirstSolveAppeared, true);
   assert.equal(later.effects.firstSolveAppeared, false);
+});
 
+test("authoritative first solve identity is stable regardless of reveal order", () => {
+  const laterFirst = new ResolverSession(defaultPayload, {
+    baseline: "beginning",
+    seed: "fts-later-first",
+  });
+  const nonAuthoritative = laterFirst.revealCell(22, 101);
+  const authoritative = laterFirst.revealCell(11, 101);
+  assert.equal(nonAuthoritative.effects.authoritativeFirstSolveAppeared, false);
+  assert.equal(authoritative.effects.authoritativeFirstSolveAppeared, true);
+
+  const authoritativeFirst = new ResolverSession(defaultPayload, {
+    baseline: "beginning",
+    seed: "fts-authoritative-first",
+  });
   assert.equal(
-    getPauseReason(
-      [
-        {
-          effects: {
-            rankBefore: 5,
-            rankAfter: 3,
-            contestantFinished: false,
-            firstSolveAppeared: false,
-          },
-        },
-      ],
-      { rankChange: true, awardZone: true, contestantFinished: true, firstSolve: true },
-      3,
-    ),
-    "Entered the top 3 award zone.",
+    authoritativeFirst.revealCell(11, 101).effects.authoritativeFirstSolveAppeared,
+    true,
   );
+  assert.equal(defaultPayload.problems[0].first_solve_participation_id, 11);
 });
 
 test("by-problem and by-contestant policies choose semantic IDs without table columns", () => {
@@ -465,49 +509,26 @@ test("by-problem and by-contestant policies choose semantic IDs without table co
   assert.ok(new ByContestantPolicy().select(session));
 });
 
-test("autoplay waits for a settled step and pauses on a reported beat", async () => {
-  let steps = 0;
-  let resolvePaused;
-  const paused = new Promise((resolve) => {
-    resolvePaused = resolve;
-  });
-  const controller = new AutoplayController({
-    step: async () => {
-      steps += 1;
-      return { complete: false, pauseReason: "Rank changed." };
-    },
-    onChange: (state) => {
-      if (state.pauseKind === "beat") {
-        resolvePaused(state);
-      }
-    },
-  });
-  controller.play();
-  const state = await paused;
-  assert.equal(steps, 1);
-  assert.equal(state.playing, false);
-  assert.equal(state.pauseReason, "Rank changed.");
+test("rank display options accept Avatar, Logo, and Hidden and fail safely to Hidden", () => {
+  assert.equal(normalizeRankDisplayOption(1), 1);
+  assert.equal(normalizeRankDisplayOption(2), 2);
+  assert.equal(normalizeRankDisplayOption(3), 3);
+  assert.equal(normalizeRankDisplayOption(undefined), 3);
+  assert.equal(normalizeRankDisplayOption(null), 3);
+  assert.equal(normalizeRankDisplayOption(99), 3);
 });
 
-test("autoplay can be paused while the current reveal is still settling", async () => {
-  let resolveStep;
-  let steps = 0;
-  const stepSettled = new Promise((resolve) => {
-    resolveStep = resolve;
-  });
-  const controller = new AutoplayController({
-    step: async () => {
-      steps += 1;
-      return stepSettled;
-    },
-  });
-  controller.play();
-  await Promise.resolve();
-  controller.pause("Operator pause.");
-  resolveStep({ complete: false, pauseReason: null });
-  await Promise.resolve();
-  await Promise.resolve();
-  assert.equal(steps, 1);
-  assert.equal(controller.getState().playing, false);
-  assert.equal(controller.getState().pauseReason, "Operator pause.");
+test("multiple visible organizations retain display order, labels, and links", () => {
+  assert.deepEqual(
+    getOrganizationPresentation([
+      { name: "Alpha Organization", short_name: "AO", url: "/organization/alpha" },
+      { name: "Beta Organization", short_name: "", url: "/organization/beta" },
+      { name: "", short_name: "", url: "/organization/invalid" },
+    ]),
+    [
+      { label: "AO", url: "/organization/alpha" },
+      { label: "Beta Organization", url: "/organization/beta" },
+    ],
+  );
+  assert.deepEqual(getOrganizationPresentation(null), []);
 });

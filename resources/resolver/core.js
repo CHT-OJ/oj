@@ -59,18 +59,30 @@ function normalizeBaseline(payload, requested) {
 }
 
 function normalizeContestant(sourceContestant, tieKey) {
+  const organizations = Array.isArray(sourceContestant.organizations)
+    ? sourceContestant.organizations
+    : sourceContestant.organization
+    ? [sourceContestant.organization]
+    : [];
   return {
     participationId: sourceContestant.participation_id,
     profileId: sourceContestant.profile_id,
     username: sourceContestant.username,
     displayName: sourceContestant.display_name,
+    fullName: sourceContestant.full_name ?? "",
     cssClass: sourceContestant.user_css_class,
     profileUrl: sourceContestant.profile_url,
     avatarUrl: sourceContestant.avatar_url,
     rankLogoUrl: sourceContestant.rank_logo_url,
-    organization: clone(sourceContestant.organization),
+    organizations: clone(organizations),
     isDisqualified: sourceContestant.is_disqualified === true,
     submissionCount: sourceContestant.submission_count,
+    finalOrder: Number.isFinite(sourceContestant.final_order)
+      ? sourceContestant.final_order
+      : tieKey,
+    frozenOrder: Number.isFinite(sourceContestant.frozen_order)
+      ? sourceContestant.frozen_order
+      : tieKey,
     tieKey,
     score: 0,
     cumtime: 0,
@@ -140,10 +152,22 @@ export class ResolverSession {
   }
 
   _createInitialState() {
-    const tieKeys =
-      this.tieOrder === "source"
-        ? createSourceOrderTieKeys(this.source.contestants)
-        : createDeterministicTieKeys(this.source.contestants, this.seed);
+    let tieKeys;
+    if (this.tieOrder === "source") {
+      tieKeys = createSourceOrderTieKeys(this.source.contestants);
+    } else if (
+      this.baseline === "official-freeze" &&
+      this.source.contestants.every((contestant) => Number.isFinite(contestant.frozen_order))
+    ) {
+      tieKeys = new Map(
+        this.source.contestants.map((contestant) => [
+          String(contestant.participation_id),
+          contestant.frozen_order,
+        ]),
+      );
+    } else {
+      tieKeys = createDeterministicTieKeys(this.source.contestants, this.seed);
+    }
     const contestants = this.source.contestants.map((sourceContestant) => {
       const contestantId = String(sourceContestant.participation_id);
       const contestant = normalizeContestant(sourceContestant, tieKeys.get(contestantId));
@@ -160,17 +184,20 @@ export class ResolverSession {
       return contestant;
     });
 
-    return {
-      contestants,
-      standings: rankContestants(contestants),
-    };
+    const state = { contestants, standings: [] };
+    this._rerankState(state);
+    return state;
+  }
+
+  _findContestantInState(state, contestantId) {
+    const normalized = String(contestantId);
+    return state.contestants.find(
+      (contestant) => String(contestant.participationId) === normalized,
+    );
   }
 
   _findContestant(contestantId) {
-    const normalized = String(contestantId);
-    return this._state.contestants.find(
-      (contestant) => String(contestant.participationId) === normalized,
-    );
+    return this._findContestantInState(this._state, contestantId);
   }
 
   _isFullyResolved(contestant) {
@@ -194,8 +221,18 @@ export class ResolverSession {
     contestant.tiebreaker = metrics.tiebreaker;
   }
 
+  _isStateFullyResolved(state) {
+    return state.contestants.every((contestant) => this._isFullyResolved(contestant));
+  }
+
+  _rerankState(state) {
+    state.standings = rankContestants(state.contestants, {
+      fallback: this._isStateFullyResolved(state) ? "finalOrder" : "tieKey",
+    });
+  }
+
   _rerank() {
-    this._state.standings = rankContestants(this._state.contestants);
+    this._rerankState(this._state);
   }
 
   getState() {
@@ -222,48 +259,52 @@ export class ResolverSession {
     return cells;
   }
 
-  revealCell(contestantId, problemId) {
-    const contestant = this._findContestant(contestantId);
-    if (!contestant) {
-      throw new RangeError(`Unknown Resolver contestant "${contestantId}".`);
-    }
+  _projectReveal(contestantId, problemId) {
     const normalizedProblemId = String(problemId);
     if (!this._problems.has(normalizedProblemId)) {
       throw new RangeError(`Unknown Resolver problem "${problemId}".`);
     }
 
+    const before = clone(this._state);
+    const contestant = this._findContestantInState(before, contestantId);
+    if (!contestant) {
+      throw new RangeError(`Unknown Resolver contestant "${contestantId}".`);
+    }
     const currentCell = contestant.problems[normalizedProblemId];
     if (!this.adapter.isResolvable(currentCell)) {
       return null;
     }
 
-    if (this._historyCursor < this._history.length) {
-      this._history.splice(this._historyCursor);
-    }
-    const before = clone(this._state);
     const beforeStanding = before.standings.find(
       (standing) => String(standing.contestantId) === String(contestant.participationId),
     );
-    const firstSolveExisted = before.contestants.some(
-      (entry) => entry.problems[normalizedProblemId]?.state === "solved",
-    );
     const topBefore = before.standings[0]?.contestantId ?? null;
+    const beforeScore = contestant.score;
+    const beforePoints = currentCell.points;
 
-    contestant.problems[normalizedProblemId] = this.adapter.revealCell(
-      currentCell,
+    const after = clone(before);
+    const afterContestant = this._findContestantInState(after, contestant.participationId);
+    afterContestant.problems[normalizedProblemId] = this.adapter.revealCell(
+      afterContestant.problems[normalizedProblemId],
       this._finalCells[String(contestant.participationId)][normalizedProblemId],
     );
-    this._recomputeContestant(contestant);
-    this._rerank();
+    this._recomputeContestant(afterContestant);
+    this._rerankState(after);
 
-    const after = clone(this._state);
     const afterStanding = after.standings.find(
       (standing) => String(standing.contestantId) === String(contestant.participationId),
     );
-    const revealedCell = contestant.problems[normalizedProblemId];
+    const revealedCell = afterContestant.problems[normalizedProblemId];
+    const authoritativeFirstSolveId =
+      this._problems.get(normalizedProblemId).first_solve_participation_id ?? null;
+    const authoritativeFirstSolveAppeared =
+      authoritativeFirstSolveId !== null &&
+      String(authoritativeFirstSolveId) === String(contestant.participationId) &&
+      revealedCell.state === "solved";
     const topAfter = after.standings[0]?.contestantId ?? null;
-    const transition = {
-      id: `reveal-${++this._transitionSerial}`,
+
+    return {
+      id: null,
       type: "reveal-cell",
       target: {
         contestantId: contestant.participationId,
@@ -276,11 +317,31 @@ export class ResolverSession {
         positionAfter: afterStanding.position,
         rankBefore: beforeStanding.rank,
         rankAfter: afterStanding.rank,
-        contestantFinished: this._isFullyResolved(contestant),
+        contestantFinished: this._isFullyResolved(afterContestant),
         topChanged: String(topBefore) !== String(topAfter),
-        firstSolveAppeared: !firstSolveExisted && revealedCell.state === "solved",
+        scoreImproved: afterContestant.score > beforeScore,
+        cellPointsImproved: revealedCell.points > beforePoints,
+        authoritativeFirstSolveAppeared,
+        firstSolveAppeared: authoritativeFirstSolveAppeared,
       },
     };
+  }
+
+  projectReveal(contestantId, problemId) {
+    return clone(this._projectReveal(contestantId, problemId));
+  }
+
+  revealCell(contestantId, problemId) {
+    const transition = this._projectReveal(contestantId, problemId);
+    if (!transition) {
+      return null;
+    }
+
+    if (this._historyCursor < this._history.length) {
+      this._history.splice(this._historyCursor);
+    }
+    transition.id = `reveal-${++this._transitionSerial}`;
+    this._state = clone(transition.after);
     this._history.push(transition);
     this._historyCursor += 1;
     return clone(transition);

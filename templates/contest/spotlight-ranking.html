@@ -72,14 +72,15 @@ contest.format_name == 'icpc' %} {% include "contest/media-icpc-css.html" %} {% 
         <div class="resolver-field">
           <label for="resolver-policy">{{ _('Reveal order') }}</label>
           <select id="resolver-policy" name="policy">
+            <option value="row-sweep">{{ _('ICPC row sweep') }}</option>
             <option value="bottom-up-sticky">{{ _('Bottom-up sticky') }}</option>
             <option value="by-problem">{{ _('By problem') }}</option>
             <option value="by-contestant">{{ _('By contestant') }}</option>
             <option value="manual">{{ _('Manual only') }}</option>
           </select>
           <span class="resolver-field__help"
-            >{{ _('Bottom-up keeps resolving the selected contestant before choosing a new
-            lowest-ranked target.') }}</span
+            >{{ _('Row sweep stays on the current physical row when a contestant moves upward.')
+            }}</span
           >
         </div>
         <div class="resolver-field">
@@ -89,8 +90,7 @@ contest.format_name == 'icpc' %} {% include "contest/media-icpc-css.html" %} {% 
             <option value="contestant">{{ _('Whole contestant') }}</option>
           </select>
           <span class="resolver-field__help"
-            >{{ _('The eye button reveals a whole contestant; Back still moves one cell at a time.')
-            }}</span
+            >{{ _('Manual name-cell reveals can still resolve a whole contestant.') }}</span
           >
         </div>
         <div class="resolver-field">
@@ -108,8 +108,8 @@ contest.format_name == 'icpc' %} {% include "contest/media-icpc-css.html" %} {% 
           <select id="resolver-speed" name="speed">
             <option value="0">0.5×</option>
             <option value="1" selected>1×</option>
-            <option value="2">1.5×</option>
-            <option value="3">2×</option>
+            <option value="2">2×</option>
+            <option value="3">4×</option>
           </select>
           <span class="resolver-field__help"
             >{{ _('Speed changes the pause between settled reveals; row movement remains 700 ms.')
@@ -118,25 +118,34 @@ contest.format_name == 'icpc' %} {% include "contest/media-icpc-css.html" %} {% 
         </div>
         <div class="resolver-field">
           <label for="resolver-award-places">{{ _('Award places') }}</label>
-          <input id="resolver-award-places" name="award_places" type="number" min="0" value="3" />
+          <input id="resolver-award-places" name="award_places" type="number" min="0" value="6" />
           <span class="resolver-field__help"
-            >{{ _('Use 0 to disable the current-state award-zone highlight.') }}</span
+            >{{ _('Ceremony timing metadata only; it does not recolor ranking rows.') }}</span
+          >
+        </div>
+        <div class="resolver-field">
+          <label for="resolver-single-step-start-rank">{{ _('Single-step starts at rank') }}</label>
+          <input
+            id="resolver-single-step-start-rank"
+            name="single_step_start_rank"
+            type="number"
+            min="0"
+            value="6"
+          />
+          <span class="resolver-field__help"
+            >{{ _('This is a one-based displayed rank; use 0 to keep scoreboard timing throughout.')
+            }}</span
           >
         </div>
         <fieldset class="resolver-field resolver-field--beats">
-          <legend>{{ _('Pause autoplay when') }}</legend>
-          <label><input name="pause_rank" type="checkbox" checked /> {{ _('Rank changes') }}</label>
+          <legend>{{ _('Hard pauses') }}</legend>
           <label
             ><input name="pause_award" type="checkbox" checked /> {{ _('Enters award zone')
             }}</label
           >
           <label
-            ><input name="pause_finished" type="checkbox" checked /> {{ _('Contestant is fully
-            resolved') }}</label
-          >
-          <label
-            ><input name="pause_first_solve" type="checkbox" checked /> {{ _('First solve appears')
-            }}</label
+            ><input name="pause_first_solve" type="checkbox" checked /> {{ _('Authoritative first
+            solve appears') }}</label
           >
         </fieldset>
       </div>
@@ -157,7 +166,7 @@ contest.format_name == 'icpc' %} {% include "contest/media-icpc-css.html" %} {% 
           type="button"
           class="inline-button resolver-button resolver-button--primary"
         >
-          {{ _('Reveal next cell') }}
+          <i class="fa fa-step-forward"></i> {{ _('Forward') }}
         </button>
         <button id="resolver-play" type="button" class="inline-button resolver-button">
           <i class="fa fa-play"></i> {{ _('Play') }}
@@ -185,7 +194,7 @@ contest.format_name == 'icpc' %} {% include "contest/media-icpc-css.html" %} {% 
           <i class="fa fa-step-backward"></i> {{ _('Back') }}
         </button>
         <button id="resolver-forward" type="button" class="inline-button resolver-button">
-          {{ _('Forward') }}
+          <i class="fa fa-forward"></i> {{ _('Fast forward') }}
         </button>
         <button id="resolver-reset" type="button" class="inline-button resolver-button">
           <i class="fa fa-undo"></i> {{ _('Reset') }}
@@ -216,6 +225,16 @@ contest.format_name == 'icpc' %} {% include "contest/media-icpc-css.html" %} {% 
       <span><strong>{{ _('Target') }}:</strong> <span id="resolver-hud-target"></span></span>
       <span><strong>{{ _('History') }}:</strong> <span id="resolver-hud-history"></span></span>
       <span><strong>{{ _('Award') }}:</strong> <span id="resolver-hud-award"></span></span>
+      <span
+        ><strong>{{ _('Current position') }}:</strong>
+        <span id="resolver-hud-current-position"></span
+      ></span>
+      <span
+        ><strong>{{ _('After reveal') }}:</strong> <span id="resolver-hud-after-position"></span
+      ></span>
+      <span><strong>{{ _('Movement') }}:</strong> <span id="resolver-hud-movement"></span></span>
+      <span><strong>{{ _('Timing zone') }}:</strong> <span id="resolver-hud-zone"></span></span>
+      <span><strong>{{ _('Remaining') }}:</strong> <span id="resolver-hud-remaining"></span></span>
       <span><strong>{{ _('Seed') }}:</strong> <code id="resolver-hud-seed"></code></span>
     </aside>
 
@@ -223,7 +242,6 @@ contest.format_name == 'icpc' %} {% include "contest/media-icpc-css.html" %} {% 
       <table id="ranking-table" class="resolver-table users-table table striped">
         <thead id="resolver-table-head"></thead>
         <tbody id="resolver-table-body"></tbody>
-        <tfoot id="resolver-table-foot"></tfoot>
       </table>
     </div>
 
@@ -245,7 +263,7 @@ contest.format_name == 'icpc' %} {% include "contest/media-icpc-css.html" %} {% 
         }}</span
       >
       <span class="resolver-legend__item"
-        >★ {{ _('First solve from current revealed state') }}</span
+        >{{ _('First solve uses authoritative contest result data') }}</span
       >
     </div>
   </section>
@@ -269,7 +287,7 @@ contest.format_name == 'icpc' %} {% include "contest/media-icpc-css.html" %} {% 
       </div>
       <dl class="resolver-shortcuts__list">
         <dt>Space</dt>
-        <dd>{{ _('Step, pause, or resume after a ceremony beat') }}</dd>
+        <dd>{{ _('Forward to the next narrative pause') }}</dd>
         <dt>P</dt>
         <dd>{{ _('Play or pause autoplay') }}</dd>
         <dt>[ / ]</dt>
@@ -279,7 +297,9 @@ contest.format_name == 'icpc' %} {% include "contest/media-icpc-css.html" %} {% 
         <dt>← / Backspace</dt>
         <dd>{{ _('Back') }}</dd>
         <dt>→</dt>
-        <dd>{{ _('Forward, or reveal next') }}</dd>
+        <dd>{{ _('Forward to the next narrative pause') }}</dd>
+        <dt>.</dt>
+        <dd>{{ _('Fast forward to the same pause without narrative delays') }}</dd>
         <dt>H</dt>
         <dd>{{ _('Show or hide operator HUD') }}</dd>
         <dt>F</dt>

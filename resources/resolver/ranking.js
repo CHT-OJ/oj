@@ -30,7 +30,12 @@ export function createSourceOrderTieKeys(contestants) {
   );
 }
 
-export function compareContestants(left, right) {
+function fallbackOrder(contestant, fallback) {
+  const value = contestant[fallback];
+  return Number.isFinite(value) ? value : contestant.tieKey;
+}
+
+export function compareContestants(left, right, fallback = "tieKey") {
   if (left.isDisqualified !== right.isDisqualified) {
     return left.isDisqualified ? 1 : -1;
   }
@@ -43,7 +48,7 @@ export function compareContestants(left, right) {
   if (left.tiebreaker !== right.tiebreaker) {
     return left.tiebreaker - right.tiebreaker;
   }
-  return left.tieKey - right.tieKey;
+  return fallbackOrder(left, fallback) - fallbackOrder(right, fallback);
 }
 
 function sameDisplayedRank(left, right) {
@@ -54,8 +59,9 @@ function sameDisplayedRank(left, right) {
   );
 }
 
-export function rankContestants(contestants) {
-  const ordered = [...contestants].sort(compareContestants);
+export function rankContestants(contestants, options = {}) {
+  const fallback = options.fallback ?? "tieKey";
+  const ordered = [...contestants].sort((left, right) => compareContestants(left, right, fallback));
   let displayedRank = 0;
   let previous = null;
 

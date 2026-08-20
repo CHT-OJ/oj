@@ -2,6 +2,87 @@ function normalizeId(value) {
   return String(value);
 }
 
+function lastRevealedTarget(session) {
+  const history = session.getHistory();
+  return history.cursor ? history.transitions[history.cursor - 1]?.target ?? null : null;
+}
+
+function orderedContestantCells(cells, problemOrder) {
+  const order = new Map(problemOrder.map((problemId, index) => [normalizeId(problemId), index]));
+  return [...cells].sort(
+    (left, right) =>
+      (order.get(normalizeId(left.problemId)) ?? Number.MAX_SAFE_INTEGER) -
+        (order.get(normalizeId(right.problemId)) ?? Number.MAX_SAFE_INTEGER) ||
+      normalizeId(left.problemId).localeCompare(normalizeId(right.problemId)),
+  );
+}
+
+function predeterminedProblemFor(predeterminedProblems, contestantId) {
+  if (predeterminedProblems instanceof Map) {
+    return (
+      predeterminedProblems.get(contestantId) ??
+      predeterminedProblems.get(normalizeId(contestantId))
+    );
+  }
+  return (
+    predeterminedProblems?.[contestantId] ?? predeterminedProblems?.[normalizeId(contestantId)]
+  );
+}
+
+export function selectRowSweepTarget(
+  standings,
+  resolvableCells,
+  problemOrder,
+  predeterminedProblems = {},
+) {
+  const cellsByContestant = new Map();
+  resolvableCells.forEach((cell) => {
+    const contestantId = normalizeId(cell.contestantId);
+    if (!cellsByContestant.has(contestantId)) {
+      cellsByContestant.set(contestantId, []);
+    }
+    cellsByContestant.get(contestantId).push(cell);
+  });
+
+  for (let index = standings.length - 1; index >= 0; index -= 1) {
+    const standing = standings[index];
+    const cells = orderedContestantCells(
+      cellsByContestant.get(normalizeId(standing.contestantId)) ?? [],
+      problemOrder,
+    );
+    if (!cells.length) {
+      continue;
+    }
+    const predeterminedProblem = predeterminedProblemFor(
+      predeterminedProblems,
+      standing.contestantId,
+    );
+    const predetermined = cells.find(
+      (cell) => normalizeId(cell.problemId) === normalizeId(predeterminedProblem),
+    );
+    return predetermined ?? cells[0];
+  }
+  return null;
+}
+
+export class RowSweepPolicy {
+  constructor(problemOrder, predeterminedProblems = {}) {
+    this.problemOrder = [...problemOrder];
+    this.predeterminedProblems = predeterminedProblems;
+  }
+
+  select(session) {
+    return selectRowSweepTarget(
+      session.getState().standings,
+      session.getResolvableCells(),
+      this.problemOrder,
+      this.predeterminedProblems,
+    );
+  }
+
+  clear() {}
+}
+
 export function selectBottomUpStickyTarget(standings, resolvableCells, stickyContestantId = null) {
   const cellsByContestant = new Map();
   resolvableCells.forEach((cell) => {
@@ -29,23 +110,17 @@ export function selectBottomUpStickyTarget(standings, resolvableCells, stickyCon
 }
 
 export class BottomUpStickyPolicy {
-  constructor() {
-    this.stickyContestantId = null;
-  }
-
   select(session) {
+    const previous = lastRevealedTarget(session);
     const target = selectBottomUpStickyTarget(
       session.getState().standings,
       session.getResolvableCells(),
-      this.stickyContestantId,
+      previous?.contestantId ?? null,
     );
-    this.stickyContestantId = target ? target.contestantId : null;
     return target;
   }
 
-  clear() {
-    this.stickyContestantId = null;
-  }
+  clear() {}
 }
 
 function selectCellForProblem(standings, resolvableCells, problemId) {
@@ -90,23 +165,20 @@ export function selectByProblemTarget(
 export class ByProblemPolicy {
   constructor(problemOrder) {
     this.problemOrder = [...problemOrder];
-    this.stickyProblemId = null;
   }
 
   select(session) {
+    const previous = lastRevealedTarget(session);
     const target = selectByProblemTarget(
       session.getState().standings,
       session.getResolvableCells(),
       this.problemOrder,
-      this.stickyProblemId,
+      previous?.problemId ?? null,
     );
-    this.stickyProblemId = target ? target.problemId : null;
     return target;
   }
 
-  clear() {
-    this.stickyProblemId = null;
-  }
+  clear() {}
 }
 
 export function selectByContestantTarget(standings, resolvableCells, stickyContestantId = null) {
@@ -134,21 +206,15 @@ export function selectByContestantTarget(standings, resolvableCells, stickyConte
 }
 
 export class ByContestantPolicy {
-  constructor() {
-    this.stickyContestantId = null;
-  }
-
   select(session) {
+    const previous = lastRevealedTarget(session);
     const target = selectByContestantTarget(
       session.getState().standings,
       session.getResolvableCells(),
-      this.stickyContestantId,
+      previous?.contestantId ?? null,
     );
-    this.stickyContestantId = target ? target.contestantId : null;
     return target;
   }
 
-  clear() {
-    this.stickyContestantId = null;
-  }
+  clear() {}
 }

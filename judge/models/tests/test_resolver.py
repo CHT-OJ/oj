@@ -1,13 +1,17 @@
 from pathlib import Path
 
 from django.conf import settings
+from django.contrib.auth.context_processors import PermWrapper
 from django.core.exceptions import PermissionDenied
 from django.test import RequestFactory, TestCase, override_settings
+from django.template.loader import get_template
 from django.urls import resolve, reverse
 from django.utils import timezone
 
 from judge.models import Contest, ContestParticipation
-from judge.models.tests.util import create_contest_participation, create_contest_problem, create_problem, create_user
+from judge.models.contest import RankDisplayOptions
+from judge.models.tests.util import create_contest_participation, create_contest_problem, create_organization, \
+    create_problem, create_user
 from judge.resolver import ResolverUnsupportedFormat, build_resolver_payload
 from judge.views.contests import SpotlightContestRanking
 
@@ -28,8 +32,24 @@ class ResolverPayloadTestCase(TestCase):
         )
         cls.normal_user = create_user(username='resolver-normal')
         cls.live_user = create_user(username='resolver-live')
+        cls.live_user.first_name = 'Resolver Live Name'
+        cls.live_user.save(update_fields=['first_name'])
         cls.live_user.profile.username_display_override = '</script><script>alert(1)</script>'
         cls.live_user.profile.save(update_fields=['username_display_override'])
+        cls.visible_organizations = [
+            create_organization(name='Resolver Alpha Org', slug='resolver-alpha', short_name='RA', is_unlisted=False),
+            create_organization(name='Resolver Beta Org', slug='resolver-beta', short_name='RB', is_unlisted=False),
+        ]
+        cls.unlisted_organization = create_organization(
+            name='Resolver Hidden Org',
+            slug='resolver-hidden',
+            short_name='RH',
+            is_unlisted=True,
+        )
+        cls.live_user.profile.organizations.add(
+            *cls.visible_organizations,
+            cls.unlisted_organization,
+        )
         cls.virtual_user = create_user(username='resolver-virtual')
         cls.spectator = create_user(username='resolver-spectator')
 
@@ -132,8 +152,19 @@ class ResolverPayloadTestCase(TestCase):
         contestant = payload['contestants'][0]
         self.assertTrue(contestant['profile_url'].endswith('/user/resolver-live'))
         self.assertEqual(contestant['user_css_class'], self.live_user.profile.css_class)
+        self.assertEqual(contestant['full_name'], 'Resolver Live Name')
         self.assertIn('avatar_url', contestant)
         self.assertIn('rank_logo_url', contestant)
+        self.assertEqual(contestant['final_order'], 0)
+        self.assertEqual(contestant['frozen_order'], 0)
+        self.assertEqual(
+            [(organization['short_name'], organization['url']) for organization in contestant['organizations']],
+            [('RA', '/organization/resolver-alpha'), ('RB', '/organization/resolver-beta')],
+        )
+        self.assertNotIn('RH', [organization['short_name'] for organization in contestant['organizations']])
+        problem = payload['problems'][0]
+        self.assertEqual(problem['first_solve_participation_id'], self.live.id)
+        self.assertEqual(problem['final_total_ac'], 1)
         cell = contestant['problems'][str(self.earlier_problem.id)]
         self.assertEqual(cell['final'], {'points': 1, 'time': 1800, 'tries': 2})
         self.assertEqual(cell['frozen'], {
@@ -169,6 +200,36 @@ class ResolverPayloadTestCase(TestCase):
             'final': {'points': 0.5, 'time': 125},
             'frozen': None,
         })
+
+    def test_rank_display_options_are_serialized_without_an_independent_resolver_default(self):
+        for option in (
+                RankDisplayOptions.AVATAR,
+                RankDisplayOptions.LOGO,
+                RankDisplayOptions.HIDDEN,
+        ):
+            with self.subTest(option=option):
+                payload = build_resolver_payload(self.fresh_contest(rank_display_options=option))
+                self.assertEqual(payload['contest']['rank_display_options'], option)
+                self.assertIn('avatar_url', payload['contestants'][0])
+                self.assertIn('rank_logo_url', payload['contestants'][0])
+
+    def test_identity_payload_prefetches_multiple_organizations_without_n_plus_one_queries(self):
+        second_user = create_user(username='resolver-second-live')
+        second_user.profile.organizations.add(*self.visible_organizations)
+        create_contest_participation(
+            contest=self.contest,
+            user=second_user.profile,
+            virtual=ContestParticipation.LIVE,
+            format_data={},
+        )
+
+        contest = self.fresh_contest()
+        # Problems, final order, frozen order, rich participations, and one
+        # organization prefetch: this count must stay constant as users grow.
+        with self.assertNumQueries(5):
+            payload = build_resolver_payload(contest)
+        self.assertEqual(len(payload['contestants']), 2)
+        self.assertTrue(all(len(contestant['organizations']) == 2 for contestant in payload['contestants']))
 
     def test_vnoj_payload_normalizes_config_and_preserves_pending_frozen_fields(self):
         self.live.score = 75
@@ -218,6 +279,30 @@ class ResolverPayloadTestCase(TestCase):
             self.assertIn('id="resolver-data"', script)
             self.assertNotIn('</script><script>alert(1)</script>', script)
             self.assertIn(r'\u003C/script\u003E', script)
+
+    def test_spotlight_tab_visibility_matches_resolver_authorization(self):
+        resolver_url = reverse('spotlight_ranking', args=[self.contest.key])
+        template = get_template('contest/contest-tabs.html')
+
+        def render_tabs(user, can_edit):
+            request = RequestFactory().get(reverse('contest_view', args=[self.contest.key]))
+            request.user = user
+            request.profile = user.profile
+            return template.template.render({
+                'contest': self.fresh_contest(),
+                'request': request,
+                'now': timezone.now(),
+                'can_edit': can_edit,
+                'is_editor': can_edit,
+                'is_tester': False,
+                'is_in_contest': False,
+                'has_joined': False,
+                'has_moss_api_key': False,
+                'perms': PermWrapper(user),
+            })
+
+        self.assertNotIn(resolver_url, render_tabs(self.normal_user, False))
+        self.assertIn(resolver_url, render_tabs(self.editor, True))
 
     def test_unsupported_view_renders_clear_error(self):
         contest = self.fresh_contest(format_name='atcoder', format_config=None)

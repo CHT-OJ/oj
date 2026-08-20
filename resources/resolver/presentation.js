@@ -24,6 +24,29 @@ export function formatDuration(seconds) {
   return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
 }
 
+export function normalizeRankDisplayOption(value) {
+  const option = Number(value);
+  return option === 1 || option === 2 || option === 3 ? option : 3;
+}
+
+export function getOrganizationPresentation(organizations) {
+  if (!Array.isArray(organizations)) {
+    return [];
+  }
+  return organizations
+    .map((organization) => {
+      const label = organization?.short_name || organization?.name;
+      if (!label) {
+        return null;
+      }
+      return {
+        label: String(label),
+        url: organization.url ? String(organization.url) : null,
+      };
+    })
+    .filter(Boolean);
+}
+
 function attemptLabel(count) {
   return `${count} ${count === 1 ? "try" : "tries"}`;
 }
@@ -31,7 +54,7 @@ function attemptLabel(count) {
 function baseCellPresentation(cell) {
   return {
     state: cell.state,
-    primary: "—",
+    primary: "",
     secondary: "",
     accessibleLabel: "No submissions",
     resolvable: cell.attempted && !cell.revealed,
@@ -56,12 +79,20 @@ function presentICPC(cell) {
     return {
       ...view,
       primary: tries ? attemptLabel(tries) : "?",
-      secondary: "Pending",
+      secondary: "",
       accessibleLabel: tries ? `${attemptLabel(tries)}, pending` : "Pending result",
     };
   }
   if (cell.state === "failed") {
     const tries = numeric(cell.tries);
+    if (!tries) {
+      return {
+        ...view,
+        state: "empty",
+        primary: "",
+        accessibleLabel: "No countable submissions",
+      };
+    }
     return {
       ...view,
       primary: attemptLabel(tries),
@@ -75,6 +106,9 @@ function presentICPC(cell) {
     ...view,
     primary: String(minute),
     secondary: attemptLabel(tries),
+    minute,
+    tries,
+    time: formatDuration(cell.time),
     accessibleLabel: `Solved at ${minute} minutes in ${attemptLabel(tries)}`,
   };
 }
@@ -98,6 +132,7 @@ function presentDefault(cell, precision) {
     ...view,
     primary: score,
     secondary: time,
+    time,
     accessibleLabel: `${score} points at ${time}`,
   };
 }
@@ -118,25 +153,27 @@ function presentVNOJ(cell, precision) {
   if (cell.state === "pending") {
     const known = numeric(cell.points) !== 0 || numeric(cell.penalty) !== 0;
     const pending = numeric(cell.pending);
-    const primary = `${known ? `${formatScore(cell.points, precision)}?` : "?"}${
-      pending ? ` [${pending}]` : ""
-    }`;
+    const primary = known ? `${formatScore(cell.points, precision)}?` : "?";
     return {
       ...view,
       primary,
-      secondary: "Pending",
-      accessibleLabel: `${primary}, pending result`,
+      secondary: "?",
+      pendingCount: pending,
+      penalty: 0,
+      accessibleLabel: `${primary}${pending ? ` [${pending}]` : ""}, pending result`,
     };
   }
 
   const score = formatScore(cell.points, precision);
   const penalty = numeric(cell.penalty);
-  const primary = penalty ? `${score} (+${penalty})` : score;
   const time = formatDuration(cell.time);
   return {
     ...view,
-    primary,
+    primary: score,
     secondary: time,
+    penalty,
+    pendingCount: 0,
+    time,
     accessibleLabel: `${score} points${penalty ? ` with ${penalty} penalties` : ""} at ${time}`,
   };
 }
@@ -182,6 +219,7 @@ export function deriveProblemStats(payload, state) {
     )
     .map((problem) => {
       let totalSolved = 0;
+      const authoritativeFirstSolveContestantId = problem.first_solve_participation_id ?? null;
       let firstSolveContestantId = null;
       let firstSolveTime = null;
 
@@ -193,7 +231,10 @@ export function deriveProblemStats(payload, state) {
           return;
         }
         totalSolved += 1;
-        if (firstSolveTime === null || numeric(cell.time) < firstSolveTime) {
+        if (
+          authoritativeFirstSolveContestantId !== null &&
+          String(authoritativeFirstSolveContestantId) === String(contestant.participationId)
+        ) {
           firstSolveTime = numeric(cell.time);
           firstSolveContestantId = contestant.participationId;
         }

@@ -3,6 +3,7 @@ from io import StringIO
 from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.db.models import Count
 from django.test import TestCase, override_settings
 
 from judge.management.commands.seed_resolver_demo import CONTEST_BLUEPRINTS, DEMO_MARKER, DEMO_USERS
@@ -32,6 +33,26 @@ class ResolverDemoCommandTestCase(TestCase):
             self.assertEqual(contest.format_name, format_name)
             self.assertEqual(contest.user_count, len(DEMO_USERS))
             self.assertEqual(len(payload['contestants']), len(DEMO_USERS))
+            expected_order = list(
+                contest.users.filter(virtual=ContestParticipation.LIVE)
+                .annotate(submission_count=Count('submission'))
+                .order_by(
+                    'is_disqualified',
+                    '-score',
+                    'cumtime',
+                    'tiebreaker',
+                    '-submission_count',
+                )
+                .values_list('id', flat=True)
+            )
+            self.assertEqual(
+                [contestant['participation_id'] for contestant in payload['contestants']],
+                expected_order,
+            )
+            self.assertEqual(
+                [contestant['final_order'] for contestant in payload['contestants']],
+                list(range(len(DEMO_USERS))),
+            )
             self.assertEqual(
                 ContestSubmission.objects.filter(participation__contest=contest).count(),
                 len(blueprint['submissions']),

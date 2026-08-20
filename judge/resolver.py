@@ -1,6 +1,7 @@
+from django.conf import settings
 from django.db.models import Count, Prefetch
 
-from judge.jinja2.gravatar import gravatar
+from judge.jinja2.gravatar import fallback as gravatar_fallback, gravatar
 from judge.models import ContestParticipation, Organization
 
 
@@ -95,7 +96,9 @@ def _serialize_avatar(profile):
             return profile.avt_url.url
         except ValueError:
             pass
-    return gravatar(profile.user, 64)
+    if settings.DEBUG:
+        return gravatar(profile.user, 64)
+    return gravatar_fallback(profile.user.email, 64, None)
 
 
 def _serialize_rank_logo(profile):
@@ -107,9 +110,20 @@ def _serialize_rank_logo(profile):
         return None
 
 
-def _serialize_participation(participation, problems, format_name, official_freeze_available):
+def _serialize_organizations(profile):
+    return [
+        {
+            'name': organization.name,
+            'short_name': organization.short_name,
+            'url': organization.get_absolute_url(),
+        }
+        for organization in profile.organizations.all()
+    ]
+
+
+def _serialize_participation(participation, problems, format_name, official_freeze_available,
+                             final_order, frozen_order):
     profile = participation.user
-    organization = profile.organization
     format_data = participation.format_data or {}
     if not isinstance(format_data, dict):
         raise ResolverPayloadError(
@@ -143,16 +157,16 @@ def _serialize_participation(participation, problems, format_name, official_free
         'profile_id': profile.id,
         'username': profile.username,
         'display_name': profile.display_name,
+        'full_name': profile.user.first_name,
         'user_css_class': profile.css_class,
         'profile_url': profile.get_absolute_url(),
         'avatar_url': _serialize_avatar(profile),
         'rank_logo_url': _serialize_rank_logo(profile),
-        'organization': None if organization is None else {
-            'name': organization.name,
-            'short_name': organization.short_name,
-        },
+        'organizations': _serialize_organizations(profile),
         'is_disqualified': participation.is_disqualified,
         'submission_count': participation.submission_count,
+        'final_order': final_order,
+        'frozen_order': frozen_order,
         'final': {
             'score': participation.score,
             'cumtime': participation.cumtime,
@@ -171,19 +185,55 @@ def build_resolver_payload(contest):
     problems = list(
         contest.contest_problems.select_related('problem').defer('problem__description').order_by('order'),
     )
-    participations = contest.users.filter(virtual=ContestParticipation.LIVE) \
-        .select_related('user__user', 'user__user_rank_logo') \
-        .prefetch_related(Prefetch(
-            'user__organizations',
-            queryset=Organization.objects.filter(is_unlisted=False),
-        )) \
-        .annotate(submission_count=Count('submission')) \
-        .order_by('id')
+    ranking_queryset = contest.users.filter(virtual=ContestParticipation.LIVE).annotate(
+        submission_count=Count('submission'),
+    )
+    final_participation_ids = list(
+        ranking_queryset
+        .order_by('is_disqualified', '-score', 'cumtime', 'tiebreaker', '-submission_count')
+        .values_list('id', flat=True),
+    )
+    frozen_participation_ids = list(
+        ranking_queryset
+        .order_by(
+            'is_disqualified', '-frozen_score', 'frozen_cumtime', 'frozen_tiebreaker', '-submission_count',
+        )
+        .values_list('id', flat=True),
+    )
+
+    participation_by_id = {
+        participation.id: participation
+        for participation in (
+            contest.users.filter(id__in=final_participation_ids)
+            .select_related('user__user', 'user__user_rank_logo', 'rating')
+            .defer('user__about', 'user__organizations__about')
+            .prefetch_related(Prefetch(
+                'user__organizations',
+                queryset=Organization.objects.filter(is_unlisted=False),
+            ))
+            .annotate(submission_count=Count('submission'))
+        )
+    }
+    participations = [participation_by_id[participation_id] for participation_id in final_participation_ids]
+
+    final_order = {
+        participation.id: index
+        for index, participation in enumerate(participations)
+    }
+    frozen_order = {
+        participation_id: index
+        for index, participation_id in enumerate(frozen_participation_ids)
+    }
 
     official_freeze_available = (
         format_name in FROZEN_RESOLVER_FORMATS and contest.frozen_last_minutes > 0
     )
     format_config = contest.format.config or {}
+    first_solves, total_ac = contest.format.get_first_solves_and_total_ac(
+        problems,
+        participations,
+        frozen=False,
+    )
 
     return {
         'schema_version': 1,
@@ -206,6 +256,8 @@ def build_resolver_payload(contest):
                 'name': problem.problem.name,
                 'order': problem.order,
                 'max_score': problem.points,
+                'first_solve_participation_id': first_solves.get(str(problem.id)),
+                'final_total_ac': total_ac.get(str(problem.id), 0),
             }
             for index, problem in enumerate(problems)
         ],
@@ -215,6 +267,8 @@ def build_resolver_payload(contest):
                 problems,
                 format_name,
                 official_freeze_available,
+                final_order[participation.id],
+                frozen_order[participation.id],
             )
             for participation in participations
         ],

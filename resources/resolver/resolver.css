@@ -249,20 +249,6 @@
   box-shadow: inset 4px 0 0 #337ab7;
 }
 
-#ranking-table.resolver-table .resolver-row--award > .resolver-rank,
-#ranking-table.resolver-table .resolver-row--award > .resolver-contestant,
-#ranking-table.resolver-table .resolver-row--award > .resolver-metric {
-  background-color: rgba(245, 193, 45, 0.14);
-}
-
-#ranking-table.resolver-table .resolver-row--award > .resolver-rank {
-  box-shadow: inset 3px 0 0 #d6a318;
-}
-
-#ranking-table.resolver-table .resolver-row--award-first > .resolver-rank {
-  box-shadow: inset 3px 0 0 #b8860b;
-}
-
 #ranking-table.resolver-table .resolver-row--moving {
   position: relative;
   z-index: 2;
@@ -304,6 +290,14 @@
   flex: 0 0 3.2rem;
 }
 
+.resolver-contestant__identity .resolver-contestant__visual--logo {
+  border-radius: 0.15rem;
+}
+
+.resolver-contestant__visual--logo img {
+  object-fit: contain;
+}
+
 .resolver-contestant__identity .u-logo-sep1 {
   flex: 0 0 0;
   height: 4em;
@@ -326,6 +320,10 @@
 
 .resolver-contestant__avatar {
   border-radius: 50%;
+}
+
+.resolver-contestant__logo {
+  border-radius: 0;
 }
 
 .resolver-contestant__handle {
@@ -351,36 +349,29 @@
 .resolver-contestant__side {
   flex: 0 0 auto;
   align-self: stretch;
-  min-width: 2.4em;
   text-align: right;
 }
 
 .resolver-contestant__organization {
-  max-width: 6em;
+  max-width: 13em;
   margin-top: 0.15em;
   color: #777;
   font-size: 0.75em;
   text-align: right;
 }
 
-.resolver-row-reveal {
-  border: 0;
-  background: transparent;
-  color: #333;
+#ranking-table.resolver-table .resolver-contestant[data-resolver-action] {
   cursor: pointer;
-  padding: 0.15em 0;
-  font: inherit;
 }
 
-.resolver-row-reveal:hover:not(:disabled),
-.resolver-row-reveal:focus-visible {
-  color: #337ab7;
-  outline: 0;
+#ranking-table.resolver-table .resolver-contestant[data-resolver-action]:hover,
+#ranking-table.resolver-table .resolver-contestant[data-resolver-action]:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(51, 122, 183, 0.65);
+  outline: none;
 }
 
-.resolver-row-reveal:disabled {
-  cursor: not-allowed;
-  opacity: 0.35;
+.resolver-contestant__organization a {
+  display: inline !important;
 }
 
 #ranking-table.resolver-table .resolver-metric {
@@ -403,13 +394,15 @@
 
 .resolver-cell__button,
 .resolver-cell__result {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
   box-sizing: border-box;
   width: 100%;
   min-height: 3.4em;
   border: 0;
   border-radius: 0;
-  place-content: center;
   background: transparent !important;
   color: inherit !important;
   padding: 0.25em 0.35em;
@@ -438,10 +431,25 @@
 }
 
 .resolver-cell__secondary {
+  flex-basis: 100%;
   color: inherit;
   font-size: 0.7em;
   font-weight: 400;
   opacity: 0.7;
+}
+
+.resolver-cell__primary.solving-time-minute {
+  font-size: 1.25em;
+}
+
+.resolver-cell__penalty {
+  color: red;
+  font-size: 0.72em;
+}
+
+.resolver-cell__pending-count {
+  color: black;
+  font-size: 0.72em;
 }
 
 #ranking-table.resolver-table .resolver-cell--hidden {
@@ -453,17 +461,8 @@
   box-shadow: inset 0 0 0 3px #337ab7;
 }
 
-.resolver-cell--first-solve .resolver-cell__primary::after {
-  content: " ★";
-  font-size: 0.72em;
-}
-
 #ranking-table.resolver-table .resolver-cell--changed {
   animation: resolver-cell-reveal 650ms ease-out;
-}
-
-.resolver-total-row > * {
-  background: rgba(0, 0, 0, 0.035);
 }
 
 .resolver-total-label {
