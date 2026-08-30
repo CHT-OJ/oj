@@ -58,8 +58,12 @@ def get_contest_problem(problem, profile):
 
 
 def get_contest_submission_count(problem, profile, virtual):
-    return profile.current_contest.submissions.exclude(submission__status__in=['IE']) \
-                  .filter(problem__problem=problem, participation__virtual=virtual).count()
+    return (
+        profile.current_contest.submissions
+        .exclude(submission__status='IE', submission__result__isnull=True)
+        .filter(problem__problem=problem, participation__virtual=virtual)
+        .count()
+    )
 
 
 class ProblemMixin(object):
@@ -594,9 +598,8 @@ class ProblemSubmit(LoginRequiredMixin, ProblemMixin, TitleMixin, SingleObjectFo
         max_subs = self.contest_problem and self.contest_problem.max_submissions
         if max_subs is None:
             return None
-        # When an IE submission is rejudged into a non-IE status, it will count towards the
-        # submission limit. We max with 0 to ensure that `remaining_submission_count` returns
-        # a non-negative integer, which is required for future checks in this view.
+        # An initial IE has no authoritative result and does not count. A failed rejudge
+        # retains and continues to count its previous authoritative result.
         return max(
             0,
             max_subs - get_contest_submission_count(

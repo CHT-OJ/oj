@@ -106,8 +106,10 @@ class Submission(models.Model):
     @property
     def result_class(self):
         # This exists to save all these conditionals from being executed (slowly) in each row.html template
-        if self.status in ('IE', 'CE'):
+        if self.status in ('IE', 'CE', 'AB'):
             return self.status
+        if self.status != 'D':
+            return None
         return Submission.result_class_from_code(self.result, self.case_points, self.case_total)
 
     @property
@@ -116,7 +118,7 @@ class Submission(models.Model):
 
     @property
     def short_status(self):
-        return self.result or self.status
+        return self.result if self.status == 'D' and self.result else self.status
 
     @property
     def long_status(self):
@@ -174,21 +176,12 @@ class Submission(models.Model):
         return False
 
     def update_contest(self):
-        try:
-            contest = self.contest
-        except AttributeError:
-            return
+        from judge.submission_finalization import update_contest_from_submission
 
-        contest_problem = contest.problem
-        contest.points = round(self.case_points / self.case_total * contest_problem.points
-                               if self.case_total > 0 else 0, 3)
-
-        partial = (contest_problem.partial and contest_problem.problem.partial)
-        if not partial and contest.points != contest_problem.points:
-            contest.points = 0
-
-        contest.save()
-        contest.participation.recompute_results()
+        update_contest_from_submission(self.id)
+        cached_contest = self._state.fields_cache.get('contest')
+        if cached_contest is not None:
+            cached_contest.refresh_from_db()
 
     update_contest.alters_data = True
 

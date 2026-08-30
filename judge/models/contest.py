@@ -593,14 +593,28 @@ class ContestParticipation(models.Model):
                                   help_text=_('0 means non-virtual, otherwise the n-th virtual participation.'))
     format_data = JSONField(verbose_name=_('contest format specific data'), null=True, blank=True)
 
-    def recompute_results(self):
+    def recompute_results(self, _locked=False):
         with transaction.atomic():
-            self.contest.format.update_participation(self)
-            if self.is_disqualified:
-                self.score = -9999
-                self.cumtime = 0
-                self.tiebreaker = 0
-                self.save(update_fields=['score', 'cumtime', 'tiebreaker'])
+            participation = self if _locked else (
+                ContestParticipation.objects.select_for_update().select_related('contest').get(id=self.id)
+            )
+            if participation is not self:
+                # set_disqualified() intentionally changes this flag in memory before recomputing.
+                participation.is_disqualified = self.is_disqualified
+            participation.contest.format.update_participation(participation)
+            if participation.is_disqualified:
+                participation.score = -9999
+                participation.cumtime = 0
+                participation.tiebreaker = 0
+                participation.save(update_fields=['score', 'cumtime', 'tiebreaker'])
+
+            if participation is not self:
+                for field in (
+                        'score', 'cumtime', 'tiebreaker',
+                        'frozen_score', 'frozen_cumtime', 'frozen_tiebreaker',
+                        'format_data',
+                ):
+                    setattr(self, field, getattr(participation, field))
     recompute_results.alters_data = True
 
     def check_ban(self):
