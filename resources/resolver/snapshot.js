@@ -42,6 +42,7 @@ export function getResolverSnapshotStatus(contest, estimatedServerNow = null) {
   const resultsSettled = contest?.results_settled_at_generation;
   const inProgressCount = contest?.in_progress_submission_count;
   const pretestedCount = contest?.pretested_submission_count;
+  const failedJudgingCount = contest?.failed_judging_submission_count;
 
   if (
     !SNAPSHOT_STATES.has(state) ||
@@ -50,7 +51,8 @@ export function getResolverSnapshotStatus(contest, estimatedServerNow = null) {
     typeof endedAtGeneration !== "boolean" ||
     typeof resultsSettled !== "boolean" ||
     !isNonNegativeInteger(inProgressCount) ||
-    !isNonNegativeInteger(pretestedCount)
+    !isNonNegativeInteger(pretestedCount) ||
+    !isNonNegativeInteger(failedJudgingCount)
   ) {
     return unknownStatus();
   }
@@ -64,13 +66,14 @@ export function getResolverSnapshotStatus(contest, estimatedServerNow = null) {
       endedAtGeneration &&
       !resultsSettled &&
       generatedAt > contestEndTime &&
-      inProgressCount + pretestedCount > 0) ||
+      inProgressCount + pretestedCount + failedJudgingCount > 0) ||
     (isFinal &&
       endedAtGeneration &&
       resultsSettled &&
       generatedAt > contestEndTime &&
       inProgressCount === 0 &&
-      pretestedCount === 0);
+      pretestedCount === 0 &&
+      failedJudgingCount === 0);
   if (!metadataIsConsistent) {
     return unknownStatus();
   }

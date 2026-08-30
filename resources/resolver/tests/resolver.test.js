@@ -82,17 +82,17 @@ function assertFinalParity(session, payload, expectedRanks, expectedOrder) {
   );
 }
 
-test("Resolver requires the schema version 2 payload contract", () => {
-  const schemaVersionOne = { ...defaultPayload, schema_version: 1 };
-  const futureSchemaVersion = { ...defaultPayload, schema_version: 3 };
+test("Resolver requires the schema version 3 payload contract", () => {
+  const previousSchemaVersion = { ...defaultPayload, schema_version: 2 };
+  const futureSchemaVersion = { ...defaultPayload, schema_version: 4 };
 
   assert.throws(
-    () => new ResolverSession(schemaVersionOne, { baseline: "beginning" }),
-    /Invalid Resolver schema version 2 payload/,
+    () => new ResolverSession(previousSchemaVersion, { baseline: "beginning" }),
+    /Invalid Resolver schema version 3 payload/,
   );
   assert.throws(
     () => new ResolverSession(futureSchemaVersion, { baseline: "beginning" }),
-    /Invalid Resolver schema version 2 payload/,
+    /Invalid Resolver schema version 3 payload/,
   );
 });
 

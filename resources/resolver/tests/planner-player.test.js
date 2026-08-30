@@ -93,7 +93,7 @@ function rowSweepPayload() {
     ),
   );
   return {
-    schema_version: 2,
+    schema_version: 3,
     contest: {
       id: 9,
       key: "row-sweep",
@@ -134,7 +134,7 @@ function sameRowPayload() {
     frozen: null,
   }));
   return {
-    schema_version: 2,
+    schema_version: 3,
     contest: {
       id: 10,
       key: "same-row",
@@ -168,7 +168,7 @@ function rankedIcpcPayload(contestantCount = 7) {
     contestants.push(entry);
   }
   return {
-    schema_version: 2,
+    schema_version: 3,
     contest: {
       id: 11,
       key: `ranked-${contestantCount}`,

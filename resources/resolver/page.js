@@ -274,6 +274,7 @@ export class ResolverPage {
     const status = this._snapshotStatus();
     const inProgressCount = this.payload.contest.in_progress_submission_count;
     const pretestedCount = this.payload.contest.pretested_submission_count;
+    const failedJudgingCount = this.payload.contest.failed_judging_submission_count;
     const messages = [];
     if (status.kind === "preview") {
       this.nodes.snapshotMode.textContent = gettext("Preview");
@@ -303,6 +304,15 @@ export class ResolverPage {
             "%(count)s submission still contains pretest-only results.",
             "%(count)s submissions still contain pretest-only results.",
             pretestedCount,
+          ),
+        );
+      }
+      if (failedJudgingCount > 0) {
+        messages.push(
+          ngettext(
+            "%(count)s submission has an unresolved judging failure.",
+            "%(count)s submissions have unresolved judging failures.",
+            failedJudgingCount,
           ),
         );
       }

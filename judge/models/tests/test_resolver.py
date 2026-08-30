@@ -135,7 +135,7 @@ class ResolverPayloadTestCase(TestCase):
         view.object = contest or self.fresh_contest()
         return view
 
-    def create_submission(self, participation=None, status='D', is_pretested=False):
+    def create_submission(self, participation=None, status='D', is_pretested=False, rejudged=False):
         participation = participation or self.live
         submission = Submission.objects.create(
             user=participation.user,
@@ -144,6 +144,7 @@ class ResolverPayloadTestCase(TestCase):
             status=status,
             result='WA' if status == 'D' else None,
             is_pretested=is_pretested,
+            rejudged_date=timezone.now() if rejudged else None,
         )
         ContestSubmission.objects.create(
             submission=submission,
@@ -155,7 +156,7 @@ class ResolverPayloadTestCase(TestCase):
     def test_payload_preserves_problem_order_labels_live_scope_and_icpc_fields(self):
         payload = build_resolver_payload(self.fresh_contest())
 
-        self.assertEqual(payload['schema_version'], 2)
+        self.assertEqual(payload['schema_version'], 3)
         self.assertEqual(payload['contest']['format'], 'icpc')
         self.assertEqual(payload['contest']['format_config'], {'penalty': 17})
         self.assertEqual(payload['contest']['rank_display_options'], self.contest.rank_display_options)
@@ -165,6 +166,7 @@ class ResolverPayloadTestCase(TestCase):
         self.assertEqual(payload['contest']['snapshot_state'], 'final')
         self.assertEqual(payload['contest']['in_progress_submission_count'], 0)
         self.assertEqual(payload['contest']['pretested_submission_count'], 0)
+        self.assertEqual(payload['contest']['failed_judging_submission_count'], 0)
         self.assertTrue(payload['contest']['results_settled_at_generation'])
         self.assertTrue(payload['contest']['freeze_configured'])
         self.assertTrue(payload['contest']['freeze_reached'])
@@ -263,6 +265,7 @@ class ResolverPayloadTestCase(TestCase):
         self.assertEqual(payload['contest']['snapshot_state'], 'unsettled')
         self.assertEqual(payload['contest']['in_progress_submission_count'], 3)
         self.assertEqual(payload['contest']['pretested_submission_count'], 0)
+        self.assertEqual(payload['contest']['failed_judging_submission_count'], 0)
         self.assertFalse(payload['contest']['results_settled_at_generation'])
 
     def test_ended_contest_with_pretested_live_submission_is_unsettled(self):
@@ -273,7 +276,29 @@ class ResolverPayloadTestCase(TestCase):
         self.assertEqual(payload['contest']['snapshot_state'], 'unsettled')
         self.assertEqual(payload['contest']['in_progress_submission_count'], 0)
         self.assertEqual(payload['contest']['pretested_submission_count'], 1)
+        self.assertEqual(payload['contest']['failed_judging_submission_count'], 0)
         self.assertFalse(payload['contest']['results_settled_at_generation'])
+
+    def test_infrastructure_failure_and_rejudge_abort_block_final_snapshot(self):
+        self.create_submission(status='IE')
+        self.create_submission(status='AB', rejudged=True)
+
+        payload = build_resolver_payload(self.fresh_contest())
+
+        self.assertEqual(payload['contest']['snapshot_state'], 'unsettled')
+        self.assertEqual(payload['contest']['in_progress_submission_count'], 0)
+        self.assertEqual(payload['contest']['pretested_submission_count'], 0)
+        self.assertEqual(payload['contest']['failed_judging_submission_count'], 2)
+        self.assertFalse(payload['contest']['results_settled_at_generation'])
+
+    def test_initial_authoritative_abort_does_not_block_final_snapshot(self):
+        self.create_submission(status='AB')
+
+        payload = build_resolver_payload(self.fresh_contest())
+
+        self.assertEqual(payload['contest']['snapshot_state'], 'final')
+        self.assertEqual(payload['contest']['failed_judging_submission_count'], 0)
+        self.assertTrue(payload['contest']['results_settled_at_generation'])
 
     def test_virtual_and_spectator_submissions_do_not_block_final_snapshot(self):
         self.create_submission(participation=self.virtual, status='G')
@@ -284,6 +309,7 @@ class ResolverPayloadTestCase(TestCase):
         self.assertEqual(payload['contest']['snapshot_state'], 'final')
         self.assertEqual(payload['contest']['in_progress_submission_count'], 0)
         self.assertEqual(payload['contest']['pretested_submission_count'], 0)
+        self.assertEqual(payload['contest']['failed_judging_submission_count'], 0)
         self.assertTrue(payload['contest']['results_settled_at_generation'])
 
     def test_rank_display_options_are_serialized_without_an_independent_resolver_default(self):

@@ -199,13 +199,22 @@ def build_resolver_payload(contest):
             'id',
             filter=Q(submission__is_pretested=True),
         ),
+        failed_judging_submission_count=Count(
+            'id',
+            filter=(
+                Q(submission__status='IE') |
+                Q(submission__status='AB', submission__rejudged_date__isnull=False)
+            ),
+        ),
     )
     in_progress_submission_count = settlement['in_progress_submission_count']
     pretested_submission_count = settlement['pretested_submission_count']
+    failed_judging_submission_count = settlement['failed_judging_submission_count']
     results_settled_at_generation = (
         contest_ended_at_generation and
         in_progress_submission_count == 0 and
-        pretested_submission_count == 0
+        pretested_submission_count == 0 and
+        failed_judging_submission_count == 0
     )
     if not contest_ended_at_generation:
         snapshot_state = 'preview'
@@ -270,7 +279,7 @@ def build_resolver_payload(contest):
     )
 
     return {
-        'schema_version': 2,
+        'schema_version': 3,
         'contest': {
             'id': contest.id,
             'key': contest.key,
@@ -286,6 +295,7 @@ def build_resolver_payload(contest):
             'snapshot_state': snapshot_state,
             'in_progress_submission_count': in_progress_submission_count,
             'pretested_submission_count': pretested_submission_count,
+            'failed_judging_submission_count': failed_judging_submission_count,
             'results_settled_at_generation': results_settled_at_generation,
             'freeze_configured': freeze_configured,
             'freeze_reached': freeze_reached,

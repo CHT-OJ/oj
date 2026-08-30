@@ -41,8 +41,8 @@ msgid "Resolver baseline \"%(baseline)s\" is not available for this contest."
 msgstr "Mốc bắt đầu \"%(baseline)s\" không khả dụng cho cuộc thi này."
 
 #: resources/resolver/core.js:50
-msgid "Invalid Resolver schema version 2 payload."
-msgstr "Dữ liệu trình diễn phiên bản 2 không hợp lệ."
+msgid "Invalid Resolver schema version 3 payload."
+msgstr "Dữ liệu trình diễn phiên bản 3 không hợp lệ."
 
 #: resources/resolver/core.js:118
 msgid "Unknown Resolver tie order \"%(order)s\"."
@@ -530,6 +530,11 @@ msgstr[0] "%(count)s bài nộp vẫn đang được chấm."
 msgid "%(count)s submission still contains pretest-only results."
 msgid_plural "%(count)s submissions still contain pretest-only results."
 msgstr[0] "%(count)s bài nộp vẫn chỉ có kết quả pretest."
+
+#: resources/resolver/page.js
+msgid "%(count)s submission has an unresolved judging failure."
+msgid_plural "%(count)s submissions have unresolved judging failures."
+msgstr[0] "%(count)s bài nộp gặp lỗi chấm chưa được xử lý."
 
 #: resources/resolver/page.js
 msgid "Final results ready"
