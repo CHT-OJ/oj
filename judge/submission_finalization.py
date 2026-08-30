@@ -1,9 +1,13 @@
+import logging
 from dataclasses import dataclass
 from typing import Optional
 
 from django.db import transaction
 
 from judge.caching import finished_submission_ids
+
+
+logger = logging.getLogger('judge.submission_finalization')
 
 
 @dataclass(frozen=True)
@@ -49,12 +53,49 @@ def _publication_for(submission, participation_id, authoritative):
     )
 
 
-def _register_after_commit(publication, callback):
+def _recalculate_organization_points(organization_id):
+    from judge.models import Organization
+
+    with transaction.atomic():
+        organization = Organization.objects.select_for_update().filter(id=organization_id).first()
+        if organization is not None:
+            organization.calculate_points()
+
+
+def _run_after_commit_step(publication, step_name, step):
+    try:
+        step()
+    except Exception:
+        # The authoritative result has already committed. Cache/event/aggregate
+        # publication is deliberately best effort and must not make the caller
+        # retry a terminal result that is already durable.
+        logger.exception(
+            'Post-commit %s failed for submission %d',
+            step_name,
+            publication.submission_id,
+        )
+
+
+def _register_after_commit(publication, callback, organization_ids=()):
     def publish():
+        for organization_id in sorted(set(organization_ids)):
+            _run_after_commit_step(
+                publication,
+                'organization aggregate update',
+                lambda organization_id=organization_id: _recalculate_organization_points(organization_id),
+            )
         if publication.authoritative:
-            finished_submission_ids(publication.user_id, publication.participation_id)
+            _run_after_commit_step(
+                publication,
+                'cache invalidation',
+                lambda: finished_submission_ids(publication.user_id, publication.participation_id),
+            )
         if callback is not None:
-            callback(publication)
+            _run_after_commit_step(
+                publication,
+                'event publication',
+                lambda: callback(publication),
+            )
 
     transaction.on_commit(publish)
 
@@ -114,15 +155,22 @@ def publish_authoritative_result(submission_id, updates, *, expected_statuses, c
         if participation is not None:
             _update_contest_points(submission, participation)
 
+        organization_ids = ()
         if problem.is_public and not problem.is_organization_private:
+            previous_profile_state = (profile.points, profile.problem_count, profile.performance_points)
             profile._updating_stats_only = True
-            profile.calculate_points()
+            profile.calculate_points(update_organizations=False)
+            profile_state = (profile.points, profile.problem_count, profile.performance_points)
+            if profile_state != previous_profile_state:
+                organization_ids = list(
+                    profile.organizations.order_by('id').values_list('id', flat=True),
+                )
 
         problem._updating_stats_only = True
         problem.update_stats()
 
         publication = _publication_for(submission, participation_id, authoritative=True)
-        _register_after_commit(publication, callback)
+        _register_after_commit(publication, callback, organization_ids)
         return publication
 
 

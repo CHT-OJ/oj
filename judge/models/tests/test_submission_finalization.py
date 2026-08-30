@@ -1,6 +1,7 @@
 import threading
 from unittest.mock import Mock, patch
 
+from django.conf import settings
 from django.core.cache import cache
 from django.db import connection, connections
 from django.db.models import Sum
@@ -10,11 +11,12 @@ from django.utils import timezone
 
 from judge.bridge.judge_handler import JudgeHandler
 from judge.judgeapi import judge_submission
-from judge.models import Contest, ContestSubmission, Language, Submission, SubmissionSource, SubmissionTestCase
+from judge.models import Contest, ContestSubmission, Language, Organization, Submission, SubmissionSource, \
+    SubmissionTestCase
 from judge.models.tests.util import create_contest, create_contest_participation, create_contest_problem, \
-    create_problem, create_user
-from judge.submission_finalization import publish_aborted_result, publish_authoritative_result, \
-    publish_infrastructure_failure
+    create_organization, create_problem, create_user
+from judge.submission_finalization import _recalculate_organization_points, publish_aborted_result, \
+    publish_authoritative_result, publish_infrastructure_failure
 from judge.views.problem import get_contest_submission_count
 
 
@@ -150,6 +152,33 @@ class SubmissionFinalizationTestCase(SubmissionFinalizationMixin, TestCase):
         }])
         self.assertEqual([cache.get(key) for key in cache_keys], [None] * 4)
 
+    def test_post_commit_failures_do_not_rollback_or_duplicate_authoritative_result(self):
+        user, problem, _contest, participation, contest_problem = self.create_contest_state('post-commit-failure')
+        submission, contest_submission = self.create_submission(
+            user, problem, participation, contest_problem,
+        )
+        callback = Mock(side_effect=RuntimeError('event service unavailable'))
+
+        with patch(
+                'judge.submission_finalization.finished_submission_ids',
+                side_effect=RuntimeError('cache unavailable'),
+        ), patch('judge.submission_finalization.logger.exception') as log_exception:
+            with self.captureOnCommitCallbacks(execute=True):
+                publication = self.publish_completed(submission, 100, 100, callback=callback)
+
+        self.assertIsNotNone(publication)
+        self.assertEqual(log_exception.call_count, 2)
+        callback.assert_called_once_with(publication)
+        submission.refresh_from_db()
+        contest_submission.refresh_from_db()
+        participation.refresh_from_db()
+        self.assertEqual((submission.status, submission.result, submission.points), ('D', 'AC', 100))
+        self.assertEqual(contest_submission.points, 100)
+        self.assertEqual(participation.score, 100)
+
+        self.assertIsNone(self.publish_completed(submission, 0, 100, callback=callback))
+        callback.assert_called_once_with(publication)
+
     @patch('judge.bridge.judge_handler.event.post')
     def test_bridge_grading_end_publishes_done_event_after_coherent_commit(self, event_post):
         user, problem, _contest, participation, contest_problem = self.create_contest_state('bridge-done')
@@ -188,6 +217,38 @@ class SubmissionFinalizationTestCase(SubmissionFinalizationMixin, TestCase):
         with self.captureOnCommitCallbacks(execute=True):
             handler.on_grading_end({'submission-id': submission.id})
         self.assertEqual(observed, [('D', 100, 100, 'D')])
+
+    @patch('judge.bridge.judge_handler.event.post', side_effect=OSError('event service unavailable'))
+    def test_bridge_event_failure_keeps_committed_result_and_healthy_judge(self, _event_post):
+        user, problem, _contest, participation, contest_problem = self.create_contest_state('bridge-event-failure')
+        submission, contest_submission = self.create_submission(
+            user, problem, participation, contest_problem,
+        )
+        SubmissionTestCase.objects.create(
+            submission=submission,
+            case=1,
+            status='AC',
+            time=0.2,
+            memory=1024,
+            points=100,
+            total=100,
+            batch=None,
+        )
+        handler = self.create_handler(submission.id)
+        handler.close = Mock()
+
+        with patch('judge.submission_finalization.logger.exception') as log_exception:
+            with self.captureOnCommitCallbacks(execute=True):
+                handler.on_grading_end({'submission-id': submission.id})
+
+        submission.refresh_from_db()
+        contest_submission.refresh_from_db()
+        participation.refresh_from_db()
+        self.assertEqual((submission.status, submission.result), ('D', 'AC'))
+        self.assertEqual((contest_submission.points, participation.score), (100, 100))
+        handler.judges.on_judge_free.assert_called_once_with(handler, submission.id)
+        handler.close.assert_not_called()
+        log_exception.assert_called_once()
 
     @patch('judge.bridge.judge_handler.event.post')
     def test_bridge_compile_error_replaces_score_before_events(self, event_post):
@@ -959,3 +1020,68 @@ class SubmissionFinalizationConcurrencyTestCase(SubmissionFinalizationMixin, Tra
         second_participation.refresh_from_db()
         self.assertEqual(first_participation.score, 100)
         self.assertEqual(second_participation.score, 100)
+
+    def test_simultaneous_members_update_shared_organization_after_commit(self):
+        first_user = create_user(username='finalize-org-first').profile
+        second_user = create_user(username='finalize-org-second').profile
+        organization = create_organization(name='finalize-org-shared')
+        first_user.organizations.add(organization)
+        second_user.organizations.add(organization)
+        first_problem = create_problem(code='finalize-org-a', points=100, partial=True, is_public=True)
+        second_problem = create_problem(code='finalize-org-b', points=50, partial=True, is_public=True)
+        first = Submission.objects.create(
+            user=first_user,
+            problem=first_problem,
+            language=Language.get_python3(),
+            status='G',
+        )
+        second = Submission.objects.create(
+            user=second_user,
+            problem=second_problem,
+            language=Language.get_python3(),
+            status='G',
+        )
+        start_barrier = threading.Barrier(3)
+        callback_barrier = threading.Barrier(2)
+        errors = []
+
+        def synchronized_recalculation(organization_id):
+            callback_barrier.wait(timeout=10)
+            return _recalculate_organization_points(organization_id)
+
+        def finalize(submission_id, points):
+            connections.close_all()
+            try:
+                start_barrier.wait(timeout=10)
+                self.publish_completed(Submission.objects.get(id=submission_id), points, 100)
+            except Exception as error:
+                errors.append(error)
+            finally:
+                connections.close_all()
+
+        with patch(
+                'judge.submission_finalization._recalculate_organization_points',
+                side_effect=synchronized_recalculation,
+        ):
+            threads = [
+                threading.Thread(target=finalize, args=(first.id, 100)),
+                threading.Thread(target=finalize, args=(second.id, 50)),
+            ]
+            for thread in threads:
+                thread.start()
+            start_barrier.wait(timeout=10)
+            for thread in threads:
+                thread.join(timeout=30)
+
+        self.assertFalse(any(thread.is_alive() for thread in threads))
+        self.assertEqual(errors, [])
+        organization.refresh_from_db()
+        member_points = list(
+            organization.members.order_by('-performance_points')
+            .values_list('performance_points', flat=True)
+            .filter(performance_points__gt=0),
+        )
+        expected = settings.VNOJ_ORG_PP_SCALE * sum(
+            ratio * points for ratio, points in zip(Organization._pp_table, member_points)
+        )
+        self.assertAlmostEqual(organization.performance_points, expected)

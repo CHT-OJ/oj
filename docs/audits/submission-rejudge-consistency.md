@@ -54,29 +54,60 @@ The final database publication step must be short and must not contain judge/soc
 3. publish the authoritative Submission result;
 4. update `ContestSubmission.points` and recompute only the affected participation;
 5. recompute Profile and Problem aggregates from the now-authoritative submission set;
-6. commit; and
-7. invalidate completion caches and emit final/contest events from `transaction.on_commit()`.
+6. commit;
+7. recompute affected Organization aggregates in short per-organization transactions; and
+8. invalidate completion caches and emit final/contest events from `transaction.on_commit()`.
 
 Non-authoritative IE and rejudge-AB paths update only operational failure state, retain prior result metrics, and publish failure events after commit. Resolver settlement blocks these failures.
 
 ## Implemented post-fix model
 
-| Path                               | Authoritative data                                                                                            | Derived state and publication                                                                                                                                              |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Queue/rejudge                      | Changes operational state to `QU` but retains the prior result metrics and testcase rows until grading begins | No score/stat recomputation; public queue event rereads the persisted status                                                                                               |
-| Grading begin                      | Changes to `G`, records the judge-reported pretest mode, and replaces old testcase rows                       | Still unsettled; no terminal event                                                                                                                                         |
-| Grading success                    | Publishes `D` plus result, resource use, points and testcase totals                                           | One final transaction updates the submission, contest points, affected participation, Profile and Problem; cache invalidation and terminal/contest events run after commit |
-| Compile error                      | Publishes authoritative `CE`, clears metrics/testcases and clears `is_pretested`                              | Same atomic derived-state path; an old rejudge score becomes zero before terminal events                                                                                   |
-| Initial abort                      | Publishes authoritative `AB` worth zero                                                                       | Same atomic derived-state path and post-commit notifications                                                                                                               |
-| IE / failed request / disconnect   | Changes only operational status/error; retains any previous authoritative result                              | No score/stat replacement; Resolver counts the failure and blocks final ceremony                                                                                           |
-| Rejudge abort                      | Changes only operational status to `AB`; retains the previous authoritative result                            | No score/stat replacement; Resolver counts the failure and blocks final ceremony                                                                                           |
-| Wrong/stale packet                 | A packet for a submission other than the handler's current job is rejected and closes the connection          | No submission or scheduler mutation for the packet-selected ID                                                                                                             |
-| Missing submission during dispatch | Raises a classified `SubmissionUnavailable` outcome                                                           | Drops only the vanished queue item; the healthy judge remains available                                                                                                    |
+| Path                               | Authoritative data                                                                                            | Derived state and publication                                                                                                                                                     |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Queue/rejudge                      | Changes operational state to `QU` but retains the prior result metrics and testcase rows until grading begins | No score/stat recomputation; public queue event rereads the persisted status                                                                                                      |
+| Grading begin                      | Changes to `G`, records the judge-reported pretest mode, and replaces old testcase rows                       | Still unsettled; no terminal event                                                                                                                                                |
+| Grading success                    | Publishes `D` plus result, resource use, points and testcase totals                                           | One final transaction updates the submission, contest points, affected participation, Profile and Problem; affected Organizations, cache invalidation and events run after commit |
+| Compile error                      | Publishes authoritative `CE`, clears metrics/testcases and clears `is_pretested`                              | Same atomic derived-state path; an old rejudge score becomes zero before terminal events                                                                                          |
+| Initial abort                      | Publishes authoritative `AB` worth zero                                                                       | Same atomic derived-state path and post-commit notifications                                                                                                                      |
+| IE / failed request / disconnect   | Changes only operational status/error; retains any previous authoritative result                              | No score/stat replacement; Resolver counts the failure and blocks final ceremony                                                                                                  |
+| Rejudge abort                      | Changes only operational status to `AB`; retains the previous authoritative result                            | No score/stat replacement; Resolver counts the failure and blocks final ceremony                                                                                                  |
+| Wrong/stale packet                 | A packet for a submission other than the handler's current job is rejected and closes the connection          | No submission or scheduler mutation for the packet-selected ID                                                                                                                    |
+| Missing submission during dispatch | Raises a classified `SubmissionUnavailable` outcome                                                           | Drops only the vanished queue item; the healthy judge remains available                                                                                                           |
 
-The authoritative lock order is `Submission -> Profile -> Problem -> ContestParticipation -> ContestSubmission`. Direct participation recomputation also locks its one participation row. There is no global contest lock, and judge/socket operations remain outside these transactions.
+The authoritative lock order is `Submission -> Profile -> Problem -> ContestParticipation -> ContestSubmission`. Direct participation recomputation also locks its one participation row. There is no global contest lock, and judge/socket operations remain outside these transactions. Organization recomputation is deliberately outside the authoritative transaction: each affected Organization is locked and recomputed in its own short post-commit transaction, so it cannot extend or invert the authoritative lock chain.
 
-The old race was reproduced deterministically on MariaDB 10.11 / `READ COMMITTED`: two unlocked completion flows left authoritative contest-submission points totaling 200 while the participation row contained 100. The serialized implementation finished with 200 for the same participation, and independent participations remained correct. Five repeated runs of the four-test concurrency class passed.
+The old race was reproduced deterministically on MariaDB 10.11 / `READ COMMITTED`: two unlocked completion flows left authoritative contest-submission points totaling 200 while the participation row contained 100. The serialized implementation finished with 200 for the same participation, and independent participations remained correct. Five repeated runs of the five-test concurrency class passed.
 
-An authoritative Default finalization used 30 captured SQL statements including five verification reads in the post-commit test callback (25 statements for the finalization path itself). The non-authoritative IE path stayed within five captured statements. Lock contention is scoped to submissions that share a Profile, Problem or participation.
+An authoritative Default finalization used 30 captured SQL statements including five verification reads in the post-commit test callback (25 statements for the finalization path itself). The non-authoritative IE path stayed within five captured statements.
 
-The security diff review found one low-severity wrong-acknowledgement boundary bug: the mismatch path also marked the packet-supplied queued submission as `IE`. A focused test reproduced it, and the final implementation now changes only the handler's expected job. The unrelated queued submission remains `QU`.
+The finalizer was stress-tested on the local MariaDB 10.11.13 `READ COMMITTED` test database. Each burst started all worker threads together, included post-commit work in latency, verified every affected row, and sampled global InnoDB lock-wait and deadlock counters:
+
+| Workload                            | Concurrency | Total (s) | p50 (ms) | p95 (ms) | p99 (ms) | Throughput/s | Deadlocks | Failures |
+| ----------------------------------- | ----------: | --------: | -------: | -------: | -------: | -----------: | --------: | -------: |
+| Different users, same Problem       |          10 |     0.157 |  102.505 |  148.490 |  153.510 |       63.850 |         0 |        0 |
+| Different users, same Problem       |          25 |     0.400 |  246.198 |  376.765 |  387.904 |       62.528 |         0 |        0 |
+| Different users, same Problem       |          50 |     0.840 |  499.235 |  791.364 |  810.026 |       59.542 |         0 |        0 |
+| Different users, different Problems |          10 |     0.250 |  159.674 |  241.466 |  246.456 |       39.966 |         0 |        0 |
+| Different users, different Problems |          25 |     0.416 |  264.786 |  389.527 |  407.794 |       60.087 |         0 |        0 |
+| Different users, different Problems |          50 |     0.802 |  515.379 |  761.469 |  785.313 |       62.326 |         0 |        0 |
+| Same user, different Problems       |          10 |     0.112 |   74.593 |  105.841 |  108.089 |       89.501 |         0 |        0 |
+| Same user, different Problems       |          25 |     0.273 |  172.153 |  258.159 |  268.998 |       91.485 |         0 |        0 |
+| Same user, different Problems       |          50 |     0.572 |  371.331 |  539.361 |  549.355 |       87.489 |         0 |        0 |
+| Same ContestParticipation           |          10 |     0.161 |  102.363 |  154.711 |  158.683 |       62.112 |         0 |        0 |
+| Same ContestParticipation           |          25 |     0.399 |  250.086 |  375.454 |  387.190 |       62.727 |         0 |        0 |
+| Same ContestParticipation           |          50 |     0.848 |  508.876 |  793.740 |  833.753 |       58.928 |         0 |        0 |
+| Different users, same Organization  |          10 |     0.109 |  101.688 |  107.541 |  107.847 |       92.006 |         0 |        0 |
+| Different users, same Organization  |          25 |     0.272 |  255.268 |  267.303 |  269.603 |       91.750 |         0 |        0 |
+| Different users, same Organization  |          50 |     0.667 |  626.208 |  655.124 |  656.599 |       74.949 |         0 |        0 |
+
+InnoDB recorded `concurrency - 1` row-lock waits in each burst and no deadlocks. At concurrency 50, the hot-Problem path completed in 0.840 seconds with 791 ms p95, close to the different-Problem path at 0.802 seconds and 761 ms p95. This is acceptable for the expected CHT-OJ load, so the Problem lock and synchronous `Problem.update_stats()` remain unchanged. The unsafe pre-finalizer path was not used as a throughput baseline because its same-participation race is already proven to persist incorrect state.
+
+Two different members of one Organization originally had a separate stale-write race: a deterministic interleaving persisted `100.05` while the correct aggregate was `147.55`. The final implementation defers Organization recomputation until after both Profile transactions can commit, then serializes only the short Organization aggregate update. The same-Organization benchmark above shows that this correction does not create severe contention.
+
+The change prevents new stale writes but does not sweep historical Organization rows. If an operator suspects an earlier race, the existing Organization admin action can recalculate the affected aggregates once after deployment.
+
+Post-commit cache, event and Organization callbacks are isolated best-effort steps. Failure injection proves that exceptions after commit do not roll back the authoritative database result, do not execute a duplicate terminal result, and do not remove a healthy judge. A later cache/event refresh may still be required operationally; no durable event queue is introduced.
+
+The first security diff review found one low-severity wrong-acknowledgement boundary bug: the mismatch path also marked the packet-supplied queued submission as `IE`. A focused test reproduced it, and the final implementation now changes only the handler's expected job. The unrelated queued submission remains `QU`.
+
+The final security diff review covered all 15 changed production-source files and reported the Organization stale-write race above as one additional low-severity finding. Its post-commit, per-Organization remediation is regression-tested and included in the performance results.

@@ -343,7 +343,7 @@ class Profile(models.Model):
 
     _pp_table = [pow(settings.DMOJ_PP_STEP, i) for i in range(settings.DMOJ_PP_ENTRIES)]
 
-    def calculate_points(self, table=_pp_table):
+    def calculate_points(self, table=_pp_table, update_organizations=True):
         from judge.models import Problem
         public_problems = Problem.get_public_problems()
         data = (
@@ -366,8 +366,9 @@ class Profile(models.Model):
             self.problem_count = problems
             self.performance_points = pp
             self.save(update_fields=['points', 'problem_count', 'performance_points'])
-            for org in self.organizations.get_queryset():
-                org.calculate_points()
+            if update_organizations:
+                for org in self.organizations.get_queryset():
+                    org.calculate_points()
         return points
 
     calculate_points.alters_data = True
