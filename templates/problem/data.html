@@ -405,7 +405,7 @@
                         return xhr;
                     }
                 }).done(function (html, status, xhr) {
-                    $(form).dirty('disable');
+                    $(form).dirty('setAsClean');
                     if (xhr.status === 204) {
                         window.location.reload();
                     } else {

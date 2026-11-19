@@ -6,7 +6,7 @@ import zipfile
 from unittest import mock
 
 import requests
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from judge.models import ProblemData, problem_data_storage

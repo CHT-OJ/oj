@@ -193,6 +193,9 @@ msgstr "Chưa giải được bài nào."
 msgid "Member not found."
 msgstr "Không tìm thấy thành viên."
 
+msgid "File not found in the uploaded ZIP."
+msgstr "Không tìm thấy tập tin trong ZIP vừa tải lên."
+
 msgid "Batch dependencies"
 msgstr "Subtask phụ thuộc"
 

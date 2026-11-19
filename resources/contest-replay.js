@@ -93,6 +93,8 @@
                     synced = Date.now();
                     render(+slider.value);
                 }
+            } catch (error) {
+                // Keep the last complete standings during a temporary connection loss.
             } finally { setTimeout(sync, 20000); }
         }
         setTimeout(sync, 20000);

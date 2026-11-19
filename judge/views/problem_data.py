@@ -267,6 +267,16 @@ class ProblemDataView(TitleMixin, ProblemManagerMixin):
         cases_valid = cases_formset.is_valid()
         if not data_valid or not cases_valid:
             return False
+        if self.request.FILES.get('problem-data-zipfile') and not data_form.instance.generator:
+            filenames = set(cases_formset.valid_files)
+            for form in cases_formset.forms:
+                row = form.cleaned_data
+                if row.get('type') == 'C' and not row.get('DELETE'):
+                    for field in ('input_file', 'output_file'):
+                        if row[field] not in filenames:
+                            form.add_error(field, _('File not found in the uploaded ZIP.'))
+            if not cases_formset.is_valid():
+                return False
         number_of_cases = cases_formset.total_form_count() - len(cases_formset.deleted_forms)
         if number_of_cases > settings.VNOJ_TESTCASE_HARD_LIMIT and \
            not self.request.user.has_perm('judge.create_mass_testcases'):
