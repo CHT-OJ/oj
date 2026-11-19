@@ -17,7 +17,7 @@ from moss import MOSS_LANG_C, MOSS_LANG_CC, MOSS_LANG_JAVA, MOSS_LANG_PASCAL, MO
 
 from judge import contest_format, event_poster as event
 from judge.models.problem import Problem
-from judge.models.profile import Organization, Profile
+from judge.models.profile import Organization, Profile, WarningLog
 from judge.models.submission import Submission
 from judge.ratings import rate_contest
 from judge.utils.unicode import utf8bytes
@@ -607,17 +607,16 @@ class ContestParticipation(models.Model):
         if not settings.VNOJ_SHOULD_BAN_FOR_CHEATING_IN_CONTESTS or self.contest.is_organization_private:
             return
 
-        disqualifications_count = ContestParticipation.objects.filter(
-            user=self.user,
-            contest__is_organization_private=False,
-            is_disqualified=True,
-        ).count()
-        if disqualifications_count >= settings.VNOJ_MAX_DISQUALIFICATIONS_BEFORE_BANNING and \
-                not self.user.is_banned:
-            self.user.ban_user(settings.VNOJ_CONTEST_CHEATING_BAN_MESSAGE)
-        elif disqualifications_count < settings.VNOJ_MAX_DISQUALIFICATIONS_BEFORE_BANNING and \
-                self.user.is_banned and self.user.ban_reason == settings.VNOJ_CONTEST_CHEATING_BAN_MESSAGE:
-            self.user.unban_user()
+        with transaction.atomic():
+            profile = Profile.objects.select_for_update().select_related('user').get(pk=self.user_id)
+            if profile.qualifies_for_disqualification_ban():
+                if profile.user.is_active:
+                    profile.ban_user(settings.VNOJ_CONTEST_CHEATING_BAN_MESSAGE)
+            elif profile.is_banned and profile.ban_reason == settings.VNOJ_CONTEST_CHEATING_BAN_MESSAGE:
+                if profile.warn >= WarningLog.BAN_THRESHOLD and not profile.user.is_superuser:
+                    profile.ban_user(WarningLog.BAN_REASON)
+                else:
+                    profile.unban_user()
     check_ban.alters_data = True
 
     def set_disqualified(self, disqualified):

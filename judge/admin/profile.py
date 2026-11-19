@@ -1,18 +1,25 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as OldUserAdmin
-from django.forms import ModelForm
-from django.urls import reverse_lazy
+from django.core.exceptions import PermissionDenied
+from django.db import transaction
+from django.forms import IntegerField, ModelForm
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import path, reverse_lazy
+from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.translation import gettext, gettext_lazy as _, ngettext
+from django.views.decorators.http import require_POST
 from reversion.admin import VersionAdmin
 
 from django_ace import AceWidget
-from judge.models import Profile, WebAuthnCredential
+from judge.models import Profile, WarningLog, WebAuthnCredential
 from judge.utils.views import NoBatchDeleteMixin
 from judge.widgets import AdminMartorWidget, AdminSelect2MultipleWidget, AdminSelect2Widget
 
 
 class ProfileForm(ModelForm):
+    warn = IntegerField(min_value=0, help_text='Đặt về 0 để gỡ toàn bộ cảnh cáo. Lịch sử vẫn được lưu.')
+
     def __init__(self, *args, **kwargs):
         super(ProfileForm, self).__init__(*args, **kwargs)
         self.fields['display_badge'].queryset = self.instance.badges.all()
@@ -63,13 +70,22 @@ class WarningLogAdmin(VersionAdmin):
     list_display = ('offender', 'judge', 'reason', 'timestamp')
     readonly_fields = ['timestamp']
 
+    def save_model(self, request, obj, form, change):
+        if change:
+            obj.save(update_fields=['judge', 'reason'])
+        else:
+            super().save_model(request, obj, form, change)
+
+    def get_readonly_fields(self, request, obj=None):
+        return ['timestamp', 'offender'] if obj else self.readonly_fields
+
 
 class ProfileAdmin(NoBatchDeleteMixin, VersionAdmin):
     fields = ('user', 'display_rank', 'badges', 'display_badge', 'about', 'organizations',
               'vnoj_points', 'timezone', 'language', 'ace_theme', 'math_engine', 'last_access',
               'ip', 'mute', 'is_unlisted', 'allow_tagging', 'notes', 'username_display_override',
               'ban_reason', 'is_totp_enabled', 'user_script', 'current_contest', 'warn',
-              'last_warned', 'user_rank_logo')
+              'last_warned', 'warning_expires_at', 'user_rank_logo')
     readonly_fields = ('user',)
     list_display = ('admin_user_admin', 'email', 'is_totp_enabled', 'timezone_full',
                     'date_joined', 'last_access', 'ip', 'show_public')
@@ -91,10 +107,33 @@ class ProfileAdmin(NoBatchDeleteMixin, VersionAdmin):
     # power to them.
     def render_change_form(self, request, context, **kwargs):
         context['show_delete'] = False
+        profile = kwargs.get('obj')
+        context['can_clear_warnings'] = (profile and self.has_change_permission(request, profile) and
+                                         (not profile.is_warning_banned or request.user.has_perm('judge.ban_user')))
         return super().render_change_form(request, context, **kwargs)
 
+    def get_urls(self):
+        return [
+            path('<int:pk>/clear-warnings/', self.admin_site.admin_view(require_POST(self.clear_warnings)),
+                 name='judge_profile_clear_warnings'),
+        ] + super().get_urls()
+
+    @transaction.atomic
+    def clear_warnings(self, request, pk):
+        profile = get_object_or_404(self.get_queryset(request).select_for_update(), pk=pk)
+        if not self.has_change_permission(request, profile):
+            raise PermissionDenied
+        profile.warn = 0
+        self.apply_warning_count(request, profile)
+        self.log_change(request, profile, 'Đã xóa cảnh cáo của người dùng.')
+        self.message_user(request, 'Đã xóa cảnh cáo. Lịch sử vi phạm vẫn được lưu.')
+        return redirect('admin:judge_profile_change', pk)
+
     def get_queryset(self, request):
-        return super(ProfileAdmin, self).get_queryset(request).select_related('user')
+        queryset = super().get_queryset(request).select_related('user')
+        if request.method == 'POST' and request.resolver_match.url_name == 'judge_profile_change':
+            return queryset.select_for_update()
+        return queryset
 
     def get_fields(self, request, obj=None):
         if request.user.has_perm('judge.totp'):
@@ -161,11 +200,23 @@ class ProfileAdmin(NoBatchDeleteMixin, VersionAdmin):
             )
         return form
 
+    def apply_warning_count(self, request, profile):
+        if profile.warn >= WarningLog.BAN_THRESHOLD and profile.user.is_active and not profile.user.is_superuser:
+            if not profile.can_be_banned_by(request.user):
+                raise PermissionDenied
+        elif profile.is_warning_banned and profile.warn < WarningLog.BAN_THRESHOLD:
+            if not request.user.has_perm('judge.ban_user'):
+                raise PermissionDenied
+        profile.apply_warning_count()
+
     def save_model(self, request, obj, form, change):
-        super().save_model(request, obj, form, change)
-        if form.changed_data and 'ban_reason' in form.changed_data and form.cleaned_data['ban_reason'] == '':
+        if 'ban_reason' in form.changed_data and not form.cleaned_data['ban_reason']:
             obj.ban_reason = None
-            obj.save()
+        super().save_model(request, obj, form, change)
+        if 'warn' in form.changed_data:
+            if obj.warn and not obj.last_warned:
+                obj.last_warned = timezone.now()
+            self.apply_warning_count(request, obj)
 
 
 class UserAdmin(OldUserAdmin):

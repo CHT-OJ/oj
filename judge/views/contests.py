@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from calendar import Calendar, SUNDAY
 from collections import defaultdict, namedtuple
 from datetime import date, datetime, time, timedelta
@@ -12,7 +13,6 @@ from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.context_processors import PermWrapper
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.contrib.auth.models import User as UserModel
 from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured, ObjectDoesNotExist, PermissionDenied
 from django.db import IntegrityError, transaction
@@ -39,7 +39,7 @@ from django.views.generic.list import BaseListView
 from icalendar import Calendar as ICalendar, Event
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
-from requests import get as get_requests
+from requests import RequestException, get as get_requests
 from reversion import revisions
 
 from judge.comments import CommentedDetailView
@@ -1281,7 +1281,7 @@ class ContestMossMixin(ContestMixin, PermissionRequiredMixin):
 
     def get_object(self, queryset=None):
         contest = super().get_object(queryset)
-        if settings.MOSS_API_KEY is None or not contest.is_editable_by(self.request.user):
+        if getattr(settings, 'MOSS_API_KEY', None) is None or not contest.is_editable_by(self.request.user):
             raise Http404()
         return contest
 
@@ -1329,46 +1329,78 @@ class ContestMossDelete(ContestMossMixin, SingleObjectMixin, View):
         return HttpResponseRedirect(reverse('contest_moss', args=(self.object.key,)))
 
 
-class ComputeMoss(ContestMixin, SingleObjectMixin, PermissionRequiredMixin, View):
-    permission_required = 'judge.moss_contest'
-    permission_denied_message = _('You are not allowed to run MOSS.')
+def moss_matches(report, threshold):
+    pages = BeautifulSoup(report, 'html.parser')
+    header = pages.find(string=re.compile(r'^\s*File 1\s*$', re.I))
+    table = header.find_parent('table') if header else None
+    if table is None:
+        raise ValueError('Missing MOSS results table')
+    names = set()
+    for link in table.find_all('a'):
+        match = re.fullmatch(r'(.+?)\s+\((\d{1,3})%\)', link.get_text(strip=True))
+        if not match or int(match[2]) > 100:
+            raise ValueError('Invalid MOSS result')
+        if int(match[2]) >= threshold:
+            names.add(match[1])
+    return names
+
+
+class ComputeMoss(ContestMossMixin, SingleObjectMixin, View):
+    def handle_no_permission(self):
+        return JsonResponse({'error': 'Bạn không có quyền cảnh cáo qua MOSS.'}, status=403)
 
     def post(self, request, *args, **kwargs):
-        data = json.loads(self.request.body)
-        user_set = []
-        lang = ['c', 'cpp', 'java', 'pascal', 'python']
-        for problem in data:
-            moss = problem['moss']
-            for check in lang:
-                req = get_requests(problem[check]).content if problem[check] != 'No submission' else None
-                if req:
-                    soup = BeautifulSoup(req, 'html.parser')
-                    data_tds = soup.find_all('a')[6:]
-                    for i in data_tds:
-                        data_split = i.text.split()
-                        number = ''.join(filter(str.isdigit, data_split[1]))
-                        if int(number) >= int(moss):
-                            """profile = Profile.objects.get(user__username=data_split[0])
-                            profile.warn += 1
-                            profile.last_warned = timezone.now()
-                            profile.save()"""
-                            user_set.append(data_split[0]) if not data_split[0] in user_set else None
+        try:
+            contest = self.get_object()
+        except (Http404, PrivateContestError):
+            return JsonResponse({'error': 'Không tìm thấy contest có thể quản lý MOSS.'}, status=404)
+        try:
+            thresholds = json.loads(request.body)
+        except ValueError:
+            thresholds = None
+        if (not isinstance(thresholds, dict) or not thresholds or
+                any(type(value) is not int or not 0 <= value <= 100 for value in thresholds.values()) or
+                set(thresholds) != set(contest.problems.values_list('code', flat=True))):
+            return JsonResponse({'error': 'Hãy nhập ngưỡng MOSS từ 0 đến 100 cho từng bài.'}, status=400)
 
-        for i in user_set:
-            try:
-                new_record = WarningLog()
-                new_record.offender = UserModel.objects.get(user__username=i)
-                new_record.judge = UserModel.objects.get(user__username=request.user.username)
-                new_record.reason = (
-                    f'thí sinh {request.user.username} đã có hành vi chép bài'
-                    f'tại contest #{self.get_object()}'
-                )
-                new_record.save()
-            except Exception as error:
-                print(f'Đã xảy ra lỗi khi thực hiện ghi lịch sử vi phạm {error}')
-                pass
+        reports = contest.moss.filter(submission_count__gt=0, problem__code__in=thresholds)
+        if not contest.moss.exists():
+            return JsonResponse({'error': 'Kết quả MOSS đã thay đổi. Hãy tải lại trang.'}, status=409)
+        names = set()
+        try:
+            for code, url in reports.values_list('problem__code', 'url'):
+                report = get_requests(url, timeout=15)
+                report.raise_for_status()
+                names.update(moss_matches(report.content, thresholds[code]))
+        except (RequestException, ValueError):
+            return JsonResponse({'error': 'Không đọc được báo cáo MOSS. Chưa ghi cảnh cáo nào.'}, status=502)
 
-        return JsonResponse({'Result': user_set})
+        # Each submitted file is named after a live or spectating participant.
+        participants = contest.users.filter(virtual__in=(ContestParticipation.LIVE, ContestParticipation.SPECTATE))
+        issued = []
+        with transaction.atomic():
+            profiles = Profile.objects.select_related('user').select_for_update().filter(
+                pk__in=participants.values('user_id'), user__username__in=names,
+            ).order_by('pk')
+            for profile in profiles:
+                if profile.warning_offender.filter(contest=contest).exists():
+                    continue
+                # Older MOSS records only stored the contest title in the reason.
+                suffix = 'tại contest #' + contest.name
+                historical = profile.warning_offender.filter(contest__isnull=True).filter(
+                    Q(reason='Hành vi chép bài ' + suffix) |
+                    Q(reason__startswith='thí sinh ', reason__endswith='đã có hành vi chép bài ' + suffix) |
+                    Q(reason__startswith='thí sinh ', reason__endswith='đã có hành vi chép bài' + suffix),
+                ).order_by('pk').first()
+                if historical:
+                    if not Contest.objects.filter(name=contest.name).exclude(pk=contest.pk).exists():
+                        historical.contest = contest
+                        historical.save(update_fields=['contest'])
+                    continue
+                WarningLog.objects.create(offender=profile, contest=contest, judge=request.profile,
+                                          reason=f'Chép bài trong contest {contest.key}.')
+                issued.append(profile.username)
+        return JsonResponse({'Result': issued})
 
 
 class ExportMoss(ContestMossMixin, SingleObjectMixin, PermissionRequiredMixin, View):
