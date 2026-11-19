@@ -532,7 +532,7 @@ details {
         color: $color_primary66 !important;
         cursor: pointer;
         margin-bottom: -2px;
-        outline: none;
+        &:focus-visible { outline: 2px solid $highlight_blue; }
 
         &:hover { background: $color_primary25; }
 

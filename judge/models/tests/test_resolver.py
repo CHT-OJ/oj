@@ -340,9 +340,8 @@ class ResolverPayloadTestCase(TestCase):
         )
 
         contest = self.fresh_contest()
-        # Settlement, problems, final order, frozen order, rich participations,
-        # and one organization prefetch: this count must stay constant as users grow.
-        with self.assertNumQueries(6):
+        # Problems, one committed read of standings and judging state, and organizations.
+        with self.assertNumQueries(3):
             payload = build_resolver_payload(contest)
         self.assertEqual(len(payload['contestants']), 2)
         self.assertTrue(all(len(contestant['organizations']) == 2 for contestant in payload['contestants']))

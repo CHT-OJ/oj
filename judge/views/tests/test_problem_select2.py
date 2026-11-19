@@ -158,6 +158,13 @@ class ContestEditProblemPickerTestCase(TestCase):
         self.assertNotContains(response, 'data-problem-src')
         self.assertNotContains(response, _('Organization problems'))
 
+    def test_public_contest_with_one_org_keeps_general_picker(self):
+        contest = create_contest(key='public_org', authors=('picker_editor',), is_organization_private=False,
+                                 organizations=('Gamma',))
+        response = self._edit_page(contest)
+        self.assertNotContains(response, 'data-problem-src')
+        self.assertNotContains(response, reverse('org_problem_select2', args=[self.org.pk]))
+
     def test_multi_organization_contest_falls_back_to_normal_picker(self):
         """Never silently pick organizations.first() when the context is ambiguous."""
         contest = create_contest(

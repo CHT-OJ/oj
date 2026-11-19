@@ -1618,28 +1618,32 @@ export class ResolverPage {
       return;
     }
     this.busy = true;
-    const previousPositions = captureRowPositions(this.nodes.tableBody);
-    const moved = direction === "back" ? this.session.back() : this.session.forward();
-    this.policy.clear();
-    if (moved) {
-      this.statusMessage =
-        direction === "back"
-          ? gettext("Stepped back one reveal.")
-          : gettext("Stepped forward one reveal.");
+    try {
+      const previousPositions = captureRowPositions(this.nodes.tableBody);
+      const moved = direction === "back" ? this.session.back() : this.session.forward();
+      this.policy.clear();
+      if (moved) {
+        this.statusMessage =
+          direction === "back"
+            ? gettext("Stepped back one reveal.")
+            : gettext("Stepped forward one reveal.");
+        this._render();
+        await Promise.all([
+          animateRows(this.nodes.tableBody, previousPositions),
+          direction === "forward"
+            ? animateRevealHighlight(
+                this.rowElements,
+                transition.targets ?? [transition.target],
+                this.revealHighlightDurationMs,
+              )
+            : Promise.resolve(),
+        ]);
+      }
+    } finally {
+      this.busy = false;
       this._render();
-      await Promise.all([
-        animateRows(this.nodes.tableBody, previousPositions),
-        direction === "forward"
-          ? animateRevealHighlight(
-              this.rowElements,
-              transition.targets ?? [transition.target],
-              this.revealHighlightDurationMs,
-            )
-          : Promise.resolve(),
-      ]);
+      await this._settleDeferredPresenterAction();
     }
-    this.busy = false;
-    this._render();
   }
 
   async _reset(useReplay) {
@@ -1647,24 +1651,28 @@ export class ResolverPage {
       return;
     }
     this.busy = true;
-    const previousPositions = captureRowPositions(this.nodes.tableBody);
-    if (this.player && this.policyName !== "manual") {
-      await this.player.resetToBeginning();
-    } else if (useReplay) {
-      this.session.replay();
-    } else {
-      this.session.reset();
+    try {
+      const previousPositions = captureRowPositions(this.nodes.tableBody);
+      if (this.player && this.policyName !== "manual") {
+        await this.player.resetToBeginning();
+      } else if (useReplay) {
+        this.session.replay();
+      } else {
+        this.session.reset();
+      }
+      this.busy = true;
+      this.policy.clear();
+      this.statusMessage = gettext("%(action)s from %(baseline)s.", {
+        action: useReplay ? gettext("Replay") : gettext("Reset"),
+        baseline: this._baselineLabel(),
+      });
+      this._render();
+      await animateRows(this.nodes.tableBody, previousPositions);
+    } finally {
+      this.busy = false;
+      this._render();
+      await this._settleDeferredPresenterAction();
     }
-    this.busy = true;
-    this.policy.clear();
-    this.statusMessage = gettext("%(action)s from %(baseline)s.", {
-      action: useReplay ? gettext("Replay") : gettext("Reset"),
-      baseline: this._baselineLabel(),
-    });
-    this._render();
-    await animateRows(this.nodes.tableBody, previousPositions);
-    this.busy = false;
-    this._render();
   }
 
   async _replay() {

@@ -94,6 +94,9 @@
                 if (response.status === 204) { location.reload(); return; }
                 if (response.ok) {
                     const update = await response.json();
+                    for (const [id, row] of Object.entries(data.rows)) {
+                        if (row.virtual && !(id in update.rows)) delete data.rows[id];
+                    }
                     Object.assign(data.rows, update.rows);
                     serverTime = update.elapsed;
                     synced = Date.now();

@@ -28,7 +28,7 @@
                     {% if contest_org %}
                     var $probSel = row.find('select[data-problem-src]');
                     if ($probSel.data('select2')) $probSel.select2('destroy');
-                    $probSel.val(null);
+                    $probSel.val(null).data('problemSrc', 'org');
                     _initProblemPicker($probSel[0]);
                     {% endif %}
                 },
@@ -73,11 +73,6 @@
                 org: "{{ url('org_problem_select2', org_pk=contest_org.id) }}",
                 public: "{{ url('public_problem_select2') }}",
             };
-            var _problemSrcLabels = {
-                org: {{ _('Organization problems')|htmltojs }},
-                public: {{ _('Public problems')|htmltojs }},
-            };
-
             function _initProblemPicker(select) {
                 var $sel = $(select);
                 if ($sel.data('select2')) $sel.select2('destroy');
@@ -92,24 +87,19 @@
                     minimumInputLength: 0,
                     width: '100%',
                 });
-                $sel.on('select2:open', function() {
-                    var $dropdown = $('.select2-container--open .select2-dropdown');
-                    if ($dropdown.find('.tab-bar').length) return;
-                    var $tabBar = $('<div class="tab-bar"></div>');
-                    Object.keys(_problemSrcUrls).forEach(function(key) {
-                        var $btn = $('<button type="button" class="tab-bar-btn"></button>').text(_problemSrcLabels[key]);
-                        if (($sel.data('problemSrc') || 'org') === key) $btn.addClass('active');
-                        $btn.on('mousedown', function(e) {
-                            e.preventDefault();
-                            if (($sel.data('problemSrc') || 'org') === key) return;
-                            $sel.data('problemSrc', key);
-                            $tabBar.find('.tab-bar-btn').removeClass('active');
-                            $(this).addClass('active');
-                            $dropdown.find('.select2-search__field').val('').trigger('input');
-                        });
-                        $tabBar.append($btn);
+                var $buttons = $sel.siblings('.tab-bar').find('button');
+                function showSource() {
+                    $buttons.each(function () {
+                        var active = this.value === $sel.data('problemSrc');
+                        $(this).toggleClass('active', active).attr('aria-pressed', String(active));
                     });
-                    $dropdown.prepend($tabBar);
+                }
+                showSource();
+                $buttons.off('click.problemBank').on('click.problemBank', function () {
+                    $sel.select2('close');
+                    $sel.data('problemSrc', this.value);
+                    showSource();
+                    $sel.select2('open');
                 });
             }
 
@@ -137,6 +127,10 @@
     <tr>
         <td>{{ form.id }} {{ form.problem.errors }}
             {% if contest_org %}
+            <div class="tab-bar" role="group" aria-label="{{ _('Problem source') }}">
+                <button class="tab-bar-btn" type="button" value="org">{{ _('Organization problems') }}</button>
+                <button class="tab-bar-btn" type="button" value="public">{{ _('Public problems') }}</button>
+            </div>
             <select name="{{ form.problem.html_name }}" id="{{ form.problem.auto_id }}" style="width:100%"
                     data-problem-src="{{ 'public' if form.instance.problem_id and not form.instance.problem.is_organization_private else 'org' }}">
                 {% if form.instance.problem_id %}

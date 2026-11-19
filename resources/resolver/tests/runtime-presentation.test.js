@@ -4,6 +4,7 @@ import test from "node:test";
 import { animateRevealHighlight, ensureRowVisible, isRowWithinSafeViewport } from "../animation.js";
 import { ResolverSession, resolveResolverBaseline } from "../core.js";
 import { ManualActionCoordinator } from "../manual-actions.js";
+import { ResolverPage } from "../page.js";
 import { ResolutionPlanner } from "../planner.js";
 import { ResolutionPlayer } from "../player.js";
 import { RESOLUTION_STEP_TYPES } from "../timing.js";
@@ -378,4 +379,38 @@ test("smart row follow scrolls only outside the comfortable viewport band", () =
   assert.equal(ensureRowVisible(visible, { viewportHeight: 1000 }), false);
   assert.equal(ensureRowVisible(outside, { viewportHeight: 1000 }), true);
   assert.deepEqual(calls, [{ block: "center", behavior: "smooth" }]);
+});
+
+test("a manual reveal queued during reset, back or forward settles before the operation returns", async () => {
+  for (const direction of ["reset", "back", "forward"]) {
+    const page = Object.create(ResolverPage.prototype);
+    const transition = { targets: [] };
+    const executed = [];
+    Object.assign(page, {
+      busy: false,
+      nodes: { tableBody: { querySelectorAll: () => [] } },
+      session: {
+        reset() {},
+        getLastTransition: () => transition,
+        getRedoTransition: () => transition,
+        back: () => true,
+        forward: () => true,
+      },
+      policy: { clear() {} },
+      _render() {},
+      _baselineLabel: () => "test",
+    });
+    page.manualActions = new ManualActionCoordinator({
+      cancelPlayback() {},
+      isBusy: () => page.busy,
+      execute: async (action) => executed.push(action.type),
+    });
+    const operation = direction === "reset" ? page._reset(false) : page._moveHistory(direction);
+    assert.equal(page.busy, true);
+    const pending = page.manualActions.request({ type: "cell" });
+    await operation;
+    assert.deepEqual(executed, ["cell"], direction);
+    await pending;
+    assert.equal(page.manualActions.getState().pending, null);
+  }
 });

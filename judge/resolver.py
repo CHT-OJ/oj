@@ -3,7 +3,7 @@ from django.db.models import Count, Prefetch, Q
 from django.utils import timezone
 
 from judge.jinja2.gravatar import fallback as gravatar_fallback, gravatar
-from judge.models import ContestParticipation, ContestSubmission, Organization, Submission
+from judge.models import ContestParticipation, Organization, Submission
 
 
 SUPPORTED_RESOLVER_FORMATS = frozenset(('default', 'icpc', 'vnoj'))
@@ -186,30 +186,29 @@ def build_resolver_payload(contest):
     generated_at = timezone.now()
     contest_ended_at_generation = contest.end_time < generated_at
 
-    relevant_submissions = ContestSubmission.objects.filter(
-        participation__contest=contest,
-        participation__virtual=ContestParticipation.LIVE,
+    # Judging status, both ranking orders and all scoring cells must describe the same
+    # committed results, including on MariaDB's READ COMMITTED isolation level.
+    problems = list(contest.contest_problems.select_related('problem').defer('problem__description').order_by('order'))
+    participations = list(
+        contest.users.filter(virtual=ContestParticipation.LIVE)
+        .select_related('user__user', 'user__user_rank_logo', 'rating')
+        .defer('user__about')
+        .prefetch_related(Prefetch('user__organizations', queryset=Organization.objects.filter(is_unlisted=False)))
+        .annotate(
+            submission_count=Count('submission'),
+            grading_count=Count('submission', filter=Q(
+                submission__submission__status__in=Submission.IN_PROGRESS_GRADING_STATUS,
+            )),
+            pretest_count=Count('submission', filter=Q(submission__submission__is_pretested=True)),
+            failure_count=Count('submission', filter=(
+                Q(submission__submission__status='IE') |
+                Q(submission__submission__status='AB', submission__submission__rejudged_date__isnull=False)
+            )),
+        ).order_by('is_disqualified', '-score', 'cumtime', 'tiebreaker', '-submission_count', 'pk'),
     )
-    settlement = relevant_submissions.aggregate(
-        in_progress_submission_count=Count(
-            'id',
-            filter=Q(submission__status__in=Submission.IN_PROGRESS_GRADING_STATUS),
-        ),
-        pretested_submission_count=Count(
-            'id',
-            filter=Q(submission__is_pretested=True),
-        ),
-        failed_judging_submission_count=Count(
-            'id',
-            filter=(
-                Q(submission__status='IE') |
-                Q(submission__status='AB', submission__rejudged_date__isnull=False)
-            ),
-        ),
-    )
-    in_progress_submission_count = settlement['in_progress_submission_count']
-    pretested_submission_count = settlement['pretested_submission_count']
-    failed_judging_submission_count = settlement['failed_judging_submission_count']
+    in_progress_submission_count = sum(row.grading_count for row in participations)
+    pretested_submission_count = sum(row.pretest_count for row in participations)
+    failed_judging_submission_count = sum(row.failure_count for row in participations)
     results_settled_at_generation = (
         contest_ended_at_generation and
         in_progress_submission_count == 0 and
@@ -223,48 +222,12 @@ def build_resolver_payload(contest):
     else:
         snapshot_state = 'unsettled'
 
-    problems = list(
-        contest.contest_problems.select_related('problem').defer('problem__description').order_by('order'),
-    )
-    ranking_queryset = contest.users.filter(virtual=ContestParticipation.LIVE).annotate(
-        submission_count=Count('submission'),
-    )
-    final_participation_ids = list(
-        ranking_queryset
-        .order_by('is_disqualified', '-score', 'cumtime', 'tiebreaker', '-submission_count')
-        .values_list('id', flat=True),
-    )
-    frozen_participation_ids = list(
-        ranking_queryset
-        .order_by(
-            'is_disqualified', '-frozen_score', 'frozen_cumtime', 'frozen_tiebreaker', '-submission_count',
-        )
-        .values_list('id', flat=True),
-    )
-
-    participation_by_id = {
-        participation.id: participation
-        for participation in (
-            contest.users.filter(id__in=final_participation_ids)
-            .select_related('user__user', 'user__user_rank_logo', 'rating')
-            .defer('user__about', 'user__organizations__about')
-            .prefetch_related(Prefetch(
-                'user__organizations',
-                queryset=Organization.objects.filter(is_unlisted=False),
-            ))
-            .annotate(submission_count=Count('submission'))
-        )
-    }
-    participations = [participation_by_id[participation_id] for participation_id in final_participation_ids]
-
-    final_order = {
-        participation.id: index
-        for index, participation in enumerate(participations)
-    }
-    frozen_order = {
-        participation_id: index
-        for index, participation_id in enumerate(frozen_participation_ids)
-    }
+    final_order = {row.pk: index for index, row in enumerate(participations)}
+    frozen_rows = sorted(participations, key=lambda row: (
+        row.is_disqualified, -row.frozen_score, row.frozen_cumtime, row.frozen_tiebreaker,
+        -row.submission_count, row.pk,
+    ))
+    frozen_order = {row.pk: index for index, row in enumerate(frozen_rows)}
 
     freeze_configured = (
         format_name in FROZEN_RESOLVER_FORMATS and contest.frozen_last_minutes > 0
