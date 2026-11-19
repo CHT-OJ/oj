@@ -23,16 +23,25 @@
     }
     function render(position) {
         const rows = Object.values(data.rows);
+        let changed = false;
         rows.forEach(row => {
-            if (position < lastPosition || row.cursor === undefined) prepare(row);
+            if (position < lastPosition || row.cursor === undefined) {
+                prepare(row);
+                changed = true;
+            }
             while (row.cursor < row.events.length && row.events[row.cursor][0] <= position) {
                 const [, index, points, total, time, tie] = row.events[row.cursor++];
+                changed = true;
                 row.cells[index] = points;
                 row.total = total;
                 row.time = time;
                 row.tie = tie;
             }
         });
+        slider.value = position;
+        document.getElementById('replay-clock').textContent = clock(position);
+        lastPosition = position;
+        if (!changed) return;
         function compare(a, b) {
             if (a.dq !== b.dq) return Number(a.dq) - Number(b.dq);
             if (a.dq) return 0;
@@ -59,10 +68,7 @@
             body.append(tr);
         });
         table.tBodies[0].replaceChildren(body);
-        slider.value = position;
-        document.getElementById('replay-clock').textContent = clock(position);
         document.dispatchEvent(new Event('ranking-updated'));
-        lastPosition = position;
     }
     function stop() { playing = false; play.textContent = playLabel; }
     data.problems.forEach(label => {

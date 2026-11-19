@@ -1,5 +1,14 @@
 from abc import ABCMeta, abstractmethod
 
+from django.db.models import Min, OuterRef, Subquery
+
+
+def best_problem_results(submissions):
+    """Earliest submission achieving each problem's maximum within this queryset."""
+    best = submissions.filter(problem_id=OuterRef('problem_id')).order_by('-points').values('points')[:1]
+    return (submissions.filter(points=Subquery(best)).values('problem_id', 'points')
+            .annotate(time=Min('submission__date')).values_list('problem_id', 'time', 'points'))
+
 
 class abstractclassmethod(classmethod):
     __isabstractmethod__ = True

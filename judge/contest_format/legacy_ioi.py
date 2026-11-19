@@ -1,13 +1,13 @@
 from datetime import timedelta
 
 from django.core.exceptions import ValidationError
-from django.db.models import Min, OuterRef, Subquery
 from django.template.defaultfilters import floatformat
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext as _, gettext_lazy
 
+from judge.contest_format.base import best_problem_results
 from judge.contest_format.default import DefaultContestFormat
 from judge.contest_format.registry import register_contest_format
 from judge.utils.timedelta import nice_repr
@@ -48,14 +48,7 @@ class LegacyIOIContestFormat(DefaultContestFormat):
         score = 0
         format_data = {}
 
-        queryset = (participation.submissions.values('problem_id')
-                                             .filter(points=Subquery(
-                                                 participation.submissions.filter(problem_id=OuterRef('problem_id'))
-                                                                          .order_by('-points').values('points')[:1]))
-                                             .annotate(time=Min('submission__date'))
-                                             .values_list('problem_id', 'time', 'points'))
-
-        for problem_id, time, points in queryset:
+        for problem_id, time, points in best_problem_results(participation.submissions.all()):
             if points:
                 dt = (time - participation.start).total_seconds()
                 if self.config['last_score_altering']:
