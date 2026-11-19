@@ -44,7 +44,7 @@ from reversion import revisions
 
 from judge.comments import CommentedDetailView
 from judge.contest_format import ICPCContestFormat
-from judge.contest_replay import can_replay, replay_data
+from judge.contest_replay import can_replay, current_virtual, replay_data
 from judge.forms import ContestAnnouncementForm, ContestCloneForm, ContestDownloadDataForm, ContestForm, \
     ProposeContestProblemFormSet
 from judge.models import Contest, ContestAnnouncement, ContestMoss, ContestParticipation, ContestProblem, ContestTag, \
@@ -991,6 +991,7 @@ class ContestRankingBase(ContestMixin, TitleMixin, DetailView):
 
         return self.ranking_table_template.render(request=self.request, context={
             'table_id': 'ranking-table',
+            'enable_favorites': self.tab == 'ranking',
             'users': users,
             'problems': problems,
             'total_ac': total_ac,
@@ -1035,7 +1036,7 @@ class ContestRanking(ContestRankingBase):
 
     @property
     def cache_key(self):
-        return f'contest_ranking_cache_{self.object.key}_{self.show_virtual}_{self.is_frozen}_' \
+        return f'contest_ranking_v2_{self.object.key}_{self.show_virtual}_{self.is_frozen}_' \
                f'{self.request.LANGUAGE_CODE}'
 
     @property
@@ -1052,13 +1053,25 @@ class ContestRanking(ContestRankingBase):
             queryset = queryset.filter(virtual=ContestParticipation.LIVE)
         return queryset
 
-    def get_full_ranking_list(self):
-        if 'show_virtual' in self.request.GET:
+    def get_rendered_ranking_table(self):
+        self.can_show_virtual = self.object.ended and not self.object.disallow_virtual
+        if not self.can_show_virtual:
+            self.show_virtual = False
+        elif 'show_virtual' in self.request.GET:
             self.show_virtual = self.request.session['show_virtual'] \
                               = self.request.GET.get('show_virtual').lower() == 'true'
         else:
             self.show_virtual = self.request.session.get('show_virtual', False)
 
+        if self.bypass_cache_ranking:
+            return super().get_rendered_ranking_table()
+        rendered = cache.get(self.cache_key)
+        if rendered is None:
+            rendered = super().get_rendered_ranking_table()
+            cache.set(self.cache_key, rendered, self.object.scoreboard_cache_timeout)
+        return rendered
+
+    def get_full_ranking_list(self):
         queryset = self.get_ranking_queryset()
         return get_contest_ranking_list(
             self.request, self.object,
@@ -1076,21 +1089,18 @@ class ContestRanking(ContestRankingBase):
 
         return self.get_full_ranking_list()
 
-    def get_rendered_ranking_table(self):
-        if self.bypass_cache_ranking:
-            return super().get_rendered_ranking_table()
-
-        rendered_ranking_table = cache.get(self.cache_key, None)
-        if rendered_ranking_table is None:
-            rendered_ranking_table = super().get_rendered_ranking_table()
-            cache.set(self.cache_key, rendered_ranking_table, self.object.scoreboard_cache_timeout)
-
-        return rendered_ranking_table
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['has_rating'] = self.object.ratings.exists()
-        context['can_replay'] = can_replay(self.object, self.request.user)
+        context['can_show_virtual'] = self.can_show_virtual
+        if can_replay(self.object, self.request.user):
+            duration = self.object.time_limit or self.object.end_time - self.object.start_time
+            context['replay_options'] = json_script({
+                'url': reverse('contest_replay', args=[self.object.key]),
+                'duration': duration.total_seconds(),
+                'own': bool(current_virtual(self.object, self.request.profile)),
+                'show_virtual': self.show_virtual, 'supports_frozen': self.object.format_name == 'vnoj',
+            }, 'replay-options')
         context['show_virtual'] = self.show_virtual
         context['is_frozen'] = self.is_frozen
         context['cache_timeout'] = 0 if self.bypass_cache_ranking else self.object.scoreboard_cache_timeout
@@ -1098,25 +1108,19 @@ class ContestRanking(ContestRankingBase):
 
 
 @method_decorator(never_cache, name='dispatch')
-class ContestReplay(ContestMixin, TitleMixin, DetailView):
-    template_name = 'contest/replay.html'
-
-    def get_title(self):
-        return _('%s — Ranking replay') % self.object.name
-
+class ContestReplay(ContestMixin, SingleObjectMixin, View):
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
         if not can_replay(self.object, request.user):
             return HttpResponseForbidden()
-        virtual = request.profile.current_contest if request.profile else None
-        if virtual and (virtual.contest_id != self.object.pk or virtual.virtual <= 0 or virtual.ended):
-            virtual = None
-        if 'own' in request.GET:
-            if not virtual:
-                return HttpResponse(status=204)
-            return JsonResponse(replay_data(self.object, virtual, personal_only=True))
-        data = replay_data(self.object, virtual)
-        return self.render_to_response(self.get_context_data(replay=json_script(data, 'replay-data'), tab='ranking'))
+        virtual = current_virtual(self.object, request.profile)
+        own = 'own' in request.GET
+        if own and not virtual:
+            return HttpResponse(status=204)
+        if own or 'data' in request.GET:
+            data = replay_data(self.object, virtual, personal_only=own)
+            return JsonResponse(data, json_dumps_params={'separators': (',', ':')})
+        return redirect('contest_ranking', self.object.key)
 
 
 @method_decorator(never_cache, name='dispatch')

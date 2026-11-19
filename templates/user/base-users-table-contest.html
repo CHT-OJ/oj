@@ -37,19 +37,19 @@
                         <div class="u-logo-ranking">
                         {% if contest.rank_display_options == 1 %}
                             {% if user.avt_url %}
-                                <img id="avatarPreview" src="/media/{{ user.avt_url }}">
+                                <img src="/media/{{ user.avt_url }}">
                             {% else %}
-                                <img id="avatarPreview" src="{{ gravatar(user.user, 64) }}">
+                                <img src="{{ gravatar(user.user, 64) }}">
                             {% endif %}
                         {% elif contest.rank_display_options == 2 %}
                             {% if user.user_rank_logo and user.user_rank_logo.image.url %}
-                                <img id="avatarPreview" src="{{ user.user_rank_logo.image.url }}">
+                                <img src="{{ user.user_rank_logo.image.url }}">
                             {% else %}
-                                <div id="avatarPlaceholder"><i class="fa fa-graduation-cap"></i></div>
+                                <div class="ranking-avatar-placeholder"><i class="fa fa-graduation-cap"></i></div>
                             {% endif %}
                         {% else %}
                             {# fallback #}
-                            <div id="avatarPlaceholder"><i class="fa fa-question-circle"></i></div>
+                            <div class="ranking-avatar-placeholder"><i class="fa fa-question-circle"></i></div>
                         {% endif %}
                         </div>
                         <div class="u-logo-sep1"></div>

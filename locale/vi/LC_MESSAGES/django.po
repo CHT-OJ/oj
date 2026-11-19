@@ -175,6 +175,15 @@ msgstr "Theo dõi lượt thi ảo của tôi"
 msgid "Pinned participants"
 msgstr "Thí sinh đã ghim"
 
+msgid "Freeze duration in minutes"
+msgstr "Thời gian đóng băng (phút)"
+
+msgid "Turn off virtual participations to use replay."
+msgstr "Bỏ chọn hiển thị lượt thi ảo để xem lại bảng xếp hạng."
+
+msgid "Could not load the replay. Move the slider to retry."
+msgstr "Chưa tải được lịch sử bảng xếp hạng. Hãy di chuyển thanh thời gian để thử lại."
+
 msgid "Pin participant"
 msgstr "Ghim thí sinh"
 

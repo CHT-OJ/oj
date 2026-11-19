@@ -1,121 +1,208 @@
-(function () {
+/* Timeline, controls and ranking order ported from VNOI-Admin/OJ #658 (7900e2f80).
+ * The server supplies CHTOJ scoring checkpoints, including IOI subtask results.
+ */
+(function ($) {
     'use strict';
-    const data = JSON.parse(document.getElementById('replay-data').textContent);
-    const slider = document.getElementById('replay-time');
-    const table = document.getElementById('ranking-table');
-    const play = document.getElementById('replay-play');
-    const follow = document.getElementById('follow-virtual');
-    const playLabel = play.textContent;
-    const duration = Math.ceil(data.duration);
-    let serverTime = data.elapsed;
-    let synced = Date.now();
-    let playing = false;
-    let lastPosition = -1;
-    function clock(sec) {
-        sec = Math.floor(sec);
-        return [Math.floor(sec / 3600), Math.floor(sec / 60) % 60, sec % 60]
-            .map(n => String(n).padStart(2, '0')).join(':');
-    }
-    function prepare(row) {
-        row.cursor = 0;
-        row.cells = new Array(data.problems.length).fill(null);
-        row.total = row.time = row.tie = 0;
-    }
-    function render(position) {
-        const rows = Object.values(data.rows);
-        let changed = false;
-        rows.forEach(row => {
-            if (position < lastPosition || row.cursor === undefined) {
-                prepare(row);
-                changed = true;
-            }
-            while (row.cursor < row.events.length && row.events[row.cursor][0] <= position) {
-                const [, index, points, total, time, tie] = row.events[row.cursor++];
-                changed = true;
-                row.cells[index] = points;
-                row.total = total;
-                row.time = time;
-                row.tie = tie;
-            }
+
+    function sortAndRankParticipations(parts) {
+        parts.sort(function (a, b) {
+            var aDq = a.is_disqualified ? 1 : 0, bDq = b.is_disqualified ? 1 : 0;
+            if (aDq !== bDq) return aDq - bDq;
+            if (b.score !== a.score) return b.score - a.score;
+            if (a.cumtime !== b.cumtime) return a.cumtime - b.cumtime;
+            return a.tiebreaker - b.tiebreaker || b.submissionCount - a.submissionCount || a.id - b.id;
         });
-        slider.value = position;
-        document.getElementById('replay-clock').textContent = clock(position);
-        lastPosition = position;
-        if (!changed) return;
-        function compare(a, b) {
-            if (a.dq !== b.dq) return Number(a.dq) - Number(b.dq);
-            if (a.dq) return 0;
-            return b.total - a.total || a.time - b.time || a.tie - b.tie;
+        var rank = 0, delta = 1, lastKey = null;
+        for (var i = 0; i < parts.length; i++) {
+            var p = parts[i];
+            var key = (p.is_disqualified ? 1 : 0) + '|' + p.score + '|' + p.cumtime + '|' + p.tiebreaker;
+            if (key !== lastKey) { rank += delta; delta = 0; }
+            delta++;
+            p.rank = rank;
+            lastKey = key;
         }
-        rows.sort((a, b) => compare(a, b) || b.cursor - a.cursor || a.name.localeCompare(b.name));
-        const body = document.createDocumentFragment();
-        let rank = 0;
-        rows.forEach((row, i) => {
-            if (!i || compare(row, rows[i - 1])) rank = i + 1;
-            const tr = document.createElement('tr');
-            tr.dataset.contestUser = row.name;
-            if (row.dq) tr.className = 'disqualified';
-            function cell(value, cls) {
-                const td = tr.insertCell();
-                td.textContent = value;
-                if (cls) td.className = cls;
-            }
-            cell(rank);
-            cell(row.name + (row.virtual ? ' (' + table.dataset.virtual + ')' : ''), 'user-name');
-            cell(row.dq ? 'DQ' : row.total, 'user-points');
-            cell(row.dq ? '—' : clock(row.time));
-            row.cells.forEach(points => cell(points === null ? '—' : points));
-            body.append(tr);
-        });
-        table.tBodies[0].replaceChildren(body);
-        document.dispatchEvent(new Event('ranking-updated'));
     }
-    function stop() { playing = false; play.textContent = playLabel; }
-    data.problems.forEach(label => {
-        const th = document.createElement('th');
-        th.textContent = label;
-        table.tHead.rows[0].append(th);
-    });
-    slider.max = duration;
-    slider.addEventListener('input', () => { stop(); follow.checked = false; render(+slider.value); });
-    play.addEventListener('click', () => {
-        follow.checked = false;
-        if (playing) { stop(); return; }
-        if (+slider.value >= duration) render(0);
-        playing = true;
-        play.textContent = table.dataset.pause;
-    });
-    if (serverTime !== null) {
-        document.getElementById('live-controls').hidden = false;
-        follow.addEventListener('change', stop);
-        async function sync() {
-            try {
-                const response = await fetch('?own=1', {credentials: 'same-origin'});
-                if (response.status === 204) { location.reload(); return; }
-                if (response.ok) {
-                    const update = await response.json();
-                    for (const [id, row] of Object.entries(data.rows)) {
-                        if (row.virtual && !(id in update.rows)) delete data.rows[id];
+
+    function fmtHMS(s) {
+        s = Math.floor(Math.max(0, s));
+        var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+        return (h ? h + ':' : '') + (h && m < 10 ? '0' : '') + m + ':' + (sec < 10 ? '0' : '') + sec;
+    }
+
+    // Seek each participant's ordered checkpoints. Forward drags consume only new events.
+    function standingsAt(data, elapsed, freezeSeconds, changed) {
+        var parts = Object.values(data.rows);
+        var freezeAt = data.duration - freezeSeconds;
+        parts.forEach(function (p) {
+            if (p.cursor === undefined || elapsed < p.position || p.freezeAt !== freezeAt) {
+                changed = true;
+                p.cursor = p.score = p.cumtime = p.tiebreaker = p.submissionCount = 0;
+                p.format_data = {};
+            }
+            p.position = elapsed;
+            p.freezeAt = freezeAt;
+            while (p.cursor < p.events.length && p.events[p.cursor][0] <= elapsed) {
+                var event = p.events[p.cursor++];
+                var pid = event[1];
+                changed = true;
+                p.submissionCount += event[7] || 1;
+                if (freezeSeconds > 0 && !p.virtual && event[0] >= freezeAt) {
+                    var prev = p.format_data[pid] || { points: 0, penalty: 0 };
+                    if (event[6] && prev.points < data.maximum[pid]) {
+                        p.format_data[pid] = Object.assign({}, prev, { pending: (prev.pending || 0) + event[6] });
                     }
-                    Object.assign(data.rows, update.rows);
-                    serverTime = update.elapsed;
-                    synced = Date.now();
-                    render(+slider.value);
+                } else {
+                    p.format_data[pid] = event[2];
+                    p.score = event[3];
+                    p.cumtime = event[4];
+                    p.tiebreaker = event[5];
                 }
-            } catch (error) {
-                // Keep the last complete standings during a temporary connection loss.
-            } finally { setTimeout(sync, 20000); }
-        }
-        setTimeout(sync, 20000);
+            }
+            if (p.is_disqualified) {
+                p.score = -9999;
+                p.cumtime = p.tiebreaker = 0;
+            }
+        });
+        if (!changed) return null;
+        sortAndRankParticipations(parts);
+        return { contest: data.contest, problems: data.problems, participations: parts };
     }
-    render(Math.floor(serverTime || 0));
-    setInterval(() => {
-        if (document.hidden) return;
-        let next = +slider.value;
-        if (serverTime !== null && follow.checked) next = Math.floor(serverTime + (Date.now() - synced) / 1000);
-        else if (playing) next += Math.max(1, Math.ceil(duration / 180));
-        next = Math.min(duration, next);
-        if (next !== lastPosition) render(next);
-        if (next === duration) stop();
-    }, 1000);
-})();
+
+    window.initContestRanking = function (options, labels) {
+        var container = document.getElementById('ranking-container');
+        var render = window.createReplayRenderer(container);
+        var duration = Math.ceil(options.duration);
+        var isVirtual = options.own;
+        var supportsFrozen = options.supports_frozen;
+        var freezeKey = 'replay_freeze_' + options.url;
+        var frozenOverride = supportsFrozen ? localStorage.getItem(freezeKey) : null;
+        var $slider, $timeLabel, $freezeInput;
+        var data = null, loading = false, frame = null;
+        var manualElapsed = isVirtual ? null : duration;
+        var syncedAt, showingReplay = false, rosterChanged = false;
+        function updateBar(elapsed, duration) {
+            if (!$slider) return;
+            $slider.val(Math.floor(elapsed));
+            $timeLabel.text(fmtHMS(elapsed) + ' / ' + fmtHMS(duration));
+        }
+
+        function createBar(duration) {
+            var $bar = $('<div>').css({
+                display: 'flex', alignItems: 'center', gap: '8px',
+                padding: '6px 0', marginBottom: '8px', fontSize: '13px',
+            });
+            $slider = $('<input>').attr({ type: 'range', 'aria-label': labels.time, min: 0, max: Math.floor(duration), step: 1 })
+                .css({ flex: '1', cursor: 'pointer' });
+            $timeLabel = $('<span>').css({ minWidth: '110px', fontFamily: 'monospace' });
+            var $endBtn = $('<button>').attr('type', 'button').text(isVirtual ? 'Live' : 'End').css({ fontSize: '12px', padding: '2px 8px' });
+            if (supportsFrozen) {
+                $freezeInput = $('<input>').attr({ type: 'number', min: 0, placeholder: 'Freeze min', 'aria-label': labels.freeze })
+                    .css({ width: '90px', fontSize: '12px' });
+                if (frozenOverride !== null) $freezeInput.val(frozenOverride);
+            }
+            $bar.append($('<span>').text('⏱'), $slider, $timeLabel, $endBtn);
+            if ($freezeInput) $bar.append($freezeInput);
+            $('#ranking-container').before($bar);
+            return $endBtn;
+        }
+
+
+        function position() {
+            return manualElapsed === null
+                ? Math.min(duration, Math.max(0, Math.floor(data.elapsed + (Date.now() - syncedAt) / 1000)))
+                : manualElapsed;
+        }
+
+        function tick() {
+            frame = null;
+            if (!data) return;
+            var elapsed = position();
+            updateBar(elapsed, duration);
+            if (!isVirtual && elapsed === duration && !Number(frozenOverride)) {
+                if (showingReplay) render(null, true);
+                showingReplay = false;
+            } else {
+                var standings = standingsAt(data, elapsed, Number(frozenOverride) * 60, !showingReplay || rosterChanged);
+                if (standings) render(standings, !showingReplay || rosterChanged);
+                showingReplay = true;
+                rosterChanged = false;
+            }
+        }
+
+        function scheduleRender() {
+            if (frame === null) frame = requestAnimationFrame(tick);
+        }
+
+        var $endBtn = createBar(duration);
+        var $error = $('<span role="status">').insertAfter($endBtn).hide();
+        updateBar(duration, duration);
+        if (options.show_virtual && !isVirtual) {
+            $slider.parent().addClass('replay-blocked').attr('title', labels.virtual)
+                .find('input, button').prop('disabled', true);
+            return;
+        }
+
+        function pollOwn() {
+            $.getJSON(options.url, { own: 1 }).done(function (update, _, xhr) {
+                if (xhr.status === 204) { window.location.reload(); return; }
+                rosterChanged = Object.keys(update.rows).some(function (id) { return !data.rows[id]; });
+                Object.keys(data.rows).forEach(function (id) {
+                    if (data.rows[id].virtual) delete data.rows[id];
+                });
+                Object.assign(data.rows, update.rows);
+                data.elapsed = update.elapsed;
+                syncedAt = Date.now();
+                scheduleRender();
+            }).always(function () { setTimeout(pollOwn, 20000); });
+        }
+
+        function loadReplay() {
+            if (data) { scheduleRender(); return; }
+            if (loading) return;
+            loading = true;
+            $.getJSON(options.url, { data: 1 }).done(function (result) {
+                if ((result.elapsed !== null) !== isVirtual) { window.location.reload(); return; }
+                data = result;
+                data.maximum = Object.fromEntries(data.problems.map(function (p) { return [p.id, p.points]; }));
+                syncedAt = Date.now();
+                $error.hide();
+                scheduleRender();
+                if (isVirtual) {
+                    setTimeout(pollOwn, 20000);
+                    setInterval(function () {
+                        if (!document.hidden && manualElapsed === null && position() !== Number($slider.val())) {
+                            scheduleRender();
+                        }
+                    }, 1000);
+                }
+            }).fail(function () {
+                $error.text(labels.retry).show();
+            }).always(function () { loading = false; });
+        }
+
+        $slider.on('input', function () {
+            manualElapsed = Number(this.value);
+            updateBar(manualElapsed, duration);
+            loadReplay();
+        });
+        $endBtn.on('click', function () {
+            manualElapsed = isVirtual ? null : duration;
+            if (!data && !isVirtual && !Number(frozenOverride)) {
+                updateBar(duration, duration);
+                $error.hide();
+            } else {
+                loadReplay();
+            }
+        });
+        if ($freezeInput) {
+            $freezeInput.on('input', function () {
+                var val = this.value.trim();
+                frozenOverride = val === '' ? null : Math.max(0, parseInt(val, 10) || 0);
+                if (frozenOverride === null) localStorage.removeItem(freezeKey);
+                else localStorage.setItem(freezeKey, frozenOverride);
+                loadReplay();
+            });
+        }
+        if (isVirtual || Number(frozenOverride)) loadReplay();
+    };
+})(jQuery);
