@@ -106,6 +106,18 @@ def get_problem_testcases_data(problem):
     return testcases_data
 
 
+def parse_batch_dependencies(value, batch_number):
+    if not value.strip():
+        return []
+    try:
+        dependencies = [int(part.strip()) for part in value.split(',')]
+    except ValueError:
+        raise ProblemDataError(_('Enter earlier subtask numbers separated by commas.'))
+    if any(n < 1 or n >= batch_number for n in dependencies):
+        raise ProblemDataError(_('Dependencies must refer to earlier subtasks.'))
+    return list(dict.fromkeys(dependencies))
+
+
 class ProblemDataCompiler(object):
     def __init__(self, problem, data, cases, files):
         self.problem = problem
@@ -127,6 +139,7 @@ class ProblemDataCompiler(object):
 
         cases = []
         batch = None
+        batch_count = 0
 
         def end_batch():
             if not batch['batched']:
@@ -258,15 +271,18 @@ class ProblemDataCompiler(object):
                 case.save(update_fields=('checker_args', 'is_pretest'))
                 (batch['batched'] if batch else cases).append(data)
             elif case.type == 'S':
+                batch_count += 1
                 if batch:
                     end_batch()
                 if case.points is None:
                     raise ProblemDataError(_('Batch start case #%d requires points.') % i)
+                dependencies = parse_batch_dependencies(case.batch_dependencies, batch_count)
                 total_points += case.points
                 batch = {
                     'points': case.points,
                     'batched': [],
                     'is_pretest': case.is_pretest,
+                    'dependencies': dependencies,
                 }
                 if case.generator_args:
                     batch['generator_args'] = case.generator_args.splitlines()
@@ -297,6 +313,15 @@ class ProblemDataCompiler(object):
             raise ProblemDataError(_('Total points must be greater than 0.'))
         if batch:
             end_batch()
+
+        # The judge numbers pretest batches differently when validating and when grading,
+        # so dependencies can only be resolved correctly when there are no pretest batches.
+        batches = [case for case in cases if 'batched' in case]
+        if any(batch['dependencies'] for batch in batches) and any(batch['is_pretest'] for batch in batches):
+            raise ProblemDataError(_('Batch dependencies are not supported for problems with pretest batches.'))
+        for batch in batches:
+            if not batch['dependencies']:
+                del batch['dependencies']
 
         init = {}
 

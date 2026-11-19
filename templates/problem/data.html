@@ -7,7 +7,7 @@
     <script type="text/javascript" src="{{ static('libs/featherlight/featherlight.min.js') }}"></script>
     <script type="text/javascript" src="{{ static('vnoj/jszip/jszip.min.js') }}"></script>
     <script type="text/javascript">
-        window.valid_files = {{valid_files_json}}.sort();
+        window.valid_files = {{ valid_files|list|tojson }}.sort();
         window.testcase_limit = {{testcase_limit}};
         window.testcase_soft_limit = {{testcase_soft_limit}};
 
@@ -320,6 +320,7 @@
                             disabled = $prevs.length && $prevs.get(0).getAttribute('data-type') == 'S';
                             $tr.find('input[id$=points], input[id$=pretest]').toggle(val == 'C' && !disabled);
                     }
+                    $tr.find('input[id$=batch_dependencies]').toggle(val === 'S');
                     $tr.attr('data-type', val).nextUntil('tr[data-type=S], tr[data-type=E], tr[data-type=""]')
                         .find('input[id$=points], input[id$=pretest]').toggle(!disabled);
                 }).change();
@@ -381,6 +382,41 @@
                     if ($(this).parent().is(':hidden')) {
                         $(this).attr('checked', true);
                     }
+                });
+            });
+
+            $('#problem-data-form').on('submit', function (event) {
+                if (event.isDefaultPrevented() || !Array.from(this.querySelectorAll('input[type=file]')).some(input => input.files.length)) return;
+                event.preventDefault();
+                var form = this;
+                if (form.dataset.uploading) return;
+                form.dataset.uploading = '1';
+                var progress = document.getElementById('upload-progress');
+                progress.hidden = false;
+                progress.removeAttribute('value');
+                $.ajax({
+                    url: form.action, method: 'POST', data: new FormData(form),
+                    processData: false, contentType: false,
+                    xhr: function () {
+                        var xhr = $.ajaxSettings.xhr();
+                        xhr.upload.onprogress = function (e) {
+                            if (e.lengthComputable) progress.value = 100 * e.loaded / e.total;
+                        };
+                        return xhr;
+                    }
+                }).done(function (html, status, xhr) {
+                    $(form).dirty('disable');
+                    if (xhr.status === 204) {
+                        window.location.reload();
+                    } else {
+                        document.open();
+                        document.write(html);
+                        document.close();
+                    }
+                }).fail(function () {
+                    delete form.dataset.uploading;
+                    progress.hidden = true;
+                    alert({{ _('Upload failed. Please try again.')|htmltojs }});
                 });
             });
 
@@ -470,7 +506,7 @@
                 ];
 
                 var out_re = [
-                    new RegExp(/^(.+\.out|.+\.ok|.+\.ans|out|ok|ans)$/),
+                    new RegExp(/^(.+\.out|.+\.ok|.+\.ans|.+\.ou|out|ok|ans)$/),
                     new RegExp(/^output.(.+\d+)$/),
                     new RegExp(/^(.+\d+\.a)$/),
                     new RegExp(/^(?=.*?\.out|out).*?(?:(?:^|\W)(?<batch>\d+)[^\d\s]+)?(?<case>\d+)[^\d\s]*$/),
@@ -604,13 +640,15 @@
                     return;
                 }
 
+                if (!fileInput) return;
                 var reader = new FileReader();
                 reader.onload = function(ev) {
                     JSZip.loadAsync(ev.target.result).then(function(zip) {
                         let all_files = Object.keys(zip.files).sort();
                         window.valid_files = all_files.filter(file => !shouldIgnoreFile(file));
 
-                        fill_testcases();
+                        valid_files_options = window.valid_files.map(file => ({id: file, text: file}));
+                        if (Number($total.val()) === 0) fill_testcases();
                     }).catch(function(err) {
                         console.log(err);
                         console.error("Failed to open as ZIP file");
@@ -1012,9 +1050,10 @@
             <li>{{ data_form.instance.feedback }}</li>
         </ul>
     {% endif %}
-    <form action="" method="POST" enctype="multipart/form-data">
+    <form id="problem-data-form" action="" method="POST" enctype="multipart/form-data">
         {% csrf_token %}
         {{ cases_formset.management_form }}
+        <progress hidden id="upload-progress" max="100" aria-label="{{ _('Upload progress') }}"></progress>
         <table class="table">
             {{ data_form.as_table() }}
         </table>
@@ -1040,6 +1079,7 @@
                 <th>{{ _('Points') }}</th>
                 <th>{{ _('Pretest?') }}</th>
                 <th>{{ _('Public?') }}</th>
+                <th>{{ _('Batch dependencies') }}<br><small>{{ _('Earlier subtasks, e.g. 1,2') }}</small></th>
                 <!-- <th class="generator-args">{{ _('Generator args') }}</th> -->
                 {% if cases_formset.can_delete %}
                     <th>{{ _('Delete?') }}
@@ -1053,7 +1093,7 @@
             {% for form in all_case_forms %}
                 {% if form.non_field_errors() %}
                     <tr>
-                        <td colspan="{{ 9 + cases_formset.can_delete }}">{{ form.non_field_errors() }}</td>
+                        <td colspan="{{ 10 + cases_formset.can_delete }}">{{ form.non_field_errors() }}</td>
                     </tr>
                 {% endif %}
                 {% if form.prefix and '__prefix__' in form.prefix %}
@@ -1075,6 +1115,7 @@
                     <td>{{ form.points.errors }}{{ form.points }}</td>
                     <td>{{ form.is_pretest.errors }}{{ form.is_pretest }}</td>
                     <td>{{ form.public.errors }}{{ form.public }}</td>
+                    <td>{{ form.batch_dependencies.errors }}{{ form.batch_dependencies }}</td>
                     <!-- <td class="generator-args">{{ form.generator_args.errors }}{{ form.generator_args }}
                         <a href="javascript:void(0)" class="edit-generator-args">
                             <i class="fa fa-pencil"></i>

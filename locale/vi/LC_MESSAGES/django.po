@@ -17,6 +17,221 @@ msgstr ""
 "X-Crowdin-File: django.po\n"
 "X-Crowdin-File-ID: 10\n"
 
+#: templates/problem/data.html
+msgid "or click here to build zip file"
+msgstr "hoặc nhấn vào đây để tạo file zip"
+
+#: templates/problem/data.html
+msgid "No files selected"
+msgstr "Chưa chọn tập tin nào"
+
+#: templates/problem/data.html
+msgid "files selected"
+msgstr "tập tin đã chọn"
+
+#: templates/problem/data.html
+msgid "and"
+msgstr "và"
+
+#: templates/problem/data.html
+msgid "more files"
+msgstr "tập tin khác"
+
+#: templates/problem/data.html
+msgid "Adding files..."
+msgstr "Đang thêm tập tin..."
+
+#: templates/problem/data.html
+msgid "Compressing..."
+msgstr "Đang nén..."
+
+#: templates/problem/data.html
+msgid "Failed to create ZIP file"
+msgstr "Tạo file ZIP thất bại"
+
+#: templates/problem/data.html
+msgid "Build & Upload ZIP"
+msgstr "Tạo & Tải lên ZIP"
+
+#: templates/problem/data.html
+msgid "Build Test Data"
+msgstr "Tạo dữ liệu test"
+
+#: templates/problem/data.html
+msgid "Choose Files"
+msgstr "Chọn tập tin"
+
+#: templates/problem/data.html
+msgid "Choose Folder"
+msgstr "Chọn thư mục"
+
+#: templates/problem/data.html
+msgid "Drop files or folder here"
+msgstr "Kéo thả tập tin hoặc thư mục vào đây"
+
+#: templates/problem/data.html
+msgid "File too large!"
+msgstr "File quá lớn!"
+
+#: templates/problem/data.html
+msgid "Your file is"
+msgstr "File của bạn là"
+
+#: templates/problem/data.html
+msgid "Maximum allowed is 100 MB."
+msgstr "Giới hạn tối đa là 100 MB."
+
+#: templates/problem/data.html
+msgid "Automatic zipping is not supported in this browser. Please upload a ZIP file manually."
+msgstr "Trình duyệt này không hỗ trợ tự động nén. Vui lòng tải lên file ZIP thủ công."
+
+#: judge/models/contest.py
+msgid "terms"
+msgstr "điều khoản"
+
+#: judge/views/contests.py
+msgid "I agree to the terms and conditions"
+msgstr "Tôi đồng ý với các điều khoản và điều kiện"
+
+#: judge/views/contests.py
+msgid "You must agree to the terms to continue."
+msgstr "Bạn phải đồng ý với điều khoản để tiếp tục."
+
+#: judge/views/contests.py
+msgid "Wrong access code."
+msgstr "Mã truy cập không đúng."
+
+#: templates/problem/problem.html
+msgid "Download package"
+msgstr "Tải gói bài"
+
+#: templates/contest/contest.html
+msgid "Make All Problems Public"
+msgstr "Công khai tất cả bài tập"
+
+#: templates/contest/contest.html
+msgid "Are you sure you want to make all problems in this contest public?"
+msgstr "Bạn có chắc muốn công khai tất cả bài tập trong kỳ thi này?"
+
+#: judge/views/contests.py
+msgid "You do not have permission to edit this contest."
+msgstr "Bạn không có quyền chỉnh sửa kỳ thi này."
+
+#: judge/views/contests.py
+msgid "You do not have permission to edit this problem."
+msgstr "Bạn không có quyền chỉnh sửa bài tập này."
+
+#: judge/models/ticket.py
+msgid "opened"
+msgstr "đã mở"
+
+#: judge/models/ticket.py
+msgid "closed"
+msgstr "đã đóng"
+
+#: judge/models/ticket.py
+msgid "message"
+msgstr "tin nhắn"
+
+#: judge/models/ticket.py
+msgid "action"
+msgstr "hành động"
+
+#: templates/ticket/action.html
+msgid "closed this"
+msgstr "đã đóng ticket này"
+
+#: templates/ticket/action.html
+msgid "reopened this"
+msgstr "đã mở lại ticket này"
+
+#: judge/views/ticket.py
+msgid "Status changed"
+msgstr "Trạng thái đã thay đổi"
+
+#: templates/contest/edit.html
+msgid "Organization problems"
+msgstr "Bài tập của tổ chức"
+
+#: templates/contest/edit.html
+msgid "Public problems"
+msgstr "Bài tập công khai"
+
+msgid "Ranking replay / virtual comparison"
+msgstr "Phát lại bảng xếp hạng / so sánh lượt thi ảo"
+
+msgid "%s — Ranking replay"
+msgstr "%s — Phát lại bảng xếp hạng"
+
+msgid "Scores use the current judging results at each submission time."
+msgstr "Điểm được tính theo kết quả chấm hiện tại, tại thời điểm nộp của từng bài."
+
+msgid "Elapsed time"
+msgstr "Thời gian đã thi"
+
+msgid "Follow my virtual attempt"
+msgstr "Theo dõi lượt thi ảo của tôi"
+
+msgid "Pinned participants"
+msgstr "Thí sinh đã ghim"
+
+msgid "Pin participant"
+msgstr "Ghim thí sinh"
+
+msgid "Organization tags"
+msgstr "Nhãn riêng của tổ chức"
+
+msgid "Manage tags"
+msgstr "Quản lý nhãn"
+
+msgid "Edit tags"
+msgstr "Sửa nhãn"
+
+msgid "No solved problems."
+msgstr "Chưa giải được bài nào."
+
+msgid "Member not found."
+msgstr "Không tìm thấy thành viên."
+
+msgid "Batch dependencies"
+msgstr "Subtask phụ thuộc"
+
+msgid "Earlier subtasks, e.g. 1,2"
+msgstr "Số thứ tự các subtask trước, ví dụ 1,2"
+
+msgid "Enter earlier subtask numbers separated by commas."
+msgstr "Nhập số thứ tự các subtask trước, cách nhau bằng dấu phẩy."
+
+msgid "Dependencies must refer to earlier subtasks."
+msgstr "Chỉ được phụ thuộc vào các subtask có thứ tự nhỏ hơn."
+
+msgid "Batch dependencies are not supported for problems with pretest batches."
+msgstr "Không thể khai báo phụ thuộc khi có nhóm pretest."
+
+msgid "Upload progress"
+msgstr "Tiến độ tải lên"
+
+msgid "Upload failed. Please try again."
+msgstr "Tải lên thất bại. Vui lòng thử lại."
+
+msgid "Time limit"
+msgstr "Giới hạn thời gian"
+
+msgid "Memory limit"
+msgstr "Giới hạn bộ nhớ"
+
+msgid "Solved problems"
+msgstr "Bài đã giải"
+
+msgid "Pause"
+msgstr "Tạm dừng"
+
+msgid "Cumulative time"
+msgstr "Thời gian tích lũy"
+
+msgid "Virtual"
+msgstr "Thi ảo"
+
 #: dmoj/settings.py:69
 msgid "Normal User"
 msgstr ""
@@ -7977,143 +8192,3 @@ msgstr "Tổng AC"
 #: templates/contest/spotlight-ranking.html
 msgid "Use 0 to keep continuous playback."
 msgstr "Dùng 0 để tiếp tục chạy liên tục."
-
-#: templates/problem/data.html
-msgid "or click here to build zip file"
-msgstr "hoặc nhấn vào đây để tạo file zip"
-
-#: templates/problem/data.html
-msgid "No files selected"
-msgstr "Chưa chọn tập tin nào"
-
-#: templates/problem/data.html
-msgid "files selected"
-msgstr "tập tin đã chọn"
-
-#: templates/problem/data.html
-msgid "and"
-msgstr "và"
-
-#: templates/problem/data.html
-msgid "more files"
-msgstr "tập tin khác"
-
-#: templates/problem/data.html
-msgid "Adding files..."
-msgstr "Đang thêm tập tin..."
-
-#: templates/problem/data.html
-msgid "Compressing..."
-msgstr "Đang nén..."
-
-#: templates/problem/data.html
-msgid "Failed to create ZIP file"
-msgstr "Tạo file ZIP thất bại"
-
-#: templates/problem/data.html
-msgid "Build & Upload ZIP"
-msgstr "Tạo & Tải lên ZIP"
-
-#: templates/problem/data.html
-msgid "Build Test Data"
-msgstr "Tạo dữ liệu test"
-
-#: templates/problem/data.html
-msgid "Choose Files"
-msgstr "Chọn tập tin"
-
-#: templates/problem/data.html
-msgid "Choose Folder"
-msgstr "Chọn thư mục"
-
-#: templates/problem/data.html
-msgid "Drop files or folder here"
-msgstr "Kéo thả tập tin hoặc thư mục vào đây"
-
-#: templates/problem/data.html
-msgid "File too large!"
-msgstr "File quá lớn!"
-
-#: templates/problem/data.html
-msgid "Your file is"
-msgstr "File của bạn là"
-
-#: templates/problem/data.html
-msgid "Maximum allowed is 100 MB."
-msgstr "Giới hạn tối đa là 100 MB."
-
-#: templates/problem/data.html
-msgid "Automatic zipping is not supported in this browser. Please upload a ZIP file manually."
-msgstr "Trình duyệt này không hỗ trợ tự động nén. Vui lòng tải lên file ZIP thủ công."
-
-#: judge/models/contest.py
-msgid "terms"
-msgstr "điều khoản"
-
-#: judge/views/contests.py
-msgid "I agree to the terms and conditions"
-msgstr "Tôi đồng ý với các điều khoản và điều kiện"
-
-#: judge/views/contests.py
-msgid "You must agree to the terms to continue."
-msgstr "Bạn phải đồng ý với điều khoản để tiếp tục."
-
-#: judge/views/contests.py
-msgid "Wrong access code."
-msgstr "Mã truy cập không đúng."
-
-#: templates/problem/problem.html
-msgid "Download package"
-msgstr "Tải gói bài"
-
-#: templates/contest/contest.html
-msgid "Make All Problems Public"
-msgstr "Công khai tất cả bài tập"
-
-#: templates/contest/contest.html
-msgid "Are you sure you want to make all problems in this contest public?"
-msgstr "Bạn có chắc muốn công khai tất cả bài tập trong kỳ thi này?"
-
-#: judge/views/contests.py
-msgid "You do not have permission to edit this contest."
-msgstr "Bạn không có quyền chỉnh sửa kỳ thi này."
-
-#: judge/views/contests.py
-msgid "You do not have permission to edit this problem."
-msgstr "Bạn không có quyền chỉnh sửa bài tập này."
-
-#: judge/models/ticket.py
-msgid "opened"
-msgstr "đã mở"
-
-#: judge/models/ticket.py
-msgid "closed"
-msgstr "đã đóng"
-
-#: judge/models/ticket.py
-msgid "message"
-msgstr "tin nhắn"
-
-#: judge/models/ticket.py
-msgid "action"
-msgstr "hành động"
-
-#: templates/ticket/action.html
-msgid "closed this"
-msgstr "đã đóng ticket này"
-
-#: templates/ticket/action.html
-msgid "reopened this"
-msgstr "đã mở lại ticket này"
-
-#: judge/views/ticket.py
-msgid "Status changed"
-msgstr "Trạng thái đã thay đổi"
-
-#: templates/contest/edit.html
-msgid "Organization problems"
-msgstr "Bài tập của tổ chức"
-
-#: templates/contest/edit.html
-msgid "Public problems"
-msgstr "Bài tập công khai"

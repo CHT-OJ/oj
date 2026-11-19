@@ -106,7 +106,8 @@ class ContestProblemMakePublicTestCase(TestCase):
     @patch('judge.views.contests.rescore_problem')
     def test_publishes_problems_and_editorials(self, mock_rescore):
         self.client.force_login(self.staff_editor)
-        response = self.client.post(self._get_url())
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self._get_url())
 
         self.assertEqual(response.status_code, 302)
 
@@ -120,7 +121,8 @@ class ContestProblemMakePublicTestCase(TestCase):
     @patch('judge.views.contests.rescore_problem')
     def test_problem_date_is_bumped_to_publish_time(self, mock_rescore):
         self.client.force_login(self.staff_editor)
-        self.client.post(self._get_url())
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(self._get_url())
 
         self.problem_with_editorial.refresh_from_db()
         self.solution.refresh_from_db()
@@ -130,7 +132,8 @@ class ContestProblemMakePublicTestCase(TestCase):
     @patch('judge.views.contests.rescore_problem')
     def test_no_editorial_does_not_break(self, mock_rescore):
         self.client.force_login(self.staff_editor)
-        response = self.client.post(self._get_url())
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self._get_url())
 
         self.assertEqual(response.status_code, 302)
 
@@ -142,7 +145,8 @@ class ContestProblemMakePublicTestCase(TestCase):
     def test_already_public_problem_editorial_is_published(self, mock_rescore):
         """Current VNOJ publishes editorials even when the problem is already public."""
         self.client.force_login(self.staff_editor)
-        self.client.post(self._get_url())
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(self._get_url())
 
         self.public_problem_solution.refresh_from_db()
         self.assertTrue(self.public_problem_solution.is_public)
@@ -153,7 +157,8 @@ class ContestProblemMakePublicTestCase(TestCase):
         """Publishing the editorial must not re-date or rescore an already-public problem."""
         original_date = self.public_problem.date
         self.client.force_login(self.staff_editor)
-        self.client.post(self._get_url())
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(self._get_url())
 
         self.public_problem.refresh_from_db()
         self.assertEqual(self.public_problem.date, original_date)
@@ -166,7 +171,8 @@ class ContestProblemMakePublicTestCase(TestCase):
     def test_published_editorial_keeps_its_publish_on(self, mock_rescore):
         """An editorial that is already public must not have its publish date moved."""
         self.client.force_login(self.staff_editor)
-        self.client.post(self._get_url())
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(self._get_url())
 
         self.settled_solution.refresh_from_db()
         self.assertTrue(self.settled_solution.is_public)
@@ -175,7 +181,8 @@ class ContestProblemMakePublicTestCase(TestCase):
     @patch('judge.views.contests.rescore_problem')
     def test_rescore_called_for_published_problems(self, mock_rescore):
         self.client.force_login(self.staff_editor)
-        self.client.post(self._get_url())
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(self._get_url())
 
         rescore_ids = {call.args[0] for call in mock_rescore.delay.call_args_list}
         self.assertIn(self.problem_with_editorial.id, rescore_ids)
@@ -187,7 +194,8 @@ class ContestProblemMakePublicTestCase(TestCase):
     def test_rescore_signals_publicity_change(self, mock_rescore):
         """CHT's rescore_problem takes a publicy_changed flag; keep passing it."""
         self.client.force_login(self.staff_editor)
-        self.client.post(self._get_url())
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(self._get_url())
 
         for call in mock_rescore.delay.call_args_list:
             self.assertEqual(call.args[1], True)
@@ -200,7 +208,8 @@ class ContestProblemMakePublicTestCase(TestCase):
     @patch('judge.views.contests.rescore_problem')
     def test_normal_user_permission_denied(self, mock_rescore):
         self.client.force_login(self.normal_user)
-        self.client.post(self._get_url())
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(self._get_url())
 
         self.problem_with_editorial.refresh_from_db()
         self.assertFalse(self.problem_with_editorial.is_public)
@@ -210,7 +219,8 @@ class ContestProblemMakePublicTestCase(TestCase):
 
     @patch('judge.views.contests.rescore_problem')
     def test_anonymous_cannot_publish(self, mock_rescore):
-        response = self.client.post(self._get_url())
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self._get_url())
         self.assertEqual(response.status_code, 302)
         self.assertIn('/accounts/login', response['Location'])
 
@@ -278,7 +288,8 @@ class ContestProblemMakePublicNonStaffTestCase(TestCase):
     @patch('judge.views.contests.rescore_problem')
     def test_non_staff_editor_can_publish(self, mock_rescore):
         self.client.force_login(self.editor)
-        response = self.client.post(self._get_url())
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self._get_url())
 
         self.assertEqual(response.status_code, 302)
 
@@ -292,7 +303,8 @@ class ContestProblemMakePublicNonStaffTestCase(TestCase):
     def test_uneditable_public_problem_is_skipped_not_fatal(self, mock_rescore):
         """A public problem the editor cannot edit must not block the rest of the contest."""
         self.client.force_login(self.editor)
-        response = self.client.post(self._get_url())
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self._get_url())
 
         self.assertEqual(response.status_code, 302)
 
@@ -303,6 +315,17 @@ class ContestProblemMakePublicNonStaffTestCase(TestCase):
             self.foreign_problem.id,
             {call.args[0] for call in mock_rescore.delay.call_args_list},
         )
+
+    @patch('judge.views.contests.rescore_problem')
+    def test_permission_failure_rolls_back_the_whole_contest(self, mock_rescore):
+        self.foreign_problem.is_public = False
+        self.foreign_problem.save()
+        self.client.force_login(self.editor)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(self._get_url())
+        self.own_problem.refresh_from_db()
+        self.assertFalse(self.own_problem.is_public)
+        mock_rescore.delay.assert_not_called()
 
     def test_non_staff_editor_sees_the_publish_button(self):
         """The UI gate must match the view gate: can_edit alone, no is_staff."""

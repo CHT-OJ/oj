@@ -15,7 +15,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.contrib.auth.models import User as UserModel
 from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured, ObjectDoesNotExist, PermissionDenied
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import BooleanField, Case, Count, F, FloatField, IntegerField, Max, Min, Q, Sum, Value, When
 from django.db.models.expressions import CombinedExpression
 from django.db.models.query import Prefetch
@@ -44,6 +44,7 @@ from reversion import revisions
 
 from judge.comments import CommentedDetailView
 from judge.contest_format import ICPCContestFormat
+from judge.contest_replay import can_replay, replay_data
 from judge.forms import ContestAnnouncementForm, ContestCloneForm, ContestDownloadDataForm, ContestForm, \
     ProposeContestProblemFormSet
 from judge.models import Contest, ContestAnnouncement, ContestMoss, ContestParticipation, ContestProblem, ContestTag, \
@@ -319,7 +320,7 @@ class ContestMixin(object):
                                           self.object.description, 'contest')
         context['meta_description'] = self.object.summary or metadata[0]
         context['og_image'] = self.object.og_image or metadata[1]
-        context['has_moss_api_key'] = settings.MOSS_API_KEY is not None
+        context['has_moss_api_key'] = getattr(settings, 'MOSS_API_KEY', None) is not None
         context['logo_override_image'] = self.object.logo_override_image
         if not context['logo_override_image'] and self.object.organizations.count() == 1:
             context['logo_override_image'] = self.object.organizations.first().logo_override_image
@@ -1089,10 +1090,33 @@ class ContestRanking(ContestRankingBase):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['has_rating'] = self.object.ratings.exists()
+        context['can_replay'] = can_replay(self.object, self.request.user)
         context['show_virtual'] = self.show_virtual
         context['is_frozen'] = self.is_frozen
         context['cache_timeout'] = 0 if self.bypass_cache_ranking else self.object.scoreboard_cache_timeout
         return context
+
+
+@method_decorator(never_cache, name='dispatch')
+class ContestReplay(ContestMixin, TitleMixin, DetailView):
+    template_name = 'contest/replay.html'
+
+    def get_title(self):
+        return _('%s — Ranking replay') % self.object.name
+
+    def get(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if not can_replay(self.object, request.user):
+            return HttpResponseForbidden()
+        virtual = request.profile.current_contest if request.profile else None
+        if virtual and (virtual.contest_id != self.object.pk or virtual.virtual <= 0 or virtual.ended):
+            virtual = None
+        if 'own' in request.GET:
+            if not virtual:
+                return HttpResponse(status=204)
+            return JsonResponse(replay_data(self.object, virtual, personal_only=True))
+        data = replay_data(self.object, virtual)
+        return self.render_to_response(self.get_context_data(replay=json_script(data, 'replay-data'), tab='ranking'))
 
 
 @method_decorator(never_cache, name='dispatch')
@@ -1644,6 +1668,7 @@ class ContestProblemMakePublic(LoginRequiredMixin, ContestMixin, SingleObjectMix
 
         return super(ContestProblemMakePublic, self).dispatch(request, *args, **kwargs)
 
+    @transaction.atomic
     def post(self, request, *args, **kwargs):
         contest = self.get_object()
 
@@ -1653,9 +1678,8 @@ class ContestProblemMakePublic(LoginRequiredMixin, ContestMixin, SingleObjectMix
             raise PermissionDenied(_('You do not have permission to edit this contest.'))
 
         now = timezone.now()
-        contest_problems = contest.contest_problems.prefetch_related('problem').all()
-        for contest_problem in contest_problems:
-            problem = contest_problem.problem
+        problems = Problem.objects.select_for_update().filter(contests__contest=contest).order_by('pk')
+        for problem in problems:
             # Editability is decided before publishing, so a user who may only edit
             # public problems cannot promote a private one by publishing it first.
             is_editable = problem.is_editable_by(request.user)
@@ -1671,7 +1695,7 @@ class ContestProblemMakePublic(LoginRequiredMixin, ContestMixin, SingleObjectMix
                 problem.save(update_fields=['is_public', 'date'])
                 # CHT's rescore_problem takes a publicity-changed flag which drives
                 # contribution point recomputation; keep signalling it.
-                rescore_problem.delay(problem.id, True)
+                transaction.on_commit(partial(rescore_problem.delay, problem.id, True))
 
             # Editorials are published even when the problem was already public, but
             # only for problems this user may edit, and only if still unpublished so

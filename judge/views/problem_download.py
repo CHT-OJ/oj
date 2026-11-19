@@ -1,9 +1,12 @@
 import os
 import zipfile
 from io import BytesIO
+from urllib.parse import urlsplit
 
 import requests
+from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.files.storage import default_storage
 from django.http import Http404, HttpResponse, JsonResponse
 from django.views.generic import View
 from django.views.generic.detail import SingleObjectMixin
@@ -67,21 +70,37 @@ class DownloadProblemFullPackage(LoginRequiredMixin, ProblemDownloadMixin, Singl
             zip_file.writestr(f'{field_name}_error.txt', f'Error processing {field_name}: {str(e)}')
 
     def _add_pdf(self, zip_file, problem):
-        """Fetch PDF from external URL and write to the zip file using its original filename."""
         if not problem.pdf_url:
             return
-
+        url = get_absolute_pdf_url(problem.pdf_url)
+        prefix = get_absolute_pdf_url(settings.PDF_STATEMENT_UPLOAD_URL_PREFIX).rstrip('/') + '/'
+        limit = settings.PDF_STATEMENT_MAX_FILE_SIZE
         try:
-            parsed_url = get_absolute_pdf_url(problem.pdf_url)
-
-            response = requests.get(parsed_url, timeout=10)
-            response.raise_for_status()
-
-            zip_file.writestr('statement.pdf', response.content)
-        except requests.exceptions.RequestException as e:
-            zip_file.writestr('statement_pdf_error.txt', f'Failed to download PDF ({problem.pdf_url}): {str(e)}')
-        except Exception as e:
-            zip_file.writestr('statement_pdf_error.txt', f'Error processing PDF ({problem.pdf_url}): {str(e)}')
+            if url.startswith(prefix):
+                name = url[len(prefix):]
+                if not name.lower().endswith('.pdf') or any(char in name for char in '/\\%?#'):
+                    raise ValueError('Invalid statement filename')
+                with default_storage.open(os.path.join(settings.PDF_STATEMENT_UPLOAD_MEDIA_DIR, name), 'rb') as pdf:
+                    content = pdf.read(limit + 1)
+            else:
+                address = urlsplit(url)
+                if (address.scheme != 'https' or address.username or address.password or
+                        address.netloc not in settings.PROBLEM_PACKAGE_PDF_HOSTS):
+                    zip_file.writestr('statement_pdf_url.txt', url)
+                    return
+                with requests.get(url, stream=True, allow_redirects=False, timeout=10) as response:
+                    if response.status_code != 200:
+                        raise ValueError('PDF host did not return HTTP 200')
+                    content = bytearray()
+                    for chunk in response.iter_content(65536):
+                        content.extend(chunk)
+                        if len(content) > limit:
+                            break
+            if len(content) > limit:
+                raise ValueError('PDF exceeds the statement upload limit')
+            zip_file.writestr('statement.pdf', content)
+        except (OSError, ValueError, requests.RequestException) as error:
+            zip_file.writestr('statement_pdf_error.txt', f'Failed to download PDF: {error}')
 
     def _add_statement(self, zip_file, problem: Problem):
         """Add statement.pdf to the zip file if it exists."""

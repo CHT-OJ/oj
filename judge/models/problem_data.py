@@ -135,3 +135,4 @@ class ProblemTestCase(models.Model):
     checker = models.CharField(max_length=10, verbose_name=_('checker'), choices=CHECKERS, blank=True)
     checker_args = models.TextField(verbose_name=_('checker arguments'), blank=True,
                                     help_text=_('Checker arguments as a JSON object.'))
+    batch_dependencies = models.CharField(_('Batch dependencies'), max_length=255, blank=True, default='')

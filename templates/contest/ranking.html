@@ -43,6 +43,7 @@
 {% endblock %}
 
 {% block users_js_media %}
+    {% if tab == 'ranking' %}<script defer src="{{ static('ranking-favorites.js') }}"></script>{% endif %}
     {% if not contest.ended %}
         <script type="text/javascript">
             $(function () {
@@ -70,7 +71,7 @@
                     $.ajax({
                         url: queryParam ? queryParam + '&raw' : '?raw',
                     }).done(function (data) {
-                        $('#ranking-table').html(data);
+                        $('#ranking-table').replaceWith(data);
                         if (localStorage.getItem('show-personal-info') == 'true') {
                             $('.personal-info').show();
                             $('#show-personal-info-checkbox').prop('checked', true);
@@ -326,6 +327,7 @@
 
                 if (!selected_orgs.length) {
                     window.clearRankingFilter();
+                    document.dispatchEvent(new Event('ranking-updated'));
                     return;
                 }
 
@@ -351,6 +353,7 @@
                     previous_abs_rank = current_abs_rank;
                 });
 
+                document.dispatchEvent(new Event('ranking-updated'));
                 if (counter > 0) {
                     localStorage.setItem(`filter-cleared-${contest_key}`, 'false');
                 }
@@ -546,10 +549,14 @@
 {% endblock %}
 
 {% block users_table %}
+    {% if tab == 'ranking' %}{% include 'contest/favorites.html' %}{% endif %}
     {{ rendered_ranking_table }}
 {% endblock %}
 
 {% block body %}
+    {% if can_replay and tab == 'ranking' %}
+        <p><a class="button" href="{{ url('contest_replay', contest.key) }}">{{ _('Ranking replay / virtual comparison') }}</a></p>
+    {% endif %}
     {% if is_frozen %}
     <div class="alert-warning">
         <p style="padding: 10px; text-align: center">

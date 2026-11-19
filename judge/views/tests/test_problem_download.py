@@ -147,13 +147,15 @@ class ProblemPackageDownloadTestCase(TestCase):
 
     # --- pdf -----------------------------------------------------------
 
+    @override_settings(PROBLEM_PACKAGE_PDF_HOSTS=('example.invalid',))
     def test_pdf_is_fetched_and_stored_as_statement_pdf(self):
         self.problem.pdf_url = 'https://example.invalid/statement.pdf'
         self.problem.save(update_fields=['pdf_url'])
 
-        fake = mock.Mock()
-        fake.content = b'%PDF-1.4 fake'
-        fake.raise_for_status = mock.Mock()
+        fake = mock.MagicMock()
+        fake.__enter__.return_value = fake
+        fake.status_code = 200
+        fake.iter_content.return_value = [b'%PDF-1.4 fake']
         with mock.patch('judge.views.problem_download.requests.get', return_value=fake) as get:
             response = self._download()
 
@@ -162,6 +164,7 @@ class ProblemPackageDownloadTestCase(TestCase):
         self.assertEqual(archive.read('statement.pdf'), b'%PDF-1.4 fake')
         self.assertNotIn('statement_pdf_error.txt', archive.namelist())
 
+    @override_settings(PROBLEM_PACKAGE_PDF_HOSTS=('example.invalid',))
     def test_pdf_failure_yields_error_entry_not_a_failed_package(self):
         self.problem.pdf_url = 'https://example.invalid/statement.pdf'
         self.problem.save(update_fields=['pdf_url'])
@@ -175,6 +178,14 @@ class ProblemPackageDownloadTestCase(TestCase):
         self.assertIn('Failed to download PDF', archive.read('statement_pdf_error.txt').decode())
         # The rest of the package survived the PDF failure.
         self.assertIn('statement.md', archive.namelist())
+
+    def test_external_pdf_link_is_kept_without_a_server_request(self):
+        self.problem.pdf_url = 'https://external.example/statement.pdf'
+        self.problem.save()
+        with mock.patch('judge.views.problem_download.requests.get') as fetch:
+            archive = zipfile.ZipFile(io.BytesIO(self._download().content))
+        fetch.assert_not_called()
+        self.assertEqual(archive.read('statement_pdf_url.txt').decode(), self.problem.pdf_url)
 
     def test_no_pdf_entry_when_problem_has_no_pdf_url(self):
         with mock.patch('judge.views.problem_download.requests.get') as get:

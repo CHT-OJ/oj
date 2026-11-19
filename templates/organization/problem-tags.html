@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title_row %}{% set tab = 'problem-list' %}{% include "organization/tabs.html" %}{% endblock %}
+{% block body %}
+    <h3>{{ title }}{% if problem %} · {{ problem.name }}{% endif %}</h3>
+    <form method="post">{% csrf_token %}{{ form.as_p() }}
+        <button class="button" type="submit">{{ _('Save') }}</button>
+    </form>
+    {% if not problem %}
+        <ul>{% for tag in tags %}
+            <li><form method="post">{% csrf_token %}{{ tag.name }}
+                <button type="submit" name="delete" value="{{ tag.id }}">{{ _('Delete') }}</button>
+            </form></li>
+        {% endfor %}</ul>
+    {% endif %}
+{% endblock %}

@@ -167,6 +167,22 @@ class ProblemRaw(ProblemMixin, TitleMixin, TemplateResponseMixin, SingleObjectMi
             ))
 
 
+def submission_form(request, problem, **kwargs):
+    judges = ()
+    if problem.is_editable_by(request.user):
+        judges = tuple(Judge.objects.filter(online=True, problems=problem).values_list('name', 'name'))
+    form = ProblemSubmitForm(instance=Submission(user=request.profile, problem=problem), judge_choices=judges, **kwargs)
+    form.fields['language'].queryset = (
+        problem.usable_languages.order_by('name', 'key')
+        .prefetch_related(Prefetch('runtimeversion_set', RuntimeVersion.objects.order_by('priority')))
+    )
+    language = form.initial.get('language')
+    if language:
+        form.fields['source'].widget.mode = language.ace
+    form.fields['source'].widget.theme = request.profile.resolved_ace_theme
+    return form
+
+
 class ProblemDetail(ProblemMixin, SolvedProblemMixin, CommentedDetailView):
     context_object_name = 'problem'
     template_name = 'problem/problem.html'
@@ -197,8 +213,16 @@ class ProblemDetail(ProblemMixin, SolvedProblemMixin, CommentedDetailView):
         contest_problem = self.contest_problem
         context['has_submissions'] = authed and Submission.objects.filter(user=user.profile,
                                                                           problem=self.object).exists()
+        if authed:
+            form = submission_form(self.request, self.object, initial={'language': user.profile.language})
+            context.update(form=form, default_lang=user.profile.language, ACE_URL=settings.ACE_URL,
+                           no_judges=not form.fields['language'].queryset,
+                           submit_action=reverse('problem_submit', args=[self.object.code]))
         context['contest_problem'] = contest_problem
         if contest_problem:
+            context['contest_codes'] = contest_problem.contest.contest_problems.order_by('order').values_list(
+                'problem__code', flat=True,
+            )
             clarifications = self.object.clarifications
             context['has_clarifications'] = clarifications.count() > 0
             context['clarifications'] = clarifications.order_by('-date')
@@ -605,33 +629,8 @@ class ProblemSubmit(LoginRequiredMixin, ProblemMixin, TitleMixin, SingleObjectFo
             initial['source'] = self.old_submission.source.source
         return initial
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs['instance'] = Submission(user=self.request.profile, problem=self.object)
-
-        if self.object.is_editable_by(self.request.user):
-            kwargs['judge_choices'] = tuple(
-                Judge.objects.filter(online=True, problems=self.object).values_list('name', 'name'),
-            )
-        else:
-            kwargs['judge_choices'] = ()
-
-        return kwargs
-
     def get_form(self, form_class=None):
-        form = super().get_form(form_class)
-
-        form.fields['language'].queryset = (
-            self.object.usable_languages.order_by('name', 'key')
-            .prefetch_related(Prefetch('runtimeversion_set', RuntimeVersion.objects.order_by('priority')))
-        )
-
-        form_data = getattr(form, 'cleaned_data', form.initial)
-        if 'language' in form_data:
-            form.fields['source'].widget.mode = form_data['language'].ace
-        form.fields['source'].widget.theme = self.request.profile.resolved_ace_theme
-
-        return form
+        return submission_form(self.request, self.object, **self.get_form_kwargs())
 
     def get_success_url(self):
         return reverse('submission_status', args=(self.new_submission.id,))

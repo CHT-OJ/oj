@@ -206,6 +206,8 @@
                         <th><i class="fa fa-check"></i></th>
                     {% endif %}
                     <th>{{ _('Problem') }}</th>
+                    <th>{{ _('Time limit') }}</th>
+                    <th>{{ _('Memory limit') }}</th>
                     {% if not is_ICPC_format %}
                         <th>{{ _('Points') }}</th>
                     {% endif %}
@@ -256,6 +258,8 @@
                                 {{ problem.i18n_name or problem.name }}
                             {% endif %}
                         </td>
+                        <td>{{ problem.time_limit }} s</td>
+                        <td>{{ problem.memory_limit|kbsimpleformat }}</td>
                         {% if not is_ICPC_format %}
                             <td>{{ problem.points|floatformat(-2) }}</td>
                         {% endif %}

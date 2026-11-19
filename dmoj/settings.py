@@ -649,6 +649,9 @@ MARTOR_UPLOAD_SAFE_EXTS = {
     '.md',
 }
 
+# External HTTPS hosts whose PDFs may be included in editor downloads.
+# Other external statements are included as links. Locally uploaded PDFs use Django storage.
+PROBLEM_PACKAGE_PDF_HOSTS = ()
 PDF_STATEMENT_UPLOAD_URL_PREFIX = '/pdf'
 PDF_STATEMENT_UPLOAD_MEDIA_DIR = 'pdf'
 PDF_STATEMENT_SAFE_EXTS = {'pdf'}

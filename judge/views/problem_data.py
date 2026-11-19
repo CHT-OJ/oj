@@ -1,6 +1,7 @@
 import json
 import mimetypes
 import os
+import zlib
 from itertools import chain
 from zipfile import BadZipfile, ZipFile
 
@@ -21,7 +22,7 @@ from django.views.generic import DetailView
 from judge.highlight_code import highlight_code
 from judge.models import Problem, ProblemData, ProblemTestCase, Submission, problem_data_storage
 from judge.models.problem_data import CUSTOM_CHECKERS, IO_METHODS
-from judge.utils.problem_data import ProblemDataCompiler
+from judge.utils.problem_data import ProblemDataCompiler, ProblemDataError, parse_batch_dependencies
 from judge.utils.unicode import utf8text
 from judge.utils.views import TitleMixin, add_file_response, generic_message
 from judge.views.problem import ProblemMixin
@@ -96,7 +97,7 @@ class ProblemCaseForm(ModelForm):
         model = ProblemTestCase
         fields = ('order', 'type', 'input_file', 'output_file', 'points',
                   'is_pretest',  # 'output_limit', 'output_prefix',
-                  'checker', 'checker_args', 'generator_args', 'public')
+                  'checker', 'checker_args', 'generator_args', 'public', 'batch_dependencies')
         widgets = {
             'generator_args': HiddenInput,
             'type': Select(attrs={'style': 'width: 100%'}),
@@ -114,6 +115,23 @@ class ProblemCaseFormSet(formset_factory(ProblemCaseForm, formset=BaseModelFormS
     def __init__(self, *args, **kwargs):
         self.valid_files = kwargs.pop('valid_files', None)
         super(ProblemCaseFormSet, self).__init__(*args, **kwargs)
+
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+        batches = sorted((form for form in self.forms if form.cleaned_data.get('type') == 'S' and
+                          not form.cleaned_data.get('DELETE')), key=lambda f: f.cleaned_data['order'])
+        pretests = any(form.cleaned_data.get('is_pretest') for form in batches)
+        for number, form in enumerate(batches, 1):
+            try:
+                deps = parse_batch_dependencies(form.cleaned_data['batch_dependencies'], number)
+            except ProblemDataError as error:
+                form.add_error('batch_dependencies', error.message)
+            else:
+                if deps and pretests:
+                    form.add_error('batch_dependencies',
+                                   _('Batch dependencies are not supported for problems with pretest batches.'))
 
     def _construct_form(self, i, **kwargs):
         form = super(ProblemCaseFormSet, self)._construct_form(i, **kwargs)
@@ -201,26 +219,38 @@ class ProblemDataView(TitleMixin, ProblemManagerMixin):
         return ProblemCaseFormSet(data=self.request.POST if post else None, prefix='cases', valid_files=files,
                                   queryset=ProblemTestCase.objects.filter(dataset_id=self.object.pk).order_by('order'))
 
-    def get_valid_files(self, data, post=False):
-        try:
-            if post and 'problem-data-zipfile-clear' in self.request.POST:
-                return []
-            elif post and 'problem-data-zipfile' in self.request.FILES:
-                return ZipFile(self.request.FILES['problem-data-zipfile']).namelist()
-            elif data.zipfile:
-                return ZipFile(data.zipfile.path).namelist()
-        except BadZipfile:
+    def get_valid_files(self, form, post=False):
+        upload = self.request.FILES.get('problem-data-zipfile') if post else None
+        if post and not upload and 'problem-data-zipfile-clear' in self.request.POST:
             return []
-        return []
+        archive = upload or form.instance.zipfile
+        if not archive:
+            return []
+        try:
+            with ZipFile(upload or archive.path) as zipped:
+                if upload:
+                    # Validate local headers and CRCs without inflating unbounded data on a web worker.
+                    remaining = 64 * 1024 * 1024
+                    for entry in zipped.infolist():
+                        with zipped.open(entry) as stream:
+                            if entry.file_size <= remaining:
+                                while stream.read(64 * 1024):
+                                    pass
+                                remaining -= entry.file_size
+                return [entry.filename for entry in zipped.infolist() if not entry.is_dir()]
+        except (BadZipfile, FileNotFoundError, RuntimeError, EOFError, zlib.error):
+            form.zip_valid = False
+            return []
+        finally:
+            if upload:
+                upload.seek(0)
 
     def get_context_data(self, **kwargs):
         context = super(ProblemDataView, self).get_context_data(**kwargs)
         if 'data_form' not in context:
             context['data_form'] = self.get_data_form()
-            valid_files = context['valid_files'] = self.get_valid_files(context['data_form'].instance)
-            context['data_form'].zip_valid = valid_files is not False
+            valid_files = context['valid_files'] = self.get_valid_files(context['data_form'])
             context['cases_formset'] = self.get_case_formset(valid_files)
-        context['valid_files_json'] = mark_safe(json.dumps(context['valid_files']))
         context['valid_files'] = set(context['valid_files'])
         context['all_case_forms'] = chain(context['cases_formset'], [context['cases_formset'].empty_form])
 
@@ -233,7 +263,9 @@ class ProblemDataView(TitleMixin, ProblemManagerMixin):
         return context
 
     def check_valid(self, data_form, cases_formset):
-        if not data_form.is_valid() or not cases_formset.is_valid():
+        data_valid = data_form.is_valid()
+        cases_valid = cases_formset.is_valid()
+        if not data_valid or not cases_valid:
             return False
         number_of_cases = cases_formset.total_form_count() - len(cases_formset.deleted_forms)
         if number_of_cases > settings.VNOJ_TESTCASE_HARD_LIMIT and \
@@ -249,8 +281,7 @@ class ProblemDataView(TitleMixin, ProblemManagerMixin):
     def post(self, request, *args, **kwargs):
         self.object = problem = self.get_object()
         data_form = self.get_data_form(post=True)
-        valid_files = self.get_valid_files(data_form.instance, post=True)
-        data_form.zip_valid = valid_files is not False
+        valid_files = self.get_valid_files(data_form, post=True)
         cases_formset = self.get_case_formset(valid_files, post=True)
         if self.check_valid(data_form, cases_formset):
             data = data_form.save()
@@ -260,6 +291,8 @@ class ProblemDataView(TitleMixin, ProblemManagerMixin):
             for case in cases_formset.deleted_objects:
                 case.delete()
             ProblemDataCompiler.generate(problem, data, problem.cases.order_by('order'), valid_files)
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return HttpResponse(status=204)
             return HttpResponseRedirect(request.get_full_path())
         return self.render_to_response(self.get_context_data(data_form=data_form, cases_formset=cases_formset,
                                                              valid_files=valid_files))

@@ -74,6 +74,7 @@
 {% endblock %}
 
 {% block row_extra %}
+    data-contest-user="{{ user.username }}"
     {% if user.participation.is_disqualified -%}
         class="disqualified"
     {%- endif %}

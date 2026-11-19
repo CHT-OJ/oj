@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title_row %}{% set tab = 'users' %}{% include "organization/tabs.html" %}{% endblock %}
+{% block body %}
+    <h3>{{ member.user.username }} · {{ _('Solved problems') }} ({{ paginator.count }})</h3>
+    <ul>
+        {% for problem in problems %}
+            <li><a href="{{ url('problem_detail', problem.code) }}">[{{ problem.code }}] {{ problem.name }}</a>
+                {% for tag in problem.local_tags %}<span class="type-tag">{{ tag.name }}</span>{% endfor %}
+            </li>
+        {% else %}<li>{{ _('No solved problems.') }}</li>{% endfor %}
+    </ul>
+    {% if page_obj.has_previous() %}<a href="?page={{ page_obj.previous_page_number() }}">← {{ _('Previous') }}</a>{% endif %}
+    {% if page_obj.has_next() %}<a href="?page={{ page_obj.next_page_number() }}">{{ _('Next') }} →</a>{% endif %}
+{% endblock %}

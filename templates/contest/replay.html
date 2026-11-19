@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title_row %}{% include "contest/contest-tabs.html" %}{% endblock %}
+{% block js_media %}
+    <script defer src="{{ static('ranking-favorites.js') }}"></script>
+    <script defer src="{{ static('contest-replay.js') }}"></script>
+{% endblock %}
+{% block body %}
+    <h3>{{ _('Ranking replay / virtual comparison') }}</h3>
+    <p>{{ _('Scores use the current judging results at each submission time.') }}</p>
+    <label for="replay-time">{{ _('Elapsed time') }}</label>
+    <input id="replay-time" type="range" min="0" value="0" step="1">
+    <output id="replay-clock" for="replay-time"></output>
+    <button type="button" id="replay-play">{{ _('Play') }}</button>
+    <label id="live-controls" hidden><input type="checkbox" id="follow-virtual" checked>{{ _('Follow my virtual attempt') }}</label>
+    {% include 'contest/favorites.html' %}
+    <table class="table striped" id="ranking-table" data-virtual="{{ _('Virtual') }}" data-pause="{{ _('Pause') }}">
+        <thead><tr><th>{{ _('Rank') }}</th><th>{{ _('Username') }}</th><th>{{ _('Points') }}</th>
+            <th>{{ _('Cumulative time') }}</th></tr></thead><tbody></tbody>
+    </table>
+    {{ replay }}
+{% endblock %}

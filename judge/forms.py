@@ -374,7 +374,9 @@ class ProblemSubmitForm(ModelForm):
         source = self.cleaned_data.get('source', '')
         content = self.files.get('submission_file', None)
         language = self.cleaned_data.get('language', None)
-        lang_obj = Language.objects.get(name=language)
+        if language is None:
+            return
+        lang_obj = language
 
         if (source != '' and content is not None) or (source == '' and content is None) or \
                 (source != '' and lang_obj.file_only) or (content == '' and not lang_obj.file_only):
