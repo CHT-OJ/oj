@@ -93,7 +93,7 @@ function rowSweepPayload() {
     ),
   );
   return {
-    schema_version: 1,
+    schema_version: 2,
     contest: {
       id: 9,
       key: "row-sweep",
@@ -134,7 +134,7 @@ function sameRowPayload() {
     frozen: null,
   }));
   return {
-    schema_version: 1,
+    schema_version: 2,
     contest: {
       id: 10,
       key: "same-row",
@@ -151,7 +151,49 @@ function sameRowPayload() {
   };
 }
 
-function createPlayer({ speed = 1, waits = [], steps = [], wait = null } = {}) {
+function rankedIcpcPayload(contestantCount = 7) {
+  const problems = [problem("A", 0), problem("B", 1)];
+  const contestants = [];
+  for (let id = 1; id <= contestantCount; id += 1) {
+    const entry = contestant(
+      id,
+      {
+        A: icpcCell("A", 1, id * 60, 1, 1, 1, false),
+        B: icpcCell("B", 0, 0, 1, 0, 1, true),
+      },
+      id - 1,
+    );
+    entry.final = { score: 1, cumtime: id, tiebreaker: id };
+    entry.frozen = { score: 1, cumtime: id, tiebreaker: id };
+    contestants.push(entry);
+  }
+  return {
+    schema_version: 2,
+    contest: {
+      id: 11,
+      key: `ranked-${contestantCount}`,
+      name: "Ranked ICPC",
+      format: "icpc",
+      format_config: { penalty: 20 },
+      rank_display_options: 3,
+      points_precision: 3,
+      frozen_last_minutes: 60,
+      official_freeze_available: true,
+    },
+    problems,
+    contestants,
+  };
+}
+
+function createPlayer({
+  speed = 1,
+  waits = [],
+  steps = [],
+  wait = null,
+  singleStepStartRank = 0,
+  awardPlaces = 0,
+  hardPauses = { award: false, firstSolve: true },
+} = {}) {
   const session = new ResolverSession(icpcPayload, {
     baseline: "official-freeze",
     tieOrder: "seeded",
@@ -160,9 +202,9 @@ function createPlayer({ speed = 1, waits = [], steps = [], wait = null } = {}) {
   const planner = new ResolutionPlanner({
     payload: icpcPayload,
     targetSelector: (currentSession) => policy.select(currentSession),
-    singleStepStartRank: 1,
-    awardPlaces: 0,
-    hardPauses: { singleStep: true, award: false, firstSolve: true },
+    singleStepStartRank,
+    awardPlaces,
+    hardPauses,
   });
   const player = new ResolutionPlayer({
     session,
@@ -253,12 +295,12 @@ test("official ICPC event delays and playback speed scaling are exact", () => {
   assert.equal(effectiveDelay(2250, 0.5), 4500);
 });
 
-test("singleStepStartRank is one-based: rank 7 auto, rank 6 single-step", () => {
+test("singleStepStartRank is one-based by physical position", () => {
   assert.equal(usesSingleStepTiming(7, 6), false);
   assert.equal(usesSingleStepTiming(6, 6), true);
 });
 
-test("SingleStepTiming pauses after team, problem, and result but not deselection", () => {
+test("SingleStepTiming uses hard pauses after team, problem, and result but not deselection", () => {
   const session = new ResolverSession(defaultPayload, {
     baseline: "beginning",
     tieOrder: "source",
@@ -267,7 +309,7 @@ test("SingleStepTiming pauses after team, problem, and result but not deselectio
   const planner = new ResolutionPlanner({
     payload: defaultPayload,
     targetSelector: (currentSession) => policy.select(currentSession),
-    singleStepStartRank: 1,
+    singleStepStartRank: 3,
     awardPlaces: 0,
   });
   const plan = planner.planNext(session);
@@ -276,12 +318,178 @@ test("SingleStepTiming pauses after team, problem, and result but not deselectio
     plan.steps.filter((step) => step.type === RESOLUTION_STEP_TYPES.PAUSE).map((step) => step.kind),
     ["single-step-team", "single-step-problem", "single-step-result"],
   );
+  assert.equal(
+    plan.steps
+      .filter((step) => step.type === RESOLUTION_STEP_TYPES.PAUSE)
+      .every((step) => step.hard === true),
+    true,
+  );
   const deselectIndex = plan.steps.findIndex(
     (step) => step.type === RESOLUTION_STEP_TYPES.DESELECT,
   );
   assert.equal(
     plan.steps.slice(deselectIndex + 1).some((step) => step.type === RESOLUTION_STEP_TYPES.PAUSE),
     false,
+  );
+});
+
+test("continuous Play starts in single-step immediately when five contestants are inside Top 6", async () => {
+  const payload = rankedIcpcPayload(5);
+  const session = new ResolverSession(payload, { baseline: "official-freeze" });
+  const policy = new RowSweepPolicy(payload.problems.map((entry) => entry.id));
+  const planner = new ResolutionPlanner({
+    payload,
+    targetSelector: (currentSession) => policy.select(currentSession),
+    singleStepStartRank: 6,
+    awardPlaces: 0,
+    hardPauses: { award: false, firstSolve: false },
+  });
+  const player = new ResolutionPlayer({ session, planner, wait: async () => {} });
+
+  const team = await player.playContinuous(false);
+  assert.equal(team.pause.kind, "single-step-team");
+  assert.equal(team.pause.hard, true);
+  assert.equal(session.getHistoryCursor(), 0);
+
+  const problem = await player.playToNextPause(false);
+  assert.equal(problem.pause.kind, "single-step-problem");
+  assert.equal(session.getHistoryCursor(), 0);
+
+  const result = await player.playToNextPause(false);
+  assert.equal(result.pause.kind, "single-step-result");
+  assert.equal(session.getHistoryCursor(), 1);
+});
+
+test("Beginning tied ranks stay automatic until row sweep physically reaches Top 3", async () => {
+  const payload = rankedIcpcPayload(8);
+  const session = new ResolverSession(payload, { baseline: "beginning", tieOrder: "source" });
+  const policy = new RowSweepPolicy(payload.problems.map((entry) => entry.id));
+  const planner = new ResolutionPlanner({
+    payload,
+    targetSelector: (currentSession) => policy.select(currentSession),
+    singleStepStartRank: 3,
+    awardPlaces: 0,
+    hardPauses: { award: false, firstSolve: false },
+  });
+  const player = new ResolutionPlayer({ session, planner, wait: async () => {} });
+
+  assert.equal(
+    session.getStandings().every((standing) => standing.rank === 1),
+    true,
+  );
+  const first = planner.projectNext(session);
+  assert.equal(first.currentPosition, 8);
+  assert.equal(first.currentRank, 1);
+  assert.equal(first.isSingleStep, false, "displayed tied rank must not activate Top 3");
+
+  const boundary = await player.playContinuous(false);
+  assert.equal(boundary.pause.kind, "single-step-team");
+  assert.equal(player.getState().projection.currentPosition <= 3, true);
+  assert.equal(session.getHistoryCursor() > 0, true, "bottom rows resolved automatically first");
+});
+
+test("Official Freeze physical Top N includes exact ties and keeps a disqualified bottom row automatic", async () => {
+  const payload = rankedIcpcPayload(5);
+  payload.contestants.forEach((entry) => {
+    entry.frozen = { score: 1, cumtime: 10, tiebreaker: 10 };
+  });
+  payload.contestants.at(-1).is_disqualified = true;
+  const session = new ResolverSession(payload, {
+    baseline: "official-freeze",
+    tieOrder: "source",
+  });
+  const policy = new RowSweepPolicy(payload.problems.map((entry) => entry.id));
+  const planner = new ResolutionPlanner({
+    payload,
+    targetSelector: (currentSession) => policy.select(currentSession),
+    singleStepStartRank: 3,
+    hardPauses: { award: false, firstSolve: false },
+  });
+  const player = new ResolutionPlayer({ session, planner, wait: async () => {} });
+
+  const first = planner.projectNext(session);
+  assert.equal(first.currentPosition, 5);
+  assert.equal(first.isSingleStep, false);
+  const boundary = await player.playContinuous(false);
+  assert.equal(boundary.pause.kind, "single-step-team");
+  assert.equal(player.getState().projection.currentPosition <= 3, true);
+});
+
+test("award-zone start pauses once when row sweep reaches Top 6 without a rank crossing", async () => {
+  const payload = rankedIcpcPayload(7);
+  const session = new ResolverSession(payload, { baseline: "official-freeze", tieOrder: "source" });
+  const policy = new RowSweepPolicy(payload.problems.map((entry) => entry.id));
+  const planner = new ResolutionPlanner({
+    payload,
+    targetSelector: (currentSession) => policy.select(currentSession),
+    singleStepStartRank: 0,
+    awardPlaces: 6,
+    hardPauses: { award: true, firstSolve: false },
+  });
+  const player = new ResolutionPlayer({ session, planner, wait: async () => {} });
+
+  const rankSeven = await player.fastForwardToNextPause();
+  assert.equal(rankSeven.pause.kind, "reveal-complete");
+  assert.equal(session.getHistoryCursor(), 1);
+  assert.equal(session.getStandings().at(-1).rank, 7);
+
+  const awardStart = await player.playContinuous(false);
+  assert.equal(awardStart.pause.kind, "award-zone-start");
+  assert.equal(awardStart.pause.hard, true);
+  assert.equal(session.getHistoryCursor(), 1, "the pause happens before revealing rank 6");
+  assert.equal(player.getState().milestones.awardZoneEntered, true);
+
+  await player.rewindToPreviousPause();
+  assert.equal(player.getState().milestones.awardZoneEntered, false);
+  const replayedAwardStart = await player.playContinuous(false);
+  assert.equal(replayedAwardStart.pause.kind, "award-zone-start");
+
+  const completed = await player.playContinuous(false);
+  assert.equal(completed.complete, true);
+  assert.equal(session.getResolvableCount(), 0);
+});
+
+test("award-zone Top N zero never creates an award pause", async () => {
+  const payload = rankedIcpcPayload(3);
+  const session = new ResolverSession(payload, { baseline: "official-freeze" });
+  const policy = new RowSweepPolicy(payload.problems.map((entry) => entry.id));
+  const planner = new ResolutionPlanner({
+    payload,
+    targetSelector: (currentSession) => policy.select(currentSession),
+    awardPlaces: 0,
+    hardPauses: { award: true, firstSolve: false },
+  });
+  const pauses = [];
+  const player = new ResolutionPlayer({
+    session,
+    planner,
+    wait: async () => {},
+    onStep: async (step) => {
+      if (step.type === RESOLUTION_STEP_TYPES.PAUSE) pauses.push(step.kind);
+    },
+  });
+  await player.playContinuous(false);
+  assert.equal(pauses.includes("award-zone-start"), false);
+});
+
+test("award-zone start follows the physical row sweep when Beginning ranks are tied", () => {
+  const payload = rankedIcpcPayload(8);
+  const session = new ResolverSession(payload, { baseline: "beginning", tieOrder: "source" });
+  const policy = new RowSweepPolicy(payload.problems.map((entry) => entry.id));
+  const planner = new ResolutionPlanner({
+    payload,
+    targetSelector: (currentSession) => policy.select(currentSession),
+    awardPlaces: 6,
+    hardPauses: { award: true, firstSolve: false },
+  });
+
+  const projection = planner.projectNext(session, { awardZoneEntered: false });
+  assert.equal(projection.currentPosition, 8);
+  assert.equal(projection.currentRank, 1, "Beginning displayed ranks are tied");
+  assert.equal(
+    projection.awardZoneStart,
+    false,
+    "a tied displayed rank must not move the physical row-sweep boundary",
   );
 });
 
@@ -294,7 +502,7 @@ test("Rewind clears a selection-only SingleStep pause before any reveal", async 
   const planner = new ResolutionPlanner({
     payload: defaultPayload,
     targetSelector: (currentSession) => policy.select(currentSession),
-    singleStepStartRank: 1,
+    singleStepStartRank: 3,
     awardPlaces: 0,
   });
   const player = new ResolutionPlayer({ session, planner });
@@ -314,19 +522,20 @@ test("Rewind clears a selection-only SingleStep pause before any reveal", async 
   assert.equal(session.getHistory().cursor, 0);
 });
 
-test("Forward executes intermediate actions and delays until the next hard PauseStep", async () => {
+test("Forward advances exactly one ordinary reveal to its soft reveal boundary", async () => {
   const waits = [];
   const steps = [];
   const { session, player } = createPlayer({ waits, steps });
   const result = await player.playToNextPause(true);
 
   assert.equal(result.pause.type, RESOLUTION_STEP_TYPES.PAUSE);
-  assert.equal(result.pause.kind, "first-solve");
-  assert.equal(session.getHistory().cursor, 2);
-  assert.deepEqual(waits, [1300, 1000, 850, 250, 1300, 1000, 1500]);
+  assert.equal(result.pause.kind, "reveal-complete");
+  assert.equal(result.pause.hard, false);
+  assert.equal(session.getHistory().cursor, 1);
+  assert.deepEqual(waits, [1300, 1000, 850]);
   assert.equal(steps.includes(RESOLUTION_STEP_TYPES.SELECT_TEAM), true);
   assert.equal(steps.includes(RESOLUTION_STEP_TYPES.SELECT_PROBLEM), true);
-  assert.equal(steps.filter((type) => type === RESOLUTION_STEP_TYPES.REVEAL_CELL).length, 2);
+  assert.equal(steps.filter((type) => type === RESOLUTION_STEP_TYPES.REVEAL_CELL).length, 1);
 });
 
 test("Fast Forward reaches the same semantic pause state without narrative delays", async () => {
@@ -337,7 +546,7 @@ test("Fast Forward reaches the same semantic pause state without narrative delay
   const waits = [];
   const fast = createPlayer({ waits });
   const result = await fast.player.fastForwardToNextPause();
-  assert.equal(result.pause.kind, "first-solve");
+  assert.equal(result.pause.kind, "reveal-complete");
   assert.deepEqual(fast.session.getState(), expected);
   assert.deepEqual(waits, []);
 });
@@ -346,7 +555,7 @@ test("Rewind restores the exact previous semantic pause state", async () => {
   const { session, player } = createPlayer();
   const baseline = session.getState();
   await player.fastForwardToNextPause();
-  assert.equal(session.getHistory().cursor, 2);
+  assert.equal(session.getHistory().cursor, 1);
   await player.rewindToPreviousPause();
   assert.deepEqual(session.getState(), baseline);
   assert.equal(session.getHistory().cursor, 0);
@@ -437,7 +646,7 @@ test("continuous Play crosses narrative pauses and reaches final standings", asy
   const planner = new ResolutionPlanner({
     payload: defaultPayload,
     targetSelector: (currentSession) => policy.select(currentSession),
-    singleStepStartRank: 1,
+    singleStepStartRank: 0,
     awardPlaces: 0,
     hardPauses: { singleStep: false, award: false, firstSolve: false },
   });
@@ -476,7 +685,7 @@ test("continuous Play stops only at explicitly enabled hard pauses and resumes d
   const planner = new ResolutionPlanner({
     payload: defaultPayload,
     targetSelector: (currentSession) => policy.select(currentSession),
-    singleStepStartRank: 1,
+    singleStepStartRank: 0,
     awardPlaces: 0,
     hardPauses: { singleStep: false, award: false, firstSolve: true },
   });

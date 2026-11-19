@@ -1,5 +1,8 @@
-function prefersReducedMotion() {
-  return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+export function prefersReducedMotion() {
+  return Boolean(
+    globalThis.window?.matchMedia &&
+      globalThis.window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
 }
 
 function transitionPromise(element, duration, eventName) {
@@ -68,20 +71,83 @@ export async function animateRows(tableBody, previousPositions, duration = 700) 
   await Promise.all(completions);
 }
 
-export async function animateChangedCells(tableBody, targets, duration = 560) {
-  if (!targets.length || prefersReducedMotion()) {
-    return;
+function waitFor(durationMs) {
+  return new Promise((resolve) => globalThis.setTimeout(resolve, durationMs));
+}
+
+export function revealHighlightTargets(rowElements, targets) {
+  const rows = new Map();
+  const cells = new Map();
+  targets.forEach((target) => {
+    const contestantId = String(target.contestantId);
+    const problemId = String(target.problemId);
+    const row = rowElements.get(contestantId);
+    if (!row) {
+      return;
+    }
+    rows.set(contestantId, row);
+    const cell = row._resolverRefs?.problemCells?.get(problemId);
+    if (cell) {
+      cells.set(`${contestantId}:${problemId}`, cell);
+    }
+  });
+  return { rows: [...rows.values()], cells: [...cells.values()] };
+}
+
+export async function animateRevealHighlight(
+  rowElements,
+  targets,
+  duration = 500,
+  { subtleRows = false, reducedMotion = prefersReducedMotion(), wait = waitFor } = {},
+) {
+  const durationMs = Number(duration);
+  if (!targets.length || !Number.isFinite(durationMs) || durationMs <= 0 || reducedMotion) {
+    return { rows: 0, cells: 0 };
   }
-  const targetKeys = new Set(targets.map((target) => `${target.contestantId}:${target.problemId}`));
-  const cells = [...tableBody.querySelectorAll("td[data-problem-id]")].filter((cell) =>
-    targetKeys.has(`${cell.closest("tr").dataset.contestantId}:${cell.dataset.problemId}`),
-  );
-  await Promise.all(
-    cells.map((cell) => {
-      cell.classList.add("resolver-cell--changed");
-      return transitionPromise(cell, duration, "animationend").then(() =>
-        cell.classList.remove("resolver-cell--changed"),
-      );
-    }),
-  );
+  const affected = revealHighlightTargets(rowElements, targets);
+  const rowClass = subtleRows
+    ? "resolver-row--reveal-highlight-subtle"
+    : "resolver-row--reveal-highlight";
+  [...affected.rows, ...affected.cells].forEach((node) => {
+    node.style.setProperty("--resolver-reveal-highlight-duration", `${durationMs}ms`);
+  });
+  affected.rows.forEach((row) => row.classList.add(rowClass));
+  affected.cells.forEach((cell) => cell.classList.add("resolver-cell--reveal-highlight"));
+  await wait(durationMs);
+  affected.rows.forEach((row) => {
+    row.classList.remove(rowClass);
+    row.style.removeProperty("--resolver-reveal-highlight-duration");
+  });
+  affected.cells.forEach((cell) => {
+    cell.classList.remove("resolver-cell--reveal-highlight");
+    cell.style.removeProperty("--resolver-reveal-highlight-duration");
+  });
+  return { rows: affected.rows.length, cells: affected.cells.length };
+}
+
+export function isRowWithinSafeViewport(rect, viewportHeight, safeBand = 0.15) {
+  const height = Number(viewportHeight);
+  if (!rect || !Number.isFinite(height) || height <= 0) {
+    return true;
+  }
+  const margin = Math.max(0, Math.min(0.45, Number(safeBand) || 0)) * height;
+  return rect.top >= margin && rect.bottom <= height - margin;
+}
+
+export function ensureRowVisible(
+  row,
+  {
+    viewportHeight = globalThis.window?.innerHeight ?? 0,
+    behavior = "smooth",
+    safeBand = 0.15,
+  } = {},
+) {
+  if (!row || typeof row.getBoundingClientRect !== "function") {
+    return false;
+  }
+  if (isRowWithinSafeViewport(row.getBoundingClientRect(), viewportHeight, safeBand)) {
+    return false;
+  }
+  row.scrollIntoView({ block: "center", behavior });
+  return true;
 }

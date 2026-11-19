@@ -7763,6 +7763,10 @@ msgstr "Ít"
 msgid "More"
 msgstr "Nhiều"
 
+#: templates/contest/spotlight-ranking.html
+msgid "More actions"
+msgstr "Thêm thao tác"
+
 #: templates/user/user-about.html:122
 msgid "Rating history"
 msgstr "Lịch sử rating"
@@ -7950,7 +7954,7 @@ msgstr "Sau khi mở"
 
 #: templates/contest/spotlight-ranking.html
 msgid "Authoritative first solve"
-msgstr "Lời giải đầu tiên chính thức"
+msgstr "First Solve theo kết quả thực tế"
 
 #: templates/contest/spotlight-ranking.html
 msgid "Auto"
@@ -8038,7 +8042,7 @@ msgstr "Tăng tốc độ tự động"
 
 #: templates/contest/spotlight-ranking.html
 msgid "First solve uses authoritative contest result data"
-msgstr "Lời giải đầu tiên dùng dữ liệu kết quả chính thức của cuộc thi"
+msgstr "First Solve dùng dữ liệu kết quả thực tế của cuộc thi"
 
 #: templates/contest/spotlight-ranking.html
 msgid "Forward"
@@ -8195,3 +8199,123 @@ msgstr "Tổng AC"
 #: templates/contest/spotlight-ranking.html
 msgid "Use 0 to keep continuous playback."
 msgstr "Dùng 0 để tiếp tục chạy liên tục."
+
+#: templates/contest/spotlight-ranking.html
+msgid "Apply settings"
+msgstr "Áp dụng thiết lập"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Restart presentation"
+msgstr "Khởi động lại trình diễn"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Changing the start state requires restarting the presentation."
+msgstr "Thay đổi trạng thái bắt đầu yêu cầu khởi động lại trình diễn."
+
+#: templates/contest/spotlight-ranking.html
+msgid "Reveal highlight"
+msgstr "Hiệu ứng nhấn khi mở kết quả"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Off"
+msgstr "Tắt"
+
+#: templates/contest/spotlight-ranking.html
+msgid "0.25 seconds"
+msgstr "0,25 giây"
+
+#: templates/contest/spotlight-ranking.html
+msgid "0.5 seconds"
+msgstr "0,5 giây"
+
+#: templates/contest/spotlight-ranking.html
+msgid "0.75 seconds"
+msgstr "0,75 giây"
+
+#: templates/contest/spotlight-ranking.html
+msgid "1 second"
+msgstr "1 giây"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Follow position"
+msgstr "Theo dõi vị trí"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Auto-scroll during automatic reveal"
+msgstr "Tự động cuộn khi mở kết quả tự động"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Auto-scroll during manual reveal"
+msgstr "Tự động cuộn khi mở kết quả thủ công"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Single-step in Top N"
+msgstr "Thao tác từng bước trong Top N"
+
+#: templates/contest/spotlight-ranking.html
+msgid "0 disables single-step mode."
+msgstr "0 để tắt chế độ từng bước."
+
+#: templates/contest/spotlight-ranking.html
+msgid "Award zone: Top N"
+msgstr "Vùng giải thưởng: Top N"
+
+#: templates/contest/spotlight-ranking.html
+msgid "0 disables the award zone."
+msgstr "0 để tắt vùng giải thưởng."
+
+#: templates/contest/spotlight-ranking.html
+msgid "Pause when ceremony reaches the award zone"
+msgstr "Dừng khi trình diễn bắt đầu vào vùng giải thưởng"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Pause after revealing First Solve"
+msgstr "Dừng sau khi mở First Solve"
+
+#: templates/contest/spotlight-ranking.html
+msgid "First Solve is the actual earliest accepted solve and does not depend on presentation order."
+msgstr "First Solve là lần giải đúng sớm nhất thực tế của bài và không phụ thuộc vào thứ tự trình diễn."
+
+#: templates/contest/spotlight-ranking.html
+msgid "Advance to the next narrative or reveal pause"
+msgstr "Tiến tới điểm dừng trình diễn hoặc mở kết quả tiếp theo"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Return to the previous presentation checkpoint"
+msgstr "Quay về mốc trình diễn trước"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Refresh results"
+msgstr "Tải lại kết quả"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Snapshot status"
+msgstr "Trạng thái snapshot"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Snapshot generated"
+msgstr "Snapshot được tạo"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Pause before moving rows"
+msgstr "Dừng trước khi đổi vị trí"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Show the new score and rank before moving, at every playback speed."
+msgstr "Hiện điểm và hạng mới trước khi di chuyển, ở mọi tốc độ chạy."
+
+#: templates/contest/spotlight-ranking.html
+msgid "Hide controls"
+msgstr "Ẩn điều khiển"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Show controls"
+msgstr "Hiện điều khiển"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Show or hide presentation controls"
+msgstr "Ẩn hoặc hiện thanh điều khiển trình diễn"
+
+#: templates/contest/spotlight-ranking.html
+msgid "Close help, show controls or leave fullscreen"
+msgstr "Đóng trợ giúp, hiện điều khiển hoặc thoát toàn màn hình"

@@ -49,7 +49,7 @@ export function createSyntheticPayload(contestantCount, problemCount) {
   });
 
   return {
-    schema_version: 1,
+    schema_version: 2,
     contest: {
       id: 999,
       key: `synthetic-${contestantCount}x${problemCount}`,

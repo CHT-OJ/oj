@@ -20,10 +20,6 @@ export function classifyResolutionResult(transition) {
   return RESOLUTION_STEP_TYPES.RESULT_FAILED;
 }
 
-function crossingBoundary(beforeRank, afterRank, boundary) {
-  return boundary > 0 && beforeRank > boundary && afterRank <= boundary;
-}
-
 export class ResolutionPlanner {
   constructor({
     payload,
@@ -37,7 +33,6 @@ export class ResolutionPlanner {
     this.singleStepStartRank = Number.parseInt(singleStepStartRank, 10) || 0;
     this.awardPlaces = Number.parseInt(awardPlaces, 10) || 0;
     this.hardPauses = {
-      singleStep: hardPauses.singleStep === true,
       award: hardPauses.award === true,
       firstSolve: hardPauses.firstSolve === true,
     };
@@ -52,7 +47,7 @@ export class ResolutionPlanner {
     this.problems = new Map(payload.problems.map((problem) => [normalizeId(problem.id), problem]));
   }
 
-  projectNext(session) {
+  projectNext(session, planningContext = {}) {
     const target = this.targetSelector(session);
     if (!target) {
       return null;
@@ -65,17 +60,13 @@ export class ResolutionPlanner {
     const problem = this.problems.get(normalizeId(target.problemId));
     const { effects } = projection;
     const resultType = classifyResolutionResult(projection);
-    const isSingleStep = usesSingleStepTiming(effects.rankBefore, this.singleStepStartRank);
-    const entersSingleStepZone = crossingBoundary(
-      effects.rankBefore,
-      effects.rankAfter,
-      this.singleStepStartRank,
-    );
-    const entersAwardZone = crossingBoundary(
-      effects.rankBefore,
-      effects.rankAfter,
-      this.awardPlaces,
-    );
+    const isSingleStep = usesSingleStepTiming(effects.positionBefore, this.singleStepStartRank);
+    const singleStepBoundary = Math.min(this.singleStepStartRank, this.payload.contestants.length);
+    const entersSingleStepZone = isSingleStep && effects.positionBefore === singleStepBoundary;
+    const isAwardZoneTarget = this.awardPlaces > 0 && effects.positionBefore <= this.awardPlaces;
+    const entersAwardZone = isAwardZoneTarget && planningContext.awardZoneEntered !== true;
+    const awardZoneStart =
+      this.hardPauses.award && isAwardZoneTarget && planningContext.awardZoneEntered !== true;
 
     let hardPauseKind = null;
     let hardPauseReason = null;
@@ -83,16 +74,6 @@ export class ResolutionPlanner {
       hardPauseKind = "first-solve";
       hardPauseReason = gettext("Authoritative first solve on problem %(problem)s.", {
         problem: problem?.label ?? target.problemId,
-      });
-    } else if (this.hardPauses.award && entersAwardZone) {
-      hardPauseKind = "award-boundary";
-      hardPauseReason = gettext("Entered the top %(rank)s award zone.", {
-        rank: this.awardPlaces,
-      });
-    } else if (this.hardPauses.singleStep && entersSingleStepZone) {
-      hardPauseKind = "single-step-boundary";
-      hardPauseReason = gettext("Entered the top %(rank)s single-step region.", {
-        rank: this.singleStepStartRank,
       });
     }
 
@@ -114,6 +95,13 @@ export class ResolutionPlanner {
       isSingleStep,
       entersSingleStepZone,
       entersAwardZone,
+      isAwardZoneTarget,
+      awardZoneStart,
+      awardZoneStartReason: awardZoneStart
+        ? gettext("The ceremony has reached the top %(rank)s award zone.", {
+            rank: this.awardPlaces,
+          })
+        : null,
       authoritativeFirstSolve: effects.authoritativeFirstSolveAppeared,
       hardPauseKind,
       hardPauseReason,
@@ -121,8 +109,8 @@ export class ResolutionPlanner {
     };
   }
 
-  planNext(session) {
-    const metadata = this.projectNext(session);
+  planNext(session, planningContext = {}) {
+    const metadata = this.projectNext(session, planningContext);
     if (!metadata) {
       return null;
     }

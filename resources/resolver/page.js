@@ -1,13 +1,13 @@
-import { animateChangedCells, animateRows, captureRowPositions } from "./animation.js";
 import {
-  CEREMONY_PRESETS,
-  SPEED_PRESETS,
-  clampSpeedIndex,
-  normalizeAwardPlaces,
-  normalizeSingleStepStartRank,
-} from "./controller.js";
-import { ResolverSession } from "./core.js";
+  animateRevealHighlight,
+  animateRows,
+  captureRowPositions,
+  ensureRowVisible,
+} from "./animation.js";
+import { CEREMONY_PRESETS, SPEED_PRESETS, clampSpeedIndex } from "./controller.js";
+import { ResolverSession, resolveResolverBaseline } from "./core.js";
 import { gettext, ngettext } from "./i18n.js";
+import { ManualActionCoordinator } from "./manual-actions.js";
 import { ResolutionPlanner } from "./planner.js";
 import { ResolutionPlayer } from "./player.js";
 import {
@@ -24,6 +24,12 @@ import {
   normalizeRankDisplayOption,
 } from "./presentation.js";
 import { RESOLUTION_STEP_TYPES } from "./timing.js";
+import {
+  DEFAULT_RESOLVER_SETTINGS,
+  ResolverSettingsManager,
+  normalizeResolverSettings,
+} from "./settings.js";
+import { estimateServerNow, getResolverSnapshotStatus } from "./snapshot.js";
 
 function element(tagName, className = "", text = null) {
   const node = document.createElement(tagName);
@@ -71,35 +77,66 @@ export class ResolverPage {
     this.policy = new RowSweepPolicy(this.problems.map((problem) => problem.id));
     this.policyName = "row-sweep";
     this.hardPauses = { ...CEREMONY_PRESETS.icpc.hardPauses };
-    this.awardPlaces = Math.min(6, payload.contestants.length);
+    this.awardPlaces = 0;
     this.singleStepStartRank = 0;
     this.speedIndex = 1;
+    this.settings = new ResolverSettingsManager(
+      DEFAULT_RESOLVER_SETTINGS,
+      payload.contestants.length,
+    );
+    this.revealHighlightDurationMs = DEFAULT_RESOLVER_SETTINGS.revealHighlightDurationMs;
+    this.revealHoldDurationMs = DEFAULT_RESOLVER_SETTINGS.revealHoldDurationMs;
+    this.heldRowOrder = null;
+    this.autoScrollAutomatic = DEFAULT_RESOLVER_SETTINGS.autoScrollAutomatic;
+    this.autoScrollManual = DEFAULT_RESOLVER_SETTINGS.autoScrollManual;
+    this.setupMode = "initial";
+    this.pendingSetupOpen = false;
     this.planner = null;
     this.player = null;
     this.busy = false;
     this.totalResolvable = 0;
     this.hudVisible = false;
+    this.controlsVisible = true;
     this.statusMessage = gettext("Ready to start Resolver.");
     this.helpReturnFocus = null;
     this.projectionCache = null;
     this.problemHeaderButtons = new Map();
     this.rowElements = new Map();
     this.totalRow = null;
+    this.snapshotTimer = null;
+    this.snapshotMonotonicAtLoad = globalThis.performance?.now?.() ?? 0;
 
     this.nodes = {
       setup: root.querySelector("#resolver-setup"),
       setupForm: root.querySelector("#resolver-setup-form"),
+      setupHeadingText: root.querySelector("#resolver-setup-heading-text"),
+      setupIntro: root.querySelector("#resolver-setup-intro"),
+      setupSubmit: root.querySelector("#resolver-setup-submit"),
+      setupSubmitLabel: root.querySelector("#resolver-setup-submit-label"),
+      setupCancel: root.querySelector("#resolver-setup-cancel"),
+      restartPresentation: root.querySelector("#resolver-restart-presentation"),
+      restartWarning: root.querySelector("#resolver-restart-warning"),
       baseline: root.querySelector("#resolver-baseline"),
       policy: root.querySelector("#resolver-policy"),
       granularity: root.querySelector("#resolver-granularity"),
       tieOrder: root.querySelector("#resolver-tie-order"),
       speed: root.querySelector("#resolver-speed"),
       autoplay: root.querySelector("#resolver-autoplay"),
+      autoplayField: root.querySelector("#resolver-autoplay-field"),
+      revealHighlight: root.querySelector("#resolver-reveal-highlight"),
+      revealHold: root.querySelector("#resolver-reveal-hold"),
+      autoScrollAutomatic: root.querySelector("#resolver-auto-scroll-automatic"),
+      autoScrollManual: root.querySelector("#resolver-auto-scroll-manual"),
       awardPlaces: root.querySelector("#resolver-award-places"),
       singleStepStartRank: root.querySelector("#resolver-single-step-start-rank"),
       pauseAward: root.querySelector('[name="pause_award"]'),
       pauseFirstSolve: root.querySelector('[name="pause_first_solve"]'),
       freezeNote: root.querySelector("#resolver-freeze-note"),
+      snapshotWarning: root.querySelector("#resolver-snapshot-warning"),
+      snapshotMode: root.querySelector("#resolver-snapshot-mode"),
+      snapshotMessage: root.querySelector("#resolver-snapshot-message"),
+      snapshotGenerated: root.querySelector("#resolver-snapshot-generated"),
+      snapshotRefresh: root.querySelector("#resolver-snapshot-refresh"),
       workspace: root.querySelector("#resolver-workspace"),
       table: root.querySelector("#ranking-table"),
       tableHead: root.querySelector("#resolver-table-head"),
@@ -115,7 +152,11 @@ export class ResolverPage {
       forward: root.querySelector("#resolver-forward"),
       reset: root.querySelector("#resolver-reset"),
       replay: root.querySelector("#resolver-replay"),
+      more: root.querySelector(".resolver-toolbar__more"),
       toggleHud: root.querySelector("#resolver-toggle-hud"),
+      toolbar: root.querySelector("#resolver-toolbar"),
+      hideControls: root.querySelector("#resolver-hide-controls"),
+      showControls: root.querySelector("#resolver-show-controls"),
       help: root.querySelector("#resolver-help"),
       fullscreen: root.querySelector("#resolver-fullscreen"),
       changeSetup: root.querySelector("#resolver-change-setup"),
@@ -133,10 +174,24 @@ export class ResolverPage {
       shortcuts: root.querySelector("#resolver-shortcuts"),
       shortcutsClose: root.querySelector("#resolver-shortcuts-close"),
     };
+    this.manualActions = new ManualActionCoordinator({
+      cancelPlayback: () => this._pausePlayback(gettext("Playback paused for a manual reveal.")),
+      isBusy: () => this.busy,
+      execute: (action) => this._executeManualAction(action),
+      onQueued: () => {
+        this.statusMessage = gettext("Manual action queued until the current reveal finishes.");
+        this._renderControls();
+      },
+      onQueueFull: () => {
+        this.statusMessage = gettext("A manual action is already queued.");
+        this._renderControls();
+      },
+    });
   }
 
   mount() {
     this._configureSetup();
+    this._configureSnapshotSafety();
     this._applyPreset("icpc");
     this._bindEvents();
     this.nodes.setup.hidden = false;
@@ -144,7 +199,11 @@ export class ResolverPage {
   }
 
   _configureSetup() {
-    const freezeAvailable = this.payload.contest.official_freeze_available;
+    const freezeAvailable =
+      this.payload.contest.official_freeze_baseline_available ??
+      this.payload.contest.official_freeze_available;
+    const freezeConfigured = this.payload.contest.freeze_configured ?? freezeAvailable;
+    const freezeReached = this.payload.contest.freeze_reached ?? freezeAvailable;
     const autoOption = this.nodes.baseline.querySelector('option[value="auto"]');
     const freezeOption = this.nodes.baseline.querySelector('option[value="official-freeze"]');
     autoOption.textContent = freezeAvailable
@@ -155,29 +214,148 @@ export class ResolverPage {
     this.nodes.awardPlaces.value = String(this.awardPlaces);
     this.nodes.singleStepStartRank.max = String(this.payload.contestants.length);
     this.nodes.singleStepStartRank.value = String(this.singleStepStartRank);
-    this.nodes.freezeNote.textContent = freezeAvailable
-      ? gettext("Official freeze — %(minutes)s min", {
-          minutes: this.payload.contest.frozen_last_minutes,
-        })
-      : gettext("Beginning");
+    if (freezeAvailable) {
+      this.nodes.freezeNote.textContent = gettext("Official freeze — %(minutes)s min", {
+        minutes: this.payload.contest.frozen_last_minutes,
+      });
+    } else if (freezeConfigured && !freezeReached) {
+      this.nodes.freezeNote.textContent = gettext(
+        "Official freeze is configured but has not started yet.",
+      );
+    } else {
+      this.nodes.freezeNote.textContent = gettext("Beginning");
+    }
+  }
+
+  _snapshotStatus() {
+    const estimatedServerNow = estimateServerNow(
+      this.payload.contest.generated_at,
+      this.snapshotMonotonicAtLoad,
+      globalThis.performance?.now?.() ?? this.snapshotMonotonicAtLoad,
+    );
+    return getResolverSnapshotStatus(this.payload.contest, estimatedServerNow);
+  }
+
+  _configureSnapshotSafety() {
+    this.nodes.snapshotRefresh.addEventListener("click", () => window.location.reload());
+    const generatedAt = new Date(this.payload.contest.generated_at);
+    if (Number.isFinite(generatedAt.getTime())) {
+      this.nodes.snapshotGenerated.dateTime = this.payload.contest.generated_at;
+      this.nodes.snapshotGenerated.textContent = new Intl.DateTimeFormat(undefined, {
+        dateStyle: "medium",
+        timeStyle: "medium",
+      }).format(generatedAt);
+    } else {
+      this.nodes.snapshotGenerated.removeAttribute("datetime");
+      this.nodes.snapshotGenerated.textContent = gettext("Unknown");
+    }
+    this._renderSnapshotSafety();
+    this._scheduleSnapshotExpiry();
+  }
+
+  _scheduleSnapshotExpiry() {
+    if (this.snapshotTimer !== null) {
+      globalThis.clearTimeout(this.snapshotTimer);
+      this.snapshotTimer = null;
+    }
+    const status = this._snapshotStatus();
+    if (status.kind !== "preview" || status.remainingMs === null || status.remainingMs === 0) {
+      return;
+    }
+    const delay = Math.min(status.remainingMs + 50, 2_147_483_647);
+    this.snapshotTimer = globalThis.setTimeout(() => {
+      this.snapshotTimer = null;
+      this._renderSnapshotSafety();
+      this._scheduleSnapshotExpiry();
+    }, delay);
+  }
+
+  _renderSnapshotSafety() {
+    const status = this._snapshotStatus();
+    const inProgressCount = this.payload.contest.in_progress_submission_count;
+    const pretestedCount = this.payload.contest.pretested_submission_count;
+    const messages = [];
+    if (status.kind === "preview") {
+      this.nodes.snapshotMode.textContent = gettext("Preview");
+      messages.push(
+        status.contestMayHaveEnded
+          ? gettext(
+              "This preview snapshot cannot be used as final results. The contest may now have ended; refresh results to load a final snapshot.",
+            )
+          : gettext(
+              "This preview snapshot was created before the contest ended. It remains a preview until results are refreshed.",
+            ),
+      );
+    } else if (status.kind === "unsettled") {
+      this.nodes.snapshotMode.textContent = gettext("Final results are not ready yet");
+      if (inProgressCount > 0) {
+        messages.push(
+          ngettext(
+            "%(count)s submission is still being judged.",
+            "%(count)s submissions are still being judged.",
+            inProgressCount,
+          ),
+        );
+      }
+      if (pretestedCount > 0) {
+        messages.push(
+          ngettext(
+            "%(count)s submission still contains pretest-only results.",
+            "%(count)s submissions still contain pretest-only results.",
+            pretestedCount,
+          ),
+        );
+      }
+    } else if (status.kind === "final") {
+      this.nodes.snapshotMode.textContent = gettext("Final results ready");
+      messages.push(
+        gettext(
+          "This immutable snapshot is ready for the final ceremony. Refresh if submissions were rejudged after it was generated.",
+        ),
+      );
+    } else {
+      this.nodes.snapshotMode.textContent = gettext(
+        "Snapshot safety information could not be verified",
+      );
+      messages.push(
+        gettext("Refresh results before starting Resolver. This snapshot is blocked for safety."),
+      );
+    }
+    this.nodes.snapshotWarning.dataset.snapshotState = status.kind;
+    this.nodes.snapshotWarning.classList.toggle("alert-success", status.kind === "final");
+    this.nodes.snapshotWarning.classList.toggle("alert-warning", status.kind === "preview");
+    this.nodes.snapshotWarning.classList.toggle(
+      "alert-danger",
+      status.kind === "unsettled" || status.kind === "unknown",
+    );
+    this.nodes.snapshotMessage.textContent = messages.join(" ");
+    if (this.setupMode === "initial") {
+      this.nodes.setupSubmit.disabled = !status.canStart;
+      this.nodes.setupSubmitLabel.textContent =
+        status.kind === "preview" ? gettext("Start Preview") : gettext("Start Resolver");
+      this.nodes.setupIntro.textContent =
+        status.kind === "preview"
+          ? gettext("Rehearse the ceremony with a non-final snapshot.")
+          : gettext("Present the final standings with an automatic bottom-up ceremony.");
+    } else {
+      this.nodes.setupSubmit.disabled = false;
+    }
   }
 
   _bindEvents() {
     this.nodes.setupForm.addEventListener("submit", (event) => {
       event.preventDefault();
-      this._start();
+      void this._handleSetupSubmit();
     });
+    this.nodes.setupCancel.addEventListener("click", () => this._cancelSetup());
+    this.nodes.restartPresentation.addEventListener("click", () => void this._restartFromSetup());
+    this.nodes.baseline.addEventListener("change", () => this._updateRestartRequirement());
     this.nodes.next.addEventListener("click", () => void this._playToNextPause(true));
     this.nodes.play.addEventListener("click", () => this._togglePlayback());
     this.nodes.slower.addEventListener("click", () => this._changeSpeed(-1));
     this.nodes.faster.addEventListener("click", () => this._changeSpeed(1));
     this.nodes.back.addEventListener("click", () => {
-      this._pausePlayback();
-      if (this.policyName === "manual") {
-        void this._moveHistory("back");
-      } else {
-        void this.player?.rewindToPreviousPause();
-      }
+      void this._rewind();
     });
     this.nodes.forward.addEventListener("click", () => {
       if (this.policyName === "manual") {
@@ -192,6 +370,8 @@ export class ResolverPage {
     });
     this.nodes.replay.addEventListener("click", () => void this._replay());
     this.nodes.toggleHud.addEventListener("click", () => this._toggleHud());
+    this.nodes.hideControls.addEventListener("click", () => this._toggleControls());
+    this.nodes.showControls.addEventListener("click", () => this._toggleControls());
     this.nodes.help.addEventListener("click", () => this._showShortcuts());
     this.nodes.shortcutsClose.addEventListener("click", () => this._hideShortcuts());
     this.nodes.shortcuts.addEventListener("click", (event) => {
@@ -200,60 +380,62 @@ export class ResolverPage {
       }
     });
     this.nodes.fullscreen.addEventListener("click", () => void this._toggleFullscreen());
-    this.nodes.changeSetup.addEventListener("click", () => this._showSetup());
+    this.nodes.changeSetup.addEventListener("click", () => {
+      this.nodes.more.open = false;
+      this._showSetup();
+    });
     this.nodes.tableBody.addEventListener("click", (event) => {
       const action = event.target.closest("[data-resolver-action]");
-      if (!action || event.target.closest("a") || this.busy) {
+      if (!action || event.target.closest("[data-resolver-secondary-link]")) {
         return;
       }
-      this._pausePlayback(gettext("Playback paused for a manual reveal."));
-      this.policy.clear();
       if (action.dataset.resolverAction === "reveal-cell") {
-        void this._revealTargets(
-          [
-            {
-              contestantId: action.dataset.contestantId,
-              problemId: action.dataset.problemId,
-            },
-          ],
-          gettext("Manual cell reveal"),
-        );
+        void this._requestManualAction({
+          type: "cell",
+          contestantId: action.dataset.contestantId,
+          problemId: action.dataset.problemId,
+        });
       } else if (action.dataset.resolverAction === "reveal-contestant") {
-        void this._revealContestant(
-          action.dataset.contestantId,
-          gettext("Reveal all results for this contestant"),
-        );
+        void this._requestManualAction({
+          type: "contestant",
+          contestantId: action.dataset.contestantId,
+        });
       }
     });
     this.nodes.tableBody.addEventListener("keydown", (event) => {
       const action = event.target.closest('[data-resolver-action="reveal-contestant"]');
-      if (action && !event.target.closest("a") && (event.key === "Enter" || event.key === " ")) {
+      if (
+        action &&
+        !event.target.closest("[data-resolver-secondary-link]") &&
+        (event.key === "Enter" || event.key === " ")
+      ) {
         event.preventDefault();
-        action.click();
+        void this._requestManualAction({
+          type: "contestant",
+          contestantId: action.dataset.contestantId,
+        });
       }
     });
     this.nodes.tableHead.addEventListener("click", (event) => {
       const action = event.target.closest('[data-resolver-action="reveal-problem"]');
-      if (!action || this.busy || action.disabled) {
+      if (!action || action.disabled) {
         return;
       }
-      this._pausePlayback(gettext("Playback paused for a manual reveal."));
-      this.policy.clear();
-      const problem = this.problems.find(
-        (entry) => normalizedId(entry.id) === normalizedId(action.dataset.problemId),
-      );
-      void this._revealProblem(
-        action.dataset.problemId,
-        gettext("Reveal problem %(problem)s", {
-          problem: problem?.label ?? action.dataset.problemId,
-        }),
-      );
+      void this._requestManualAction({
+        type: "problem",
+        problemId: action.dataset.problemId,
+      });
     });
     this.nodes.tableHead.addEventListener("keydown", (event) => {
       const action = event.target.closest('[data-resolver-action="reveal-problem"]');
       if (action && (event.key === "Enter" || event.key === " ")) {
         event.preventDefault();
         action.click();
+      }
+    });
+    this.nodes.more.addEventListener("click", (event) => {
+      if (event.target.closest("button")) {
+        this.nodes.more.open = false;
       }
     });
     document.addEventListener("keydown", (event) => this._handleShortcut(event));
@@ -265,30 +447,116 @@ export class ResolverPage {
     if (!preset) {
       return;
     }
-    this.nodes.baseline.value = preset.baseline;
+    const settings = normalizeResolverSettings(
+      {
+        baseline: preset.baseline,
+        speedIndex: preset.speedIndex,
+        autoplayAfterStart: true,
+        revealHighlightDurationMs: DEFAULT_RESOLVER_SETTINGS.revealHighlightDurationMs,
+        autoScrollAutomatic: true,
+        autoScrollManual: true,
+        singleStepStartRank: preset.singleStepStartRank,
+        awardPlaces: preset.awardPlaces,
+        pauseAward: preset.hardPauses.award,
+        pauseFirstSolve: preset.hardPauses.firstSolve,
+      },
+      this.payload.contestants.length,
+    );
+    this.settings.commitDraft(settings);
     this.nodes.policy.value = preset.policy;
     this.nodes.granularity.value = preset.granularity;
     this.nodes.tieOrder.value = preset.tieOrder;
-    this.nodes.speed.value = String(preset.speedIndex);
-    this.nodes.awardPlaces.value = String(
-      Math.min(preset.awardPlaces, this.payload.contestants.length),
-    );
-    this.nodes.singleStepStartRank.value = String(
-      Math.min(preset.singleStepStartRank, this.payload.contestants.length),
-    );
-    this.nodes.pauseAward.checked = preset.hardPauses.award;
-    this.nodes.pauseFirstSolve.checked = preset.hardPauses.firstSolve;
-    this.speedIndex = preset.speedIndex;
-    this.player?.setSpeed(SPEED_PRESETS[this.speedIndex].speed);
+    this._writeSettingsForm(settings);
+    this._setRuntimeSettings(settings);
   }
 
-  _start() {
+  _readSettingsForm() {
+    return normalizeResolverSettings(
+      {
+        baseline: this.nodes.baseline.value,
+        speedIndex: Number(this.nodes.speed.value),
+        autoplayAfterStart: this.nodes.autoplay.checked,
+        revealHighlightDurationMs: Number(this.nodes.revealHighlight.value),
+        revealHoldDurationMs: Number(this.nodes.revealHold.value),
+        autoScrollAutomatic: this.nodes.autoScrollAutomatic.checked,
+        autoScrollManual: this.nodes.autoScrollManual.checked,
+        singleStepStartRank: this.nodes.singleStepStartRank.value,
+        awardPlaces: this.nodes.awardPlaces.value,
+        pauseAward: this.nodes.pauseAward.checked,
+        pauseFirstSolve: this.nodes.pauseFirstSolve.checked,
+      },
+      this.payload.contestants.length,
+    );
+  }
+
+  _writeSettingsForm(settings) {
+    this.nodes.baseline.value = settings.baseline;
+    this.nodes.speed.value = String(settings.speedIndex);
+    this.nodes.autoplay.checked = settings.autoplayAfterStart;
+    this.nodes.revealHighlight.value = String(settings.revealHighlightDurationMs);
+    this.nodes.revealHold.value = String(settings.revealHoldDurationMs);
+    this.nodes.autoScrollAutomatic.checked = settings.autoScrollAutomatic;
+    this.nodes.autoScrollManual.checked = settings.autoScrollManual;
+    this.nodes.awardPlaces.value = String(settings.awardPlaces);
+    this.nodes.singleStepStartRank.value = String(settings.singleStepStartRank);
+    this.nodes.pauseAward.checked = settings.pauseAward;
+    this.nodes.pauseFirstSolve.checked = settings.pauseFirstSolve;
+  }
+
+  _setRuntimeSettings(settings) {
+    this.speedIndex = settings.speedIndex;
+    this.awardPlaces = settings.awardPlaces;
+    this.singleStepStartRank = settings.singleStepStartRank;
+    this.revealHighlightDurationMs = settings.revealHighlightDurationMs;
+    this.revealHoldDurationMs = settings.revealHoldDurationMs;
+    this.autoScrollAutomatic = settings.autoScrollAutomatic;
+    this.autoScrollManual = settings.autoScrollManual;
+    this.hardPauses = {
+      award: settings.pauseAward,
+      firstSolve: settings.pauseFirstSolve,
+    };
+  }
+
+  _buildPlanner() {
+    return new ResolutionPlanner({
+      payload: this.payload,
+      targetSelector: (session) => this.policy.select(session),
+      singleStepStartRank: this.singleStepStartRank,
+      awardPlaces: this.awardPlaces,
+      hardPauses: this.hardPauses,
+    });
+  }
+
+  _buildPlayer() {
+    return new ResolutionPlayer({
+      session: this.session,
+      planner: this.planner,
+      playbackSpeed: SPEED_PRESETS[this.speedIndex].speed,
+      onBeforeStep: (step) => this._beforePlayerStep(step),
+      onStep: (step, context) => this._performPlayerStep(step, context),
+      onRestore: () => this._restorePlayerView(),
+      onChange: (state) => this._onPlayerChange(state),
+    });
+  }
+
+  _handleSetupSubmit() {
+    return this.setupMode === "edit" ? this._applySettingsFromSetup() : this._startFromSetup();
+  }
+
+  _startFromSetup({ restarting = false } = {}) {
+    if (!this.session && !this._snapshotStatus().canStart) {
+      this._renderSnapshotSafety();
+      this.nodes.snapshotRefresh.focus();
+      return null;
+    }
     this._pausePlayback();
+    const settings = this._readSettingsForm();
     try {
       this.session = new ResolverSession(this.payload, {
-        baseline: this.nodes.baseline.value,
+        baseline: settings.baseline,
         tieOrder: this.nodes.tieOrder.value,
       });
+      this._scheduleSnapshotExpiry();
     } catch (error) {
       this.nodes.freezeNote.textContent = gettext("Resolver could not start: %(error)s", {
         error: error.message,
@@ -296,48 +564,21 @@ export class ResolverPage {
       return;
     }
 
+    this.settings.commitDraft(settings);
+    this._setRuntimeSettings(settings);
     this.policyName = this.nodes.policy.value;
     this.policy = this._createPolicy(this.policyName);
-    this.awardPlaces = normalizeAwardPlaces(
-      this.nodes.awardPlaces.value,
-      this.payload.contestants.length,
-    );
-    this.nodes.awardPlaces.value = String(this.awardPlaces);
-    this.singleStepStartRank = normalizeSingleStepStartRank(
-      this.nodes.singleStepStartRank.value,
-      this.payload.contestants.length,
-    );
-    this.nodes.singleStepStartRank.value = String(this.singleStepStartRank);
-    this.hardPauses = {
-      singleStep: this.singleStepStartRank > 0,
-      award: this.nodes.pauseAward.checked,
-      firstSolve: this.nodes.pauseFirstSolve.checked,
-    };
-    this.speedIndex = clampSpeedIndex(Number(this.nodes.speed.value));
-    this.planner = new ResolutionPlanner({
-      payload: this.payload,
-      targetSelector: (session) => this.policy.select(session),
-      singleStepStartRank: this.singleStepStartRank,
-      awardPlaces: this.awardPlaces,
-      hardPauses: this.hardPauses,
-    });
-    this.player =
-      this.policyName === "manual"
-        ? null
-        : new ResolutionPlayer({
-            session: this.session,
-            planner: this.planner,
-            playbackSpeed: SPEED_PRESETS[this.speedIndex].speed,
-            onBeforeStep: (step) => this._beforePlayerStep(step),
-            onStep: (step, context) => this._performPlayerStep(step, context),
-            onRestore: () => this._restorePlayerView(),
-            onChange: (state) => this._onPlayerChange(state),
-          });
+    this.planner = this._buildPlanner();
+    this.player = this.policyName === "manual" ? null : this._buildPlayer();
     this.totalResolvable = this.session.getResolvableCount();
     this.projectionCache = null;
-    this.statusMessage = gettext("Started from %(baseline)s.", {
-      baseline: this._baselineLabel(),
-    });
+    this.statusMessage = restarting
+      ? gettext("Presentation restarted from %(baseline)s.", { baseline: this._baselineLabel() })
+      : gettext("Started from %(baseline)s.", { baseline: this._baselineLabel() });
+    this.setupMode = "edit";
+    this.pendingSetupOpen = false;
+    this.nodes.restartWarning.hidden = true;
+    this.nodes.restartPresentation.hidden = true;
     this.nodes.setup.hidden = true;
     this.nodes.workspace.hidden = false;
     window.CHTOJResolverSession = this.session;
@@ -346,9 +587,40 @@ export class ResolverPage {
     this.nodes.tableBody.replaceChildren();
     this._renderTableHead();
     this._render();
-    if (this.nodes.autoplay.checked && this.player && this.session.getResolvableCount()) {
+    if (settings.autoplayAfterStart && this.player && this.session.getResolvableCount()) {
       void this.player.playContinuous(true);
     }
+  }
+
+  async _applySettingsFromSetup() {
+    const previous = this.settings.getActive();
+    const draft = this.settings.updateDraft(this._readSettingsForm());
+    if (resolveResolverBaseline(this.payload, draft.baseline) !== this.session.baseline) {
+      this._updateRestartRequirement();
+      this.nodes.restartWarning.focus?.();
+      return null;
+    }
+
+    const applied = this.settings.commitDraft(draft);
+    const awardConfigurationChanged =
+      previous.awardPlaces !== applied.awardPlaces || previous.pauseAward !== applied.pauseAward;
+    this._setRuntimeSettings(applied);
+    this.planner = this._buildPlanner();
+    if (this.player) {
+      await this.player.reconfigure({
+        planner: this.planner,
+        playbackSpeed: SPEED_PRESETS[this.speedIndex].speed,
+        resetAwardZoneMilestone: awardConfigurationChanged,
+        reason: gettext("Resolver settings applied."),
+      });
+    }
+    this.statusMessage = gettext("Resolver settings applied without restarting the presentation.");
+    this.nodes.setup.hidden = true;
+    this.nodes.workspace.hidden = false;
+    this.nodes.restartWarning.hidden = true;
+    this.nodes.restartPresentation.hidden = true;
+    this._render();
+    return applied;
   }
 
   _createPolicy(name) {
@@ -368,13 +640,77 @@ export class ResolverPage {
   }
 
   _showSetup() {
+    this._pausePlayback(gettext("Playback paused while editing settings."));
     if (this.busy) {
+      this.pendingSetupOpen = true;
+      this.statusMessage = gettext("Settings will open after the current reveal finishes.");
+      this._renderControls();
       return;
     }
-    this._pausePlayback();
+    this._openSetupNow();
+  }
+
+  _openSetupNow() {
+    this.pendingSetupOpen = false;
+    this.manualActions.clear(null);
+    this.setupMode = this.session ? "edit" : "initial";
+    if (this.session) {
+      this._writeSettingsForm(this.settings.beginEdit());
+    }
+    const editing = this.setupMode === "edit";
+    this.nodes.setupHeadingText.textContent = editing
+      ? gettext("Resolver settings")
+      : gettext("Resolver");
+    this.nodes.setupIntro.textContent = editing
+      ? gettext("Adjust presentation settings without resetting the current ceremony.")
+      : gettext("Present the final standings with an automatic bottom-up ceremony.");
+    this.nodes.setupSubmitLabel.textContent = editing
+      ? gettext("Apply settings")
+      : gettext("Start Resolver");
+    const submitIcon = this.nodes.setupSubmit.querySelector("i");
+    if (submitIcon) {
+      submitIcon.className = `fa ${editing ? "fa-check" : "fa-play"}`;
+    }
+    this.nodes.setupCancel.hidden = !editing;
+    this.nodes.autoplayField.hidden = editing;
+    this.nodes.restartWarning.hidden = true;
+    this.nodes.restartPresentation.hidden = true;
+    this.nodes.setupSubmit.disabled = false;
+    this._renderSnapshotSafety();
     this.nodes.workspace.hidden = true;
     this.nodes.setup.hidden = false;
     this.nodes.baseline.focus();
+  }
+
+  _cancelSetup() {
+    if (!this.session) {
+      return;
+    }
+    this._writeSettingsForm(this.settings.cancelEdit());
+    this.nodes.restartWarning.hidden = true;
+    this.nodes.restartPresentation.hidden = true;
+    this.nodes.setup.hidden = true;
+    this.nodes.workspace.hidden = false;
+    this.statusMessage = gettext("Settings changes cancelled.");
+    this._render();
+  }
+
+  _updateRestartRequirement() {
+    if (this.setupMode !== "edit" || !this.session) {
+      return false;
+    }
+    const requiresRestart =
+      resolveResolverBaseline(this.payload, this.nodes.baseline.value) !== this.session.baseline;
+    this.nodes.restartWarning.hidden = !requiresRestart;
+    this.nodes.restartPresentation.hidden = !requiresRestart;
+    return requiresRestart;
+  }
+
+  _restartFromSetup() {
+    if (!this._updateRestartRequirement()) {
+      return this._applySettingsFromSetup();
+    }
+    return this._startFromSetup({ restarting: true });
   }
 
   _baselineLabel() {
@@ -479,6 +815,16 @@ export class ResolverPage {
   }
 
   _reorderTableBody(desiredRows) {
+    // Scores and ranks are already committed, but the MC gets time to read them
+    // at the old physical positions. Every render (including Pause/HUD/speed)
+    // must respect this order until the reveal hold ends.
+    if (this.heldRowOrder) {
+      desiredRows.sort(
+        (left, right) =>
+          (this.heldRowOrder.get(left.dataset.contestantId) ?? Infinity) -
+          (this.heldRowOrder.get(right.dataset.contestantId) ?? Infinity),
+      );
+    }
     desiredRows.forEach((row, index) => {
       const current = this.nodes.tableBody.children[index] ?? null;
       if (current !== row) {
@@ -534,19 +880,25 @@ export class ResolverPage {
       identity.append(visual, element("div", "u-logo-sep1"));
     }
     const names = element("div", "resolver-contestant__names");
-    const handle = contestant.profileUrl
-      ? element("a", "resolver-contestant__handle", contestant.displayName || contestant.username)
-      : element(
-          "strong",
-          "resolver-contestant__handle",
-          contestant.displayName || contestant.username,
-        );
-    if (contestant.profileUrl) {
-      handle.href = contestant.profileUrl;
-    }
+    const handle = element(
+      "strong",
+      "resolver-contestant__handle",
+      contestant.displayName || contestant.username,
+    );
     const rating = element("span", contestant.cssClass || "rating rate-none user");
     rating.append(handle);
     names.append(rating);
+    if (contestant.profileUrl) {
+      const profileLink = element("a", "resolver-contestant__profile-link");
+      profileLink.href = contestant.profileUrl;
+      profileLink.dataset.resolverSecondaryLink = "profile";
+      profileLink.title = gettext("Open profile for %(contestant)s", {
+        contestant: contestant.displayName || contestant.username,
+      });
+      profileLink.setAttribute("aria-label", profileLink.title);
+      profileLink.append(element("i", "fa fa-external-link"));
+      names.append(document.createTextNode(" "), profileLink);
+    }
     if (contestant.fullName) {
       names.append(
         element("div", "personal-info resolver-contestant__display", contestant.fullName),
@@ -565,6 +917,7 @@ export class ResolverPage {
         if (organization.url) {
           const link = element("a", "", name);
           link.href = organization.url;
+          link.dataset.resolverSecondaryLink = "organization";
           organizationList.append(link);
         } else {
           organizationList.append(element("span", "", name));
@@ -613,7 +966,13 @@ export class ResolverPage {
 
   _updateContestantRow(row, contestant, standing, statsByProblem, activeSelection) {
     const refs = row._resolverRefs;
+    const animationClasses = [
+      "resolver-row--moving",
+      "resolver-row--reveal-highlight",
+      "resolver-row--reveal-highlight-subtle",
+    ].filter((name) => row.classList.contains(name));
     row.className = "resolver-row";
+    row.classList.add(...animationClasses);
     if (contestant.isDisqualified) {
       row.classList.add("resolver-row--disqualified", "disqualified");
     }
@@ -639,6 +998,7 @@ export class ResolverPage {
       refs.contestantCell.setAttribute("role", "button");
       refs.contestantCell.title = gettext("Reveal all results for this contestant");
       refs.contestantCell.setAttribute("aria-label", refs.contestantCell.title);
+      refs.contestantCell.setAttribute("aria-busy", String(this.busy));
     } else {
       delete refs.contestantCell.dataset.resolverAction;
       delete refs.contestantCell.dataset.contestantId;
@@ -646,6 +1006,7 @@ export class ResolverPage {
       refs.contestantCell.removeAttribute("role");
       refs.contestantCell.removeAttribute("title");
       refs.contestantCell.removeAttribute("aria-label");
+      refs.contestantCell.removeAttribute("aria-busy");
     }
 
     const metric = getMetricPresentation(
@@ -715,6 +1076,9 @@ export class ResolverPage {
     ) {
       classes.push("resolver-cell--target");
     }
+    if (tableCell.classList.contains("resolver-cell--reveal-highlight")) {
+      classes.push("resolver-cell--reveal-highlight");
+    }
     tableCell.className = classes.join(" ");
 
     const signature = JSON.stringify([
@@ -776,7 +1140,8 @@ export class ResolverPage {
     }
     const button = tableCell.firstElementChild;
     if (view.resolvable && button instanceof HTMLButtonElement) {
-      button.disabled = this.busy;
+      button.disabled = false;
+      button.setAttribute("aria-busy", String(this.busy));
     }
   }
 
@@ -815,11 +1180,20 @@ export class ResolverPage {
       return playerState.projection;
     }
     const revision = this.session.getRevision();
-    if (this.projectionCache?.revision === revision) {
+    const planningContext = this.player?.getPlanningContext() ?? {};
+    const cacheKey = [
+      revision,
+      planningContext.awardZoneEntered === true ? 1 : 0,
+      this.singleStepStartRank,
+      this.awardPlaces,
+      this.hardPauses.award ? 1 : 0,
+      this.hardPauses.firstSolve ? 1 : 0,
+    ].join(":");
+    if (this.projectionCache?.key === cacheKey) {
       return this.projectionCache.value;
     }
-    const value = this.planner.projectNext(this.session);
-    this.projectionCache = { revision, value };
+    const value = this.planner.projectNext(this.session, planningContext);
+    this.projectionCache = { key: cacheKey, value };
     return value;
   }
 
@@ -844,6 +1218,8 @@ export class ResolverPage {
     });
     this.nodes.status.textContent = remaining
       ? this.statusMessage
+      : this._snapshotStatus().kind === "preview"
+      ? gettext("Resolver preview complete — snapshot standings reached.")
       : gettext("Resolver complete — final standings reached.");
     setIconLabel(
       this.nodes.play,
@@ -852,6 +1228,7 @@ export class ResolverPage {
     );
     this.nodes.play.disabled =
       this.policyName === "manual" ||
+      (this.busy && !playerState.running) ||
       (!remaining && !playerState.projection && !playerState.running);
     this.nodes.play.setAttribute("aria-pressed", String(playerState.running));
     this.nodes.speedLabel.textContent = speed.label;
@@ -860,7 +1237,11 @@ export class ResolverPage {
     this.nodes.back.disabled =
       this.busy ||
       playerState.running ||
-      (this.policyName === "manual" ? historyCursor === 0 : playerState.checkpointIndex === 0);
+      (this.policyName === "manual"
+        ? historyCursor === 0
+        : playerState.checkpointIndex === 0 &&
+          historyCursor === 0 &&
+          !playerState.presentation.selectedContestantId);
     this.nodes.forward.disabled =
       this.busy ||
       playerState.running ||
@@ -873,17 +1254,20 @@ export class ResolverPage {
         ? historyCursor === 0
         : playerState.checkpointIndex === 0 && historyCursor === 0);
     this.nodes.replay.disabled = this.busy || this.totalResolvable === 0;
-    this.nodes.changeSetup.disabled = this.busy;
+    this.nodes.changeSetup.disabled = false;
     this.nodes.next.disabled =
       this.busy ||
       playerState.running ||
       this.policyName === "manual" ||
       (!remaining && !playerState.projection);
-    this.nodes.next.textContent = gettext("Forward");
+    this.nodes.next.textContent = gettext("Next");
     this.nodes.forward.textContent =
       this.policyName === "manual" ? gettext("Forward") : gettext("Fast forward");
     this.nodes.toggleHud.setAttribute("aria-pressed", String(this.hudVisible));
-    this.nodes.hud.hidden = !this.hudVisible;
+    this.nodes.toolbar.hidden = !this.controlsVisible;
+    this.nodes.status.hidden = !this.controlsVisible;
+    this.nodes.showControls.hidden = this.controlsVisible;
+    this.nodes.hud.hidden = !this.controlsVisible || !this.hudVisible;
     setIconLabel(
       this.nodes.fullscreen,
       document.fullscreenElement ? "fa-compress" : "fa-expand",
@@ -903,19 +1287,21 @@ export class ResolverPage {
     this.problems.forEach((problem) => {
       const button = this.problemHeaderButtons.get(normalizedId(problem.id));
       if (button) {
-        button.disabled =
-          this.busy || !this.session.getResolvableCellsForProblem(problem.id).length;
+        button.disabled = !this.session.getResolvableCellsForProblem(problem.id).length;
+        button.setAttribute("aria-busy", String(this.busy));
       }
     });
   }
 
   _renderHud(projection, historyCursor, historyLength, playerState, speed) {
+    const snapshotMode =
+      this._snapshotStatus().kind === "preview" ? gettext("PREVIEW") : gettext("FINAL");
     const baseline =
       this.session.baseline === "official-freeze" ? gettext("Freeze") : gettext("Beginning");
     const playback = playerState.running
       ? gettext("playing %(speed)s", { speed: speed.label })
       : gettext("paused %(speed)s", { speed: speed.label });
-    this.nodes.hudMode.textContent = `${baseline} · ${
+    this.nodes.hudMode.textContent = `${snapshotMode} · ${baseline} · ${
       POLICY_LABELS[this.policyName]
     } · ${playback}`;
     if (projection) {
@@ -964,7 +1350,7 @@ export class ResolverPage {
       },
     );
     this.nodes.hudAward.textContent = this.awardPlaces
-      ? gettext("Top %(rank)s timing boundary", { rank: this.awardPlaces })
+      ? gettext("Top %(rank)s award zone", { rank: this.awardPlaces })
       : gettext("Off");
     this.nodes.hudSeed.textContent = this.session.seed;
   }
@@ -981,13 +1367,41 @@ export class ResolverPage {
     return captureRowPositions(this.nodes.tableBody);
   }
 
+  async _animateReveal(transition, previousPositions, { subtleRows = false } = {}) {
+    const targets = transition.targets ?? [transition.target];
+    const previousOrder = [...previousPositions.keys()];
+    const nextOrder = this.session
+      .getStandings()
+      .map((standing) => normalizedId(standing.contestantId));
+    const moves = nextOrder.some((id, index) => id !== previousOrder[index]);
+    this.heldRowOrder = new Map(previousOrder.map((id, index) => [id, index]));
+    this._render();
+    const highlight = animateRevealHighlight(
+      this.rowElements,
+      targets,
+      this.revealHighlightDurationMs,
+      { subtleRows },
+    );
+    try {
+      // This is reading time, independent of playback speed or reduced motion.
+      // Pause completes this atomic reveal and prevents the next reveal.
+      if (moves && this.revealHoldDurationMs > 0) {
+        await new Promise((resolve) => globalThis.setTimeout(resolve, this.revealHoldDurationMs));
+      }
+      const beforeMovement = captureRowPositions(this.nodes.tableBody);
+      this.heldRowOrder = null;
+      this._render();
+      await Promise.all([animateRows(this.nodes.tableBody, beforeMovement), highlight]);
+    } finally {
+      this.heldRowOrder = null;
+    }
+  }
+
   async _performPlayerStep(step, context) {
     if (step.type === RESOLUTION_STEP_TYPES.SCROLL_ROW) {
-      const row = [...this.nodes.tableBody.querySelectorAll("tr[data-contestant-id]")].find(
-        (candidate) =>
-          normalizedId(candidate.dataset.contestantId) === normalizedId(step.target.contestantId),
-      );
-      row?.scrollIntoView({ block: "center", behavior: "smooth" });
+      if (this.autoScrollAutomatic) {
+        ensureRowVisible(this.rowElements.get(normalizedId(step.target.contestantId)));
+      }
       return;
     }
 
@@ -1005,12 +1419,15 @@ export class ResolverPage {
         contestant: step.contestantLabel,
         problem: step.problemLabel,
       });
-      this._render();
-      await Promise.all([
-        animateRows(this.nodes.tableBody, context.beforeContext, 700),
-        animateChangedCells(this.nodes.tableBody, [transition.target]),
-      ]);
-      this.busy = false;
+      try {
+        await this._animateReveal(transition, context.beforeContext);
+        if (this.autoScrollAutomatic) {
+          ensureRowVisible(this.rowElements.get(normalizedId(step.target.contestantId)));
+        }
+      } finally {
+        this.busy = false;
+        await this._settleDeferredPresenterAction();
+      }
     } else if (step.type === RESOLUTION_STEP_TYPES.RESULT_MOVE) {
       this.statusMessage = ngettext(
         "%(contestant)s moved up %(count)s position.",
@@ -1027,11 +1444,19 @@ export class ResolverPage {
         contestant: step.contestantLabel,
       });
     } else if (step.type === RESOLUTION_STEP_TYPES.PAUSE) {
-      this.statusMessage = gettext("%(reason)s Press Space or Forward to continue.", {
+      this.statusMessage = gettext("%(reason)s Press Space or Next to continue.", {
         reason: step.reason,
       });
     }
     this._render();
+  }
+
+  async _settleDeferredPresenterAction() {
+    if (this.pendingSetupOpen) {
+      this._openSetupNow();
+      return;
+    }
+    await this.manualActions.flush();
   }
 
   async _restorePlayerView() {
@@ -1058,7 +1483,7 @@ export class ResolverPage {
     if (this.busy || !this.player || this.policyName === "manual") {
       return Promise.resolve(null);
     }
-    return this.player.playToNextPause(includeDelays);
+    return includeDelays ? this.player.playToNextPause(true) : this.player.fastForwardToNextPause();
   }
 
   _togglePlayback() {
@@ -1080,45 +1505,92 @@ export class ResolverPage {
 
   _changeSpeed(delta) {
     this.speedIndex = clampSpeedIndex(this.speedIndex + delta);
+    this.settings.commitDraft({ ...this.settings.getActive(), speedIndex: this.speedIndex });
     this.nodes.speed.value = String(this.speedIndex);
     this.player?.setSpeed(SPEED_PRESETS[this.speedIndex].speed);
     this._renderControls();
   }
 
-  async _revealContestant(contestantId, label) {
-    const targets = this._resolvableForContestant(contestantId);
-    return targets.length ? this._revealTargets(targets, label) : null;
+  _requestManualAction(action) {
+    this.policy.clear();
+    return this.manualActions.request(action).catch((error) => {
+      this.statusMessage = gettext("Manual reveal failed: %(error)s", { error: error.message });
+      this._render();
+      return null;
+    });
   }
 
-  async _revealProblem(problemId, label) {
-    const targets = this.session.getResolvableCellsForProblem(problemId);
-    return targets.length ? this._revealTargets(targets, label) : null;
+  _executeManualAction(action) {
+    if (!this.session) {
+      return null;
+    }
+    if (action.type === "cell") {
+      const target = this.session
+        .getResolvableCellsForContestant(action.contestantId)
+        .find((cell) => normalizedId(cell.problemId) === normalizedId(action.problemId));
+      return target
+        ? this._revealTargets([target], gettext("Manual cell reveal"), {
+            followContestantId: target.contestantId,
+            batchKind: "cell",
+          })
+        : null;
+    }
+    if (action.type === "contestant") {
+      const targets = this._resolvableForContestant(action.contestantId);
+      return targets.length
+        ? this._revealTargets(targets, gettext("Reveal all results for this contestant"), {
+            followContestantId: action.contestantId,
+            batchKind: "contestant",
+          })
+        : null;
+    }
+    if (action.type === "problem") {
+      const targets = this.session.getResolvableCellsForProblem(action.problemId);
+      const problem = this.problems.find(
+        (entry) => normalizedId(entry.id) === normalizedId(action.problemId),
+      );
+      return targets.length
+        ? this._revealTargets(
+            targets,
+            gettext("Reveal all results for problem %(problem)s", {
+              problem: problem?.label ?? action.problemId,
+            }),
+            { followContestantId: null, batchKind: "problem" },
+          )
+        : null;
+    }
+    return null;
   }
 
-  async _revealTargets(targets, label) {
+  async _revealTargets(targets, label, { followContestantId = null, batchKind = "cell" } = {}) {
     if (this.busy || !targets.length) {
       return null;
     }
     this.busy = true;
     const previousPositions = captureRowPositions(this.nodes.tableBody);
-    const transition = this.session.revealBatch(targets);
-    if (!transition) {
+    let transition = null;
+    try {
+      this.player?.checkpointBeforeExternalChange(label);
+      transition = this.session.revealBatch(targets);
+      if (!transition) {
+        return null;
+      }
+      const changedTargets = transition.targets;
+      this.statusMessage = ngettext(
+        "%(label)s: %(count)s cell.",
+        "%(label)s: %(count)s cells.",
+        changedTargets.length,
+        { label },
+      );
+      await this._animateReveal(transition, previousPositions, {
+        subtleRows: batchKind === "problem",
+      });
+      if (this.autoScrollManual && followContestantId !== null) {
+        ensureRowVisible(this.rowElements.get(normalizedId(followContestantId)));
+      }
+    } finally {
       this.busy = false;
-      return null;
     }
-    const changedTargets = transition.targets;
-    this.statusMessage = ngettext(
-      "%(label)s: %(count)s cell.",
-      "%(label)s: %(count)s cells.",
-      changedTargets.length,
-      { label },
-    );
-    this._render();
-    await Promise.all([
-      animateRows(this.nodes.tableBody, previousPositions),
-      animateChangedCells(this.nodes.tableBody, changedTargets),
-    ]);
-    this.busy = false;
     if (this.player) {
       await this.player.syncAfterExternalChange(label);
     }
@@ -1147,7 +1619,13 @@ export class ResolverPage {
       this._render();
       await Promise.all([
         animateRows(this.nodes.tableBody, previousPositions),
-        animateChangedCells(this.nodes.tableBody, transition.targets ?? [transition.target]),
+        direction === "forward"
+          ? animateRevealHighlight(
+              this.rowElements,
+              transition.targets ?? [transition.target],
+              this.revealHighlightDurationMs,
+            )
+          : Promise.resolve(),
       ]);
     }
     this.busy = false;
@@ -1167,6 +1645,7 @@ export class ResolverPage {
     } else {
       this.session.reset();
     }
+    this.busy = true;
     this.policy.clear();
     this.statusMessage = gettext("%(action)s from %(baseline)s.", {
       action: useReplay ? gettext("Replay") : gettext("Reset"),
@@ -1179,6 +1658,9 @@ export class ResolverPage {
   }
 
   async _replay() {
+    if (this.busy) {
+      return;
+    }
     this._pausePlayback();
     await this._reset(true);
     if (this.player && this.session.getResolvableCount()) {
@@ -1189,6 +1671,25 @@ export class ResolverPage {
   _toggleHud() {
     this.hudVisible = !this.hudVisible;
     this._renderControls();
+  }
+
+  _toggleControls() {
+    this.controlsVisible = !this.controlsVisible;
+    this.nodes.more.open = false;
+    this._renderControls();
+    (this.controlsVisible ? this.nodes.hideControls : this.nodes.showControls).focus();
+  }
+
+  async _rewind() {
+    this._pausePlayback();
+    if (this.busy) {
+      return;
+    }
+    if (this.policyName === "manual") {
+      await this._moveHistory("back");
+    } else {
+      await this.player?.rewindToPreviousPause();
+    }
   }
 
   _showShortcuts() {
@@ -1223,17 +1724,26 @@ export class ResolverPage {
   }
 
   _handleShortcut(event) {
-    if (isTypingTarget(event.target)) {
+    if (
+      event.defaultPrevented ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      isTypingTarget(event.target)
+    ) {
       return;
     }
     if (event.key === "Escape") {
       if (!this.nodes.shortcuts.hidden) {
         event.preventDefault();
         this._hideShortcuts();
+      } else if (!this.controlsVisible && !this.nodes.workspace.hidden) {
+        event.preventDefault();
+        this._toggleControls();
       }
       return;
     }
-    if (this.nodes.workspace.hidden || !this.session) {
+    if (!this.nodes.shortcuts.hidden || this.nodes.workspace.hidden || !this.session) {
       return;
     }
     const key = event.key.toLowerCase();
@@ -1264,23 +1774,22 @@ export class ResolverPage {
     } else if (/^[1-4]$/.test(key)) {
       event.preventDefault();
       this.speedIndex = Number(key) - 1;
+      this.settings.commitDraft({ ...this.settings.getActive(), speedIndex: this.speedIndex });
       this.nodes.speed.value = String(this.speedIndex);
       this.player?.setSpeed(SPEED_PRESETS[this.speedIndex].speed);
       this._renderControls();
     } else if (key === "h") {
       event.preventDefault();
       this._toggleHud();
+    } else if (key === "c") {
+      event.preventDefault();
+      this._toggleControls();
     } else if (key === "f") {
       event.preventDefault();
       void this._toggleFullscreen();
     } else if (key === "backspace" || key === "arrowleft") {
       event.preventDefault();
-      this._pausePlayback();
-      if (this.policyName === "manual") {
-        void this._moveHistory("back");
-      } else {
-        void this.player?.rewindToPreviousPause();
-      }
+      void this._rewind();
     } else if (key === "arrowright") {
       event.preventDefault();
       if (this.policyName === "manual") {

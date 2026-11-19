@@ -52,7 +52,7 @@ function payload(
     ),
   );
   return {
-    schema_version: 1,
+    schema_version: 2,
     contest: {
       id: 1,
       key: `resolver-${format}`,
@@ -63,6 +63,13 @@ function payload(
       points_precision: 3,
       frozen_last_minutes: frozen ? 60 : 0,
       official_freeze_available: frozen,
+      generated_at: "2026-08-29T14:00:00+07:00",
+      contest_end_time: "2026-08-29T13:00:00+07:00",
+      contest_ended_at_generation: true,
+      snapshot_state: "final",
+      in_progress_submission_count: 0,
+      pretested_submission_count: 0,
+      results_settled_at_generation: true,
     },
     problems,
     contestants: contestants.map((entry) => ({

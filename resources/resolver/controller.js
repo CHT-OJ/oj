@@ -12,10 +12,9 @@ export const CEREMONY_PRESETS = Object.freeze({
     granularity: "cell",
     tieOrder: "seeded",
     speedIndex: 1,
-    awardPlaces: 6,
+    awardPlaces: 0,
     singleStepStartRank: 0,
     hardPauses: Object.freeze({
-      singleStep: false,
       award: false,
       firstSolve: false,
     }),
@@ -29,7 +28,6 @@ export const CEREMONY_PRESETS = Object.freeze({
     awardPlaces: 0,
     singleStepStartRank: 0,
     hardPauses: Object.freeze({
-      singleStep: false,
       award: false,
       firstSolve: false,
     }),
@@ -43,7 +41,6 @@ export const CEREMONY_PRESETS = Object.freeze({
     awardPlaces: 0,
     singleStepStartRank: 0,
     hardPauses: Object.freeze({
-      singleStep: false,
       award: false,
       firstSolve: false,
     }),

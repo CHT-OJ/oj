@@ -82,6 +82,20 @@ function assertFinalParity(session, payload, expectedRanks, expectedOrder) {
   );
 }
 
+test("Resolver requires the schema version 2 payload contract", () => {
+  const schemaVersionOne = { ...defaultPayload, schema_version: 1 };
+  const futureSchemaVersion = { ...defaultPayload, schema_version: 3 };
+
+  assert.throws(
+    () => new ResolverSession(schemaVersionOne, { baseline: "beginning" }),
+    /Invalid Resolver schema version 2 payload/,
+  );
+  assert.throws(
+    () => new ResolverSession(futureSchemaVersion, { baseline: "beginning" }),
+    /Invalid Resolver schema version 2 payload/,
+  );
+});
+
 test("Default beginning baseline handles partial and zero scores without problem indexes", () => {
   const session = new ResolverSession(defaultPayload, {
     baseline: "beginning",
@@ -91,6 +105,19 @@ test("Default beginning baseline handles partial and zero scores without problem
   assert.equal(
     initial.standings.every((standing) => standing.rank === 1),
     true,
+  );
+  assert.equal(
+    initial.standings.every(
+      (standing) => standing.score === 0 && standing.cumtime === 0 && standing.tiebreaker === 0,
+    ),
+    true,
+  );
+  assert.notDeepEqual(
+    initial.standings.map((standing) => standing.contestantId),
+    [...defaultPayload.contestants]
+      .sort((left, right) => left.final_order - right.final_order)
+      .map((contestant) => contestant.participation_id),
+    "Beginning must use seeded tie order instead of exposing final physical order",
   );
   assert.equal(session.getResolvableCells().length, 5);
 
@@ -515,8 +542,8 @@ test("Phase 3 presets are deterministic and Director never starts an automatic p
   assert.equal(CEREMONY_PRESETS.full.baseline, "beginning");
   assert.equal(CEREMONY_PRESETS.director.policy, "manual");
   assert.equal(CEREMONY_PRESETS.icpc.singleStepStartRank, 0);
+  assert.equal(CEREMONY_PRESETS.icpc.awardPlaces, 0);
   assert.deepEqual(CEREMONY_PRESETS.icpc.hardPauses, {
-    singleStep: false,
     award: false,
     firstSolve: false,
   });

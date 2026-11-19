@@ -41,8 +41,8 @@ msgid "Resolver baseline \"%(baseline)s\" is not available for this contest."
 msgstr "Mốc bắt đầu \"%(baseline)s\" không khả dụng cho cuộc thi này."
 
 #: resources/resolver/core.js:50
-msgid "Invalid Resolver schema version 1 payload."
-msgstr "Dữ liệu trình diễn phiên bản 1 không hợp lệ."
+msgid "Invalid Resolver schema version 2 payload."
+msgstr "Dữ liệu trình diễn phiên bản 2 không hợp lệ."
 
 #: resources/resolver/core.js:118
 msgid "Unknown Resolver tie order \"%(order)s\"."
@@ -297,7 +297,7 @@ msgstr "Không thể dùng toàn màn hình: %(error)s"
 
 #: resources/resolver/planner.js:84
 msgid "Authoritative first solve on problem %(problem)s."
-msgstr "Lời giải đầu tiên chính thức ở bài %(problem)s."
+msgstr "First Solve thực tế ở bài %(problem)s."
 
 #: resources/resolver/planner.js:89
 msgid "Entered the top %(rank)s award zone."
@@ -420,3 +420,157 @@ msgstr[0] "%(count)s ô"
 #: resources/resolver/timing.js:111
 msgid "Revealed problem %(problem)s."
 msgstr "Đã mở bài %(problem)s."
+
+#: resources/resolver/page.js
+msgid "Manual action queued until the current reveal finishes."
+msgstr "Đã xếp hành động thủ công; sẽ thực hiện sau khi lượt mở hiện tại hoàn tất."
+
+#: resources/resolver/page.js
+msgid "A manual action is already queued."
+msgstr "Đã có một hành động thủ công đang chờ."
+
+#: resources/resolver/page.js
+msgid "Presentation restarted from %(baseline)s."
+msgstr "Đã khởi động lại trình diễn từ %(baseline)s."
+
+#: resources/resolver/page.js resources/resolver/player.js
+msgid "Resolver settings applied."
+msgstr "Đã áp dụng thiết lập trình diễn."
+
+#: resources/resolver/page.js
+msgid "Resolver settings applied without restarting the presentation."
+msgstr "Đã áp dụng thiết lập mà không khởi động lại trình diễn."
+
+#: resources/resolver/page.js
+msgid "Playback paused while editing settings."
+msgstr "Đã tạm dừng để chỉnh sửa thiết lập."
+
+#: resources/resolver/page.js
+msgid "Settings will open after the current reveal finishes."
+msgstr "Thiết lập sẽ mở sau khi lượt mở hiện tại hoàn tất."
+
+#: resources/resolver/page.js
+msgid "Resolver settings"
+msgstr "Thiết lập trình diễn"
+
+#: resources/resolver/page.js
+msgid "Adjust presentation settings without resetting the current ceremony."
+msgstr "Điều chỉnh thiết lập mà không đặt lại phần trình diễn hiện tại."
+
+#: resources/resolver/page.js
+msgid "Apply settings"
+msgstr "Áp dụng thiết lập"
+
+#: resources/resolver/page.js
+msgid "Settings changes cancelled."
+msgstr "Đã hủy thay đổi thiết lập."
+
+#: resources/resolver/page.js
+msgid "Open profile for %(contestant)s"
+msgstr "Mở hồ sơ của %(contestant)s"
+
+#: resources/resolver/page.js
+msgid "Next"
+msgstr "Tiếp theo"
+
+#: resources/resolver/page.js
+msgid "Top %(rank)s award zone"
+msgstr "Vùng giải thưởng Top %(rank)s"
+
+#: resources/resolver/page.js
+msgid "%(reason)s Press Space or Next to continue."
+msgstr "%(reason)s Nhấn Space hoặc Tiếp theo để tiếp tục."
+
+#: resources/resolver/page.js
+msgid "Manual reveal failed: %(error)s"
+msgstr "Không thể mở kết quả thủ công: %(error)s"
+
+#: resources/resolver/planner.js
+msgid "The ceremony has reached the top %(rank)s award zone."
+msgstr "Phần trình diễn đã bắt đầu vào vùng giải thưởng Top %(rank)s."
+
+#: resources/resolver/player.js
+msgid "Playback paused while applying settings."
+msgstr "Đã tạm dừng trong khi áp dụng thiết lập."
+
+#: resources/resolver/timing.js
+msgid "Reveal complete for %(contestant)s, problem %(problem)s."
+msgstr "Đã mở xong kết quả của %(contestant)s ở bài %(problem)s."
+
+#: resources/resolver/page.js
+msgid "Official freeze is configured but has not started yet."
+msgstr "Official freeze đã được cấu hình nhưng chưa bắt đầu."
+
+#: resources/resolver/page.js
+msgid "Unknown"
+msgstr "Không xác định"
+
+#: resources/resolver/page.js
+msgid "Preview"
+msgstr "Xem trước"
+
+#: resources/resolver/page.js
+msgid "This preview snapshot cannot be used as final results. The contest may now have ended; refresh results to load a final snapshot."
+msgstr "Snapshot xem trước này không thể dùng làm kết quả cuối cùng. Kỳ thi có thể đã kết thúc; hãy tải lại kết quả để lấy snapshot cuối cùng."
+
+#: resources/resolver/page.js
+msgid "This preview snapshot was created before the contest ended. It remains a preview until results are refreshed."
+msgstr "Snapshot xem trước này được tạo trước khi kỳ thi kết thúc. Nó vẫn là bản xem trước cho đến khi kết quả được tải lại."
+
+#: resources/resolver/page.js
+msgid "Final results are not ready yet"
+msgstr "Kết quả cuối cùng chưa sẵn sàng"
+
+#: resources/resolver/page.js
+msgid "%(count)s submission is still being judged."
+msgid_plural "%(count)s submissions are still being judged."
+msgstr[0] "%(count)s bài nộp vẫn đang được chấm."
+
+#: resources/resolver/page.js
+msgid "%(count)s submission still contains pretest-only results."
+msgid_plural "%(count)s submissions still contain pretest-only results."
+msgstr[0] "%(count)s bài nộp vẫn chỉ có kết quả pretest."
+
+#: resources/resolver/page.js
+msgid "Final results ready"
+msgstr "Kết quả cuối cùng đã sẵn sàng"
+
+#: resources/resolver/page.js
+msgid "This immutable snapshot is ready for the final ceremony. Refresh if submissions were rejudged after it was generated."
+msgstr "Snapshot bất biến này đã sẵn sàng cho phần trình diễn cuối cùng. Hãy tải lại nếu bài nộp được chấm lại sau khi snapshot được tạo."
+
+#: resources/resolver/page.js
+msgid "Snapshot safety information could not be verified"
+msgstr "Không thể xác minh thông tin an toàn của snapshot"
+
+#: resources/resolver/page.js
+msgid "Refresh results before starting Resolver. This snapshot is blocked for safety."
+msgstr "Hãy tải lại kết quả trước khi bắt đầu Resolver. Snapshot này bị chặn để bảo đảm an toàn."
+
+#: resources/resolver/page.js
+msgid "Start Preview"
+msgstr "Bắt đầu xem trước"
+
+#: resources/resolver/page.js
+msgid "Start Resolver"
+msgstr "Bắt đầu Resolver"
+
+#: resources/resolver/page.js
+msgid "Rehearse the ceremony with a non-final snapshot."
+msgstr "Diễn tập phần trình diễn bằng snapshot chưa phải kết quả cuối cùng."
+
+#: resources/resolver/page.js
+msgid "Present the final standings with an automatic bottom-up ceremony."
+msgstr "Trình diễn bảng xếp hạng cuối cùng bằng nghi thức tự động từ dưới lên."
+
+#: resources/resolver/page.js
+msgid "Resolver preview complete — snapshot standings reached."
+msgstr "Đã hoàn tất bản xem trước Resolver — đã đạt bảng xếp hạng của snapshot."
+
+#: resources/resolver/page.js
+msgid "PREVIEW"
+msgstr "XEM TRƯỚC"
+
+#: resources/resolver/page.js
+msgid "FINAL"
+msgstr "CUỐI CÙNG"

@@ -43,8 +43,8 @@ function delay(afterType) {
   });
 }
 
-function pause(kind, reason, hard = false) {
-  return action(RESOLUTION_STEP_TYPES.PAUSE, { kind, reason, hard });
+function pause(kind, reason, hard = false, extra = {}) {
+  return action(RESOLUTION_STEP_TYPES.PAUSE, { kind, reason, hard, ...extra });
 }
 
 function stepDetails(metadata) {
@@ -66,10 +66,21 @@ function commonPrefix(metadata) {
   ];
 }
 
+function awardZonePrelude(metadata) {
+  return metadata.awardZoneStart
+    ? [
+        pause("award-zone-start", metadata.awardZoneStartReason, true, {
+          milestone: "awardZoneEntered",
+        }),
+      ]
+    : [];
+}
+
 export class ScoreboardTiming {
   buildSteps(metadata) {
     const details = stepDetails(metadata);
     const steps = [
+      ...awardZonePrelude(metadata),
       ...commonPrefix(metadata),
       delay(RESOLUTION_STEP_TYPES.SELECT_TEAM),
       action(RESOLUTION_STEP_TYPES.SELECT_PROBLEM, details),
@@ -78,9 +89,17 @@ export class ScoreboardTiming {
       action(metadata.resultType, details),
       delay(metadata.resultType),
     ];
-    if (metadata.hardPauseReason) {
-      steps.push(pause(metadata.hardPauseKind, metadata.hardPauseReason, true));
-    }
+    steps.push(
+      pause(
+        metadata.hardPauseKind ?? "reveal-complete",
+        metadata.hardPauseReason ??
+          gettext("Reveal complete for %(contestant)s, problem %(problem)s.", {
+            contestant: metadata.contestantLabel,
+            problem: metadata.problemLabel,
+          }),
+        Boolean(metadata.hardPauseReason),
+      ),
+    );
     steps.push(
       action(RESOLUTION_STEP_TYPES.DESELECT, details),
       delay(RESOLUTION_STEP_TYPES.DESELECT),
@@ -93,15 +112,18 @@ export class SingleStepTiming {
   buildSteps(metadata) {
     const details = stepDetails(metadata);
     return [
+      ...awardZonePrelude(metadata),
       ...commonPrefix(metadata),
       pause(
         "single-step-team",
         gettext("Selected %(contestant)s.", { contestant: metadata.contestantLabel }),
+        true,
       ),
       action(RESOLUTION_STEP_TYPES.SELECT_PROBLEM, details),
       pause(
         "single-step-problem",
         gettext("Selected problem %(problem)s.", { problem: metadata.problemLabel }),
+        true,
       ),
       action(RESOLUTION_STEP_TYPES.REVEAL_CELL, details),
       action(metadata.resultType, details),
@@ -109,14 +131,14 @@ export class SingleStepTiming {
         metadata.hardPauseKind ?? "single-step-result",
         metadata.hardPauseReason ??
           gettext("Revealed problem %(problem)s.", { problem: metadata.problemLabel }),
-        Boolean(metadata.hardPauseReason),
+        true,
       ),
       action(RESOLUTION_STEP_TYPES.DESELECT, details),
     ];
   }
 }
 
-export function usesSingleStepTiming(displayedRank, singleStepStartRank) {
+export function usesSingleStepTiming(currentPosition, singleStepStartRank) {
   const threshold = Number.parseInt(singleStepStartRank, 10);
-  return Number.isFinite(threshold) && threshold > 0 && displayedRank <= threshold;
+  return Number.isFinite(threshold) && threshold > 0 && currentPosition <= threshold;
 }

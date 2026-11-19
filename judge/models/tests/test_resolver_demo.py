@@ -7,7 +7,13 @@ from django.core.management.base import CommandError
 from django.db.models import Count
 from django.test import TestCase, override_settings
 
-from judge.management.commands.seed_resolver_demo import CONTEST_BLUEPRINTS, DEMO_MARKER, DEMO_USERS
+from judge.management.commands.seed_resolver_demo import (
+    CONTEST_BLUEPRINTS,
+    DEMO_MARKER,
+    DEMO_USERS,
+    VNOJ_REFERENCE_SCORE_ROWS,
+    VNOJ_REFERENCE_USERS,
+)
 from judge.models import Contest, ContestParticipation, ContestSubmission
 from judge.resolver import build_resolver_payload
 
@@ -38,32 +44,36 @@ class ResolverDemoCommandTestCase(TestCase):
         )
 
         for format_name, blueprint in CONTEST_BLUEPRINTS.items():
+            expected_users = blueprint.get('users', DEMO_USERS)
             contest = Contest.objects.get(key=blueprint['key'])
             payload = build_resolver_payload(contest)
 
             self.assertTrue(contest.ended)
-            self.assertEqual(contest.format_name, format_name)
-            self.assertEqual(contest.user_count, len(DEMO_USERS))
-            self.assertEqual(len(payload['contestants']), len(DEMO_USERS))
-            expected_order = list(
-                contest.users.filter(virtual=ContestParticipation.LIVE)
-                .annotate(submission_count=Count('submission'))
-                .order_by(
-                    'is_disqualified',
-                    '-score',
-                    'cumtime',
-                    'tiebreaker',
-                    '-submission_count',
+            self.assertEqual(contest.format_name, blueprint.get('format_name', format_name))
+            self.assertEqual(contest.user_count, len(expected_users))
+            self.assertEqual(len(payload['contestants']), len(expected_users))
+            ranking = {
+                participation.id: (
+                    participation.is_disqualified,
+                    -participation.score,
+                    participation.cumtime,
+                    participation.tiebreaker,
+                    -participation.submission_count,
                 )
-                .values_list('id', flat=True),
-            )
+                for participation in (
+                    contest.users.filter(virtual=ContestParticipation.LIVE)
+                    .annotate(submission_count=Count('submission'))
+                )
+            }
+            actual_order = [contestant['participation_id'] for contestant in payload['contestants']]
+            self.assertCountEqual(actual_order, ranking)
             self.assertEqual(
-                [contestant['participation_id'] for contestant in payload['contestants']],
-                expected_order,
+                [ranking[participation_id] for participation_id in actual_order],
+                sorted(ranking.values()),
             )
             self.assertEqual(
                 [contestant['final_order'] for contestant in payload['contestants']],
-                list(range(len(DEMO_USERS))),
+                list(range(len(expected_users))),
             )
             self.assertEqual(
                 ContestSubmission.objects.filter(participation__contest=contest).count(),
@@ -71,9 +81,10 @@ class ResolverDemoCommandTestCase(TestCase):
             )
             self.assertFalse(contest.users.filter(format_data__isnull=True).exists())
 
-            hugo = contest.users.get(user__user__username='resolver_hugo')
-            self.assertTrue(hugo.is_disqualified)
-            self.assertEqual((hugo.score, hugo.cumtime, hugo.tiebreaker), (-9999, 0, 0))
+            if 'resolver_hugo' in {username for username, _display_name in expected_users}:
+                hugo = contest.users.get(user__user__username='resolver_hugo')
+                self.assertTrue(hugo.is_disqualified)
+                self.assertEqual((hugo.score, hugo.cumtime, hugo.tiebreaker), (-9999, 0, 0))
 
             if blueprint['frozen_last_minutes']:
                 self.assertTrue(payload['contest']['official_freeze_available'])
@@ -98,6 +109,48 @@ class ResolverDemoCommandTestCase(TestCase):
         gia = vnoj.users.get(user__user__username='resolver_gia')
         self.assertEqual((gia.score, gia.cumtime, gia.tiebreaker), (0, 0, 0))
         self.assertGreater(gia.submissions.count(), 0)
+
+    def test_vnoj_reference_fixture_matches_csv_scores_and_has_drama(self):
+        blueprint = CONTEST_BLUEPRINTS['vnoj_reference']
+        call_command('seed_resolver_demo', format='vnoj_reference', stdout=StringIO())
+
+        contest = Contest.objects.get(key=blueprint['key'])
+        payload = build_resolver_payload(contest)
+        contestants = {contestant['username']: contestant for contestant in payload['contestants']}
+
+        self.assertEqual(contest.format_name, 'vnoj')
+        self.assertEqual(contest.points_precision, 3)
+        self.assertEqual(len(contestants), len(VNOJ_REFERENCE_USERS))
+        self.assertEqual(set(contestants), {username for username, _display_name in VNOJ_REFERENCE_USERS})
+
+        for rank, (username, _display_name) in enumerate(VNOJ_REFERENCE_USERS):
+            contestant = contestants[username]
+            expected_score = sum(score or 0 for score in VNOJ_REFERENCE_SCORE_ROWS[rank])
+            self.assertAlmostEqual(contestant['final']['score'], expected_score, places=3)
+
+        problem_ids = {problem['code']: str(problem['id']) for problem in payload['problems']}
+        leader = contestants[VNOJ_REFERENCE_USERS[0][0]]
+        self.assertEqual(leader['frozen']['score'], 13.875)
+        self.assertEqual(leader['final']['score'], 15.975)
+        self.assertEqual(leader['problems'][problem_ids['pe02_bus']]['frozen']['points'], 1.4)
+        self.assertTrue(leader['problems'][problem_ids['pe02_bus']]['final']['pending'])
+
+        zero_score = contestants[VNOJ_REFERENCE_USERS[20][0]]
+        self.assertTrue(zero_score['problems'][problem_ids['pe02_bus']]['final']['pending'])
+        self.assertEqual(zero_score['final']['score'], 0)
+
+        tied = [contestants[VNOJ_REFERENCE_USERS[rank - 1][0]] for rank in (17, 18)]
+        self.assertEqual(
+            [
+                (contestant['final']['score'], contestant['final']['cumtime'], contestant['final']['tiebreaker'])
+                for contestant in tied
+            ],
+            [(6.475, 220 * 60, 220 * 60), (6.475, 220 * 60, 220 * 60)],
+        )
+        self.assertEqual(
+            ContestSubmission.objects.filter(participation__contest=contest).count(),
+            len(blueprint['submissions']),
+        )
 
     def test_existing_data_is_kept_and_owned_contest_can_be_replaced(self):
         call_command('seed_resolver_demo', format='default', stdout=StringIO())

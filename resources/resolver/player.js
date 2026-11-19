@@ -64,7 +64,7 @@ export class ResolutionPlayer {
     this.onChange = onChange;
 
     this.running = false;
-    this.complete = false;
+    this.complete = this.session.getResolvableCount() === 0;
     this.pauseKind = "idle";
     this.pauseReason = null;
     this.presentation = initialPresentation();
@@ -73,6 +73,7 @@ export class ResolutionPlayer {
     this._runSerial = 0;
     this._activeDelay = null;
     this._activeRun = null;
+    this._milestones = { awardZoneEntered: false };
     this._checkpoints = [this._makeCheckpoint("beginning", gettext("Resolver beginning"))];
     this._checkpointIndex = 0;
     this._atCheckpoint = true;
@@ -86,6 +87,7 @@ export class ResolutionPlayer {
       plan: this._plan,
       cursor: this._cursor,
       presentation: clone(this.presentation),
+      milestones: clone(this._milestones),
     };
   }
 
@@ -110,7 +112,12 @@ export class ResolutionPlayer {
             projection: undefined,
           }
         : null,
+      milestones: clone(this._milestones),
     };
+  }
+
+  getPlanningContext() {
+    return clone(this._milestones);
   }
 
   setSpeed(playbackSpeed) {
@@ -217,6 +224,9 @@ export class ResolutionPlayer {
     });
 
     if (step.type === RESOLUTION_STEP_TYPES.PAUSE) {
+      if (step.milestone) {
+        this._milestones[step.milestone] = true;
+      }
       this.pauseKind = step.kind;
       this.pauseReason = step.reason;
       this._recordPause(step);
@@ -228,7 +238,7 @@ export class ResolutionPlayer {
   async _run(serial, includeDelays, stopAt) {
     while (serial === this._runSerial) {
       if (!this._plan || this._cursor >= this._plan.steps.length) {
-        this._plan = this.planner.planNext(this.session);
+        this._plan = this.planner.planNext(this.session, this.getPlanningContext());
         this._cursor = 0;
         if (!this._plan) {
           this.complete = true;
@@ -240,6 +250,9 @@ export class ResolutionPlayer {
 
       const step = this._plan.steps[this._cursor];
       this._cursor += 1;
+      if (step.type !== RESOLUTION_STEP_TYPES.PAUSE) {
+        this._atCheckpoint = false;
+      }
       const pause = await this._executeStep(step, includeDelays, serial);
       if (serial !== this._runSerial) {
         return { complete: false, cancelled: true, pause: null };
@@ -262,13 +275,16 @@ export class ResolutionPlayer {
     this._atCheckpoint = false;
     const serial = ++this._runSerial;
     this._notify();
-    this._activeRun = this._run(serial, includeDelays, stopAt).finally(() => {
+    const activeRun = this._run(serial, includeDelays, stopAt).finally(() => {
       if (serial === this._runSerial) {
         this.running = false;
-        this._activeRun = null;
         this._notify();
       }
+      if (this._activeRun === activeRun) {
+        this._activeRun = null;
+      }
     });
+    this._activeRun = activeRun;
     return this._activeRun;
   }
 
@@ -309,6 +325,7 @@ export class ResolutionPlayer {
     this._plan = checkpoint.plan;
     this._cursor = checkpoint.cursor;
     this.presentation = clone(checkpoint.presentation);
+    this._milestones = clone(checkpoint.milestones ?? { awardZoneEntered: false });
     this.complete = false;
     this.pauseKind = checkpoint.kind;
     this.pauseReason = checkpoint.reason;
@@ -327,6 +344,7 @@ export class ResolutionPlayer {
     this._plan = null;
     this._cursor = 0;
     this.presentation = initialPresentation();
+    this._milestones = { awardZoneEntered: false };
     this.complete = false;
     this.pauseKind = "beginning";
     this.pauseReason = gettext("Resolver beginning");
@@ -338,6 +356,71 @@ export class ResolutionPlayer {
     return this.getState();
   }
 
+  async reconfigure({
+    planner = this.planner,
+    playbackSpeed = this.playbackSpeed,
+    resetAwardZoneMilestone = false,
+    reason = gettext("Resolver settings applied."),
+  } = {}) {
+    if (this.running) {
+      this.cancel(gettext("Playback paused while applying settings."), "settings");
+    }
+    const activeRun = this._activeRun;
+    if (activeRun) {
+      await activeRun;
+    }
+    const speed = Number(playbackSpeed);
+    if (!Number.isFinite(speed) || speed <= 0) {
+      throw new RangeError(gettext("Resolver playback speed must be greater than zero."));
+    }
+    this.planner = planner;
+    this.playbackSpeed = speed;
+    if (this._checkpointIndex < this._checkpoints.length - 1) {
+      this._checkpoints.splice(this._checkpointIndex + 1);
+    }
+    const currentHistoryCursor = this.session.getHistoryCursor();
+    const replaceCurrentCheckpoint =
+      this._checkpoints[this._checkpointIndex]?.historyCursor === currentHistoryCursor;
+    this._checkpoints.forEach((checkpoint) => {
+      checkpoint.plan = null;
+      checkpoint.cursor = 0;
+      if (resetAwardZoneMilestone) {
+        checkpoint.milestones = { awardZoneEntered: false };
+      }
+    });
+    this._plan = null;
+    this._cursor = 0;
+    this.presentation = initialPresentation();
+    this.complete = this.session.getResolvableCount() === 0;
+    this.pauseKind = "settings";
+    this.pauseReason = reason;
+    if (resetAwardZoneMilestone) {
+      this._milestones = { awardZoneEntered: false };
+    }
+    const settingsCheckpoint = this._makeCheckpoint("settings", reason);
+    if (replaceCurrentCheckpoint) {
+      this._checkpoints[this._checkpointIndex] = settingsCheckpoint;
+    } else {
+      this._checkpoints.push(settingsCheckpoint);
+      this._checkpointIndex = this._checkpoints.length - 1;
+    }
+    this._atCheckpoint = true;
+    await this.onRestore(this.getState());
+    this._notify();
+    return this.getState();
+  }
+
+  checkpointBeforeExternalChange(reason) {
+    // An operator can interrupt a reveal before its narrative pause is recorded.
+    // Preserve that already-committed reveal so undoing the manual batch only
+    // undoes the batch, rather than also removing the interrupted reveal.
+    if (
+      this._checkpoints[this._checkpointIndex]?.historyCursor !== this.session.getHistoryCursor()
+    ) {
+      this._recordPause({ kind: "before-manual", reason });
+    }
+  }
+
   async syncAfterExternalChange(reason = gettext("Resolver state changed manually.")) {
     if (this.running) {
       this.cancel(reason, "manual");
@@ -345,7 +428,7 @@ export class ResolutionPlayer {
     this._plan = null;
     this._cursor = 0;
     this.presentation = initialPresentation();
-    this.complete = false;
+    this.complete = this.session.getResolvableCount() === 0;
     this.pauseKind = "manual";
     this.pauseReason = reason;
     if (this._checkpointIndex < this._checkpoints.length - 1) {

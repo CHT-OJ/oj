@@ -35,6 +35,108 @@ PROBLEM_NAMES = (
 )
 
 
+def _reference_username(rank):
+    return 'resolver_csv_%02d' % rank
+
+
+# The source CSV contains 21 contestants plus a final "Total AC" summary row.
+# Keep only the score columns here; real usernames and display names stay outside the repository.
+VNOJ_REFERENCE_USERS = tuple(
+    (_reference_username(rank), 'CSV Reference %02d' % rank)
+    for rank in range(1, 22)
+)
+
+VNOJ_REFERENCE_SCORE_ROWS = (
+    (6.475, 3.500, 6.000),
+    (6.475, 1.400, 6.000),
+    (6.475, 1.400, 6.000),
+    (6.475, 1.400, 5.400),
+    (7.000, None, 6.000),
+    (6.475, 5.600, None),
+    (6.475, 4.900, 0.600),
+    (7.000, 3.500, 1.200),
+    (6.475, 1.400, 3.600),
+    (6.475, 4.200, 0.600),
+    (None, 4.200, 6.000),
+    (6.475, 1.400, 1.800),
+    (6.475, 1.400, 1.800),
+    (3.150, None, 6.000),
+    (0.000, 1.400, 6.000),
+    (6.475, 0.700, None),
+    (6.475, None, None),
+    (6.475, None, None),
+    (6.475, None, None),
+    (6.475, None, None),
+    (None, None, None),
+)
+
+VNOJ_REFERENCE_PROBLEM_SPECS = (
+    ('pe01_hwork', 'PE01 HWork', 7),
+    ('pe02_bus', 'PE02 Bus', 7),
+    ('pe03_leaves', 'PE03 Leaves', 7),
+)
+
+# Final component scores are transcribed from the CSV. The pre/post-freeze staging is
+# intentionally synthetic because the CSV has no submission timestamps. It gives the
+# Resolver a useful ceremony: several rows climb after the freeze, one exact tie appears,
+# and zero-score/pending attempts remain visible without changing aggregate score.
+VNOJ_REFERENCE_SUBMISSIONS = (
+    (_reference_username(1), 0, 105, 6.475),
+    (_reference_username(1), 1, 130, 1.400),
+    (_reference_username(1), 1, 295, 3.500),
+    (_reference_username(1), 2, 145, 6.000),
+    (_reference_username(2), 0, 100, 6.475),
+    (_reference_username(2), 1, 120, 1.400),
+    (_reference_username(2), 2, 140, 6.000),
+    (_reference_username(3), 0, 110, 6.475),
+    (_reference_username(3), 1, 115, 0.700),
+    (_reference_username(3), 1, 282, 1.400),
+    (_reference_username(3), 2, 130, 6.000),
+    (_reference_username(4), 0, 95, 6.475),
+    (_reference_username(4), 1, 100, 1.400),
+    (_reference_username(4), 2, 150, 5.400),
+    (_reference_username(5), 0, 80, 7.000),
+    (_reference_username(5), 2, 255, 6.000),
+    (_reference_username(6), 0, 90, 6.475),
+    (_reference_username(6), 1, 100, 1.400),
+    (_reference_username(6), 1, 265, 5.600),
+    (_reference_username(7), 0, 85, 6.475),
+    (_reference_username(7), 1, 160, 4.900),
+    (_reference_username(7), 2, 270, 0.600),
+    (_reference_username(8), 0, 75, 7.000),
+    (_reference_username(8), 1, 155, 3.500),
+    (_reference_username(8), 2, 280, 1.200),
+    (_reference_username(9), 0, 125, 6.475),
+    (_reference_username(9), 1, 135, 1.400),
+    (_reference_username(9), 2, 285, 3.600),
+    (_reference_username(10), 0, 115, 6.475),
+    (_reference_username(10), 1, 165, 4.200),
+    (_reference_username(10), 2, 290, 0.600),
+    (_reference_username(11), 1, 170, 4.200),
+    (_reference_username(11), 2, 275, 6.000),
+    (_reference_username(12), 0, 105, 6.475),
+    (_reference_username(12), 1, 125, 1.400),
+    (_reference_username(12), 2, 185, 1.800),
+    (_reference_username(13), 0, 110, 6.475),
+    (_reference_username(13), 1, 130, 1.400),
+    (_reference_username(13), 2, 290, 1.800),
+    (_reference_username(14), 0, 145, 3.150),
+    (_reference_username(14), 2, 190, 6.000),
+    (_reference_username(15), 0, 60, 0.000),
+    (_reference_username(15), 1, 195, 1.400),
+    (_reference_username(15), 2, 205, 6.000),
+    (_reference_username(16), 0, 120, 6.475),
+    (_reference_username(16), 1, 210, 0.700),
+    (_reference_username(17), 0, 220, 6.475),
+    (_reference_username(17), 1, 230, 0.000),
+    (_reference_username(18), 0, 220, 6.475),
+    (_reference_username(18), 1, 230, 0.000),
+    (_reference_username(19), 0, 225, 6.475),
+    (_reference_username(20), 0, 230, 6.475),
+    (_reference_username(21), 1, 250, 0.000),
+)
+
+
 CONTEST_BLUEPRINTS = {
     'default': {
         'key': 'resolver_demo_default',
@@ -181,6 +283,19 @@ CONTEST_BLUEPRINTS = {
         ),
         'disqualified': ('resolver_hugo',),
     },
+    'vnoj_reference': {
+        'key': 'resolver_demo_vnoj_reference',
+        'name': 'Resolver Demo — VNOJ CSV Reference + Drama',
+        'format_name': 'vnoj',
+        'format_config': {'penalty': 5, 'LSO': False},
+        'frozen_last_minutes': 60,
+        'points_precision': 3,
+        'problem_specs': VNOJ_REFERENCE_PROBLEM_SPECS,
+        'problem_points': 7,
+        'users': VNOJ_REFERENCE_USERS,
+        'submissions': VNOJ_REFERENCE_SUBMISSIONS,
+        'disqualified': (),
+    },
 }
 
 
@@ -190,7 +305,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             '--format',
-            choices=('all', 'default', 'icpc', 'vnoj'),
+            choices=('all', *CONTEST_BLUEPRINTS),
             default='all',
             help='Resolver format to seed (default: all).',
         )
@@ -212,10 +327,17 @@ class Command(BaseCommand):
         selected_formats = tuple(CONTEST_BLUEPRINTS) if options['format'] == 'all' else (options['format'],)
         language = self._get_language()
         director_password = options['director_password'] or secrets.token_urlsafe(24)
+        user_specs = []
+        seen_usernames = set()
+        for format_name in selected_formats:
+            for username, display_name in CONTEST_BLUEPRINTS[format_name].get('users', DEMO_USERS):
+                if username not in seen_usernames:
+                    user_specs.append((username, display_name))
+                    seen_usernames.add(username)
 
         with transaction.atomic():
             director = self._ensure_director(language, director_password)
-            profiles = self._ensure_contestants(language)
+            profiles = self._ensure_contestants(language, user_specs)
             problem_group, problem_type = self._ensure_problem_metadata()
             contests = []
 
@@ -288,9 +410,9 @@ class Command(BaseCommand):
         user.user_permissions.add(permission)
         return user
 
-    def _ensure_contestants(self, language):
+    def _ensure_contestants(self, language, user_specs):
         profiles = {}
-        for username, display_name in DEMO_USERS:
+        for username, display_name in user_specs:
             user = User.objects.filter(username=username).first()
             if user is None:
                 user = User(username=username, is_active=True)
@@ -343,6 +465,7 @@ class Command(BaseCommand):
         contest.delete()
 
     def _create_contest(self, format_name, blueprint, director, profiles, language, problem_group, problem_type):
+        contest_format = blueprint.get('format_name', format_name)
         now = timezone.now().replace(second=0, microsecond=0)
         end_time = now - timezone.timedelta(days=1)
         start_time = end_time - timezone.timedelta(hours=5)
@@ -360,17 +483,26 @@ class Command(BaseCommand):
             is_rated=False,
             scoreboard_visibility=Contest.SCOREBOARD_VISIBLE,
             show_submission_list=True,
-            format_name=format_name,
+            format_name=contest_format,
             format_config=blueprint['format_config'],
             frozen_last_minutes=blueprint['frozen_last_minutes'],
-            points_precision=0,
+            points_precision=blueprint.get('points_precision', 0),
             locked_after=end_time,
         )
         contest.authors.add(director)
 
+        problem_specs = blueprint.get('problem_specs')
+        if problem_specs is None:
+            problem_specs = tuple(
+                (
+                    'resdemo_%s_%s' % (format_name, chr(ord('a') + index)),
+                    problem_name,
+                    blueprint['problem_points'],
+                )
+                for index, problem_name in enumerate(PROBLEM_NAMES)
+            )
         contest_problems = []
-        for index, problem_name in enumerate(PROBLEM_NAMES):
-            code = 'resdemo_%s_%s' % (format_name, chr(ord('a') + index))
+        for index, (code, problem_name, problem_points) in enumerate(problem_specs):
             problem = Problem.objects.filter(code=code).first()
             if problem is None:
                 problem = Problem.objects.create(
@@ -397,13 +529,14 @@ class Command(BaseCommand):
             contest_problems.append(ContestProblem.objects.create(
                 problem=problem,
                 contest=contest,
-                points=blueprint['problem_points'],
-                partial=format_name != 'icpc',
+                points=problem_points,
+                partial=contest_format != 'icpc',
                 order=(index + 1) * 10,
             ))
 
         participations = {}
-        for username, _display_name in DEMO_USERS:
+        user_specs = blueprint.get('users', DEMO_USERS)
+        for username, _display_name in user_specs:
             participations[username] = ContestParticipation.objects.create(
                 contest=contest,
                 user=profiles[username],
@@ -458,9 +591,10 @@ class Command(BaseCommand):
 
     def _validate_contest(self, contest, blueprint):
         payload = build_resolver_payload(contest)
+        expected_users = blueprint.get('users', DEMO_USERS)
         if not contest.ended:
             raise CommandError('Generated contest %s did not end in the past.' % contest.key)
-        if len(payload['contestants']) != len(DEMO_USERS):
+        if len(payload['contestants']) != len(expected_users):
             raise CommandError('Generated contest %s has an incomplete field.' % contest.key)
         if ContestSubmission.objects.filter(participation__contest=contest).count() != len(blueprint['submissions']):
             raise CommandError('Generated contest %s has an incomplete submission history.' % contest.key)

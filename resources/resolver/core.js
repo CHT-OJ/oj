@@ -43,16 +43,16 @@ export class UnsupportedResolverBaselineError extends Error {
 function validatePayload(payload) {
   if (
     !payload ||
-    payload.schema_version !== 1 ||
+    payload.schema_version !== 2 ||
     !payload.contest ||
     !Array.isArray(payload.problems) ||
     !Array.isArray(payload.contestants)
   ) {
-    throw new TypeError(gettext("Invalid Resolver schema version 1 payload."));
+    throw new TypeError(gettext("Invalid Resolver schema version 2 payload."));
   }
 }
 
-function normalizeBaseline(payload, requested) {
+export function resolveResolverBaseline(payload, requested) {
   const baseline =
     requested === "auto"
       ? payload.contest.official_freeze_available
@@ -112,7 +112,7 @@ export class ResolverSession {
       throw new UnsupportedResolverFormatError(formatName);
     }
 
-    this.baseline = normalizeBaseline(this.source, options.baseline ?? "auto");
+    this.baseline = resolveResolverBaseline(this.source, options.baseline ?? "auto");
     this.tieOrder = options.tieOrder ?? "seeded";
     if (this.tieOrder !== "seeded" && this.tieOrder !== "source") {
       throw new TypeError(

@@ -49,4 +49,23 @@ test("Vietnamese Resolver catalog contains essential dynamic controls", async ()
     catalog,
     /msgid "Reveal all results for this contestant"\s+msgstr "Mở toàn bộ kết quả của thí sinh"/,
   );
+  assert.match(catalog, /msgid "Next"\s+msgstr "Tiếp theo"/);
+  assert.match(catalog, /msgid "Resolver settings"\s+msgstr "Thiết lập trình diễn"/);
+  assert.match(
+    catalog,
+    /msgid "The ceremony has reached the top %\(rank\)s award zone\."\s+msgstr "Phần trình diễn đã bắt đầu vào vùng giải thưởng Top %\(rank\)s\."/,
+  );
+  assert.match(
+    catalog,
+    /msgid "Official freeze is configured but has not started yet\."\s+msgstr "Official freeze đã được cấu hình nhưng chưa bắt đầu\."/,
+  );
+  assert.match(
+    catalog,
+    /msgid "This preview snapshot cannot be used as final results\. The contest may now have ended; refresh results to load a final snapshot\."\s+msgstr "Snapshot xem trước này không thể dùng làm kết quả cuối cùng\. Kỳ thi có thể đã kết thúc; hãy tải lại kết quả để lấy snapshot cuối cùng\."/,
+  );
+  assert.match(catalog, /msgid "Final results ready"\s+msgstr "Kết quả cuối cùng đã sẵn sàng"/);
+  assert.match(
+    catalog,
+    /msgid "Snapshot safety information could not be verified"\s+msgstr "Không thể xác minh thông tin an toàn của snapshot"/,
+  );
 });
