@@ -17,7 +17,7 @@ from moss import MOSS_LANG_C, MOSS_LANG_CC, MOSS_LANG_JAVA, MOSS_LANG_PASCAL, MO
 
 from judge import contest_format, event_poster as event
 from judge.models.problem import Problem
-from judge.models.profile import Organization, Profile
+from judge.models.profile import Organization, Profile, WarningLog
 from judge.models.submission import Submission
 from judge.ratings import rate_contest
 from judge.utils.unicode import utf8bytes
@@ -90,6 +90,7 @@ class Contest(models.Model):
                                                           'but not edit it.'),
                                      blank=True, related_name='testers+')
     description = models.TextField(verbose_name=_('description'), blank=True)
+    terms = models.TextField(verbose_name=_('terms'), blank=True)
     problems = models.ManyToManyField(Problem, verbose_name=_('problems'), through='ContestProblem')
     start_time = models.DateTimeField(verbose_name=_('start time'), db_index=True)
     end_time = models.DateTimeField(verbose_name=_('end time'), db_index=True)
@@ -592,31 +593,44 @@ class ContestParticipation(models.Model):
                                   help_text=_('0 means non-virtual, otherwise the n-th virtual participation.'))
     format_data = JSONField(verbose_name=_('contest format specific data'), null=True, blank=True)
 
-    def recompute_results(self):
+    def recompute_results(self, _locked=False):
         with transaction.atomic():
-            self.contest.format.update_participation(self)
-            if self.is_disqualified:
-                self.score = -9999
-                self.cumtime = 0
-                self.tiebreaker = 0
-                self.save(update_fields=['score', 'cumtime', 'tiebreaker'])
+            participation = self if _locked else (
+                ContestParticipation.objects.select_for_update().select_related('contest').get(id=self.id)
+            )
+            if participation is not self:
+                # set_disqualified() intentionally changes this flag in memory before recomputing.
+                participation.is_disqualified = self.is_disqualified
+            participation.contest.format.update_participation(participation)
+            if participation.is_disqualified:
+                participation.score = -9999
+                participation.cumtime = 0
+                participation.tiebreaker = 0
+                participation.save(update_fields=['score', 'cumtime', 'tiebreaker'])
+
+            if participation is not self:
+                for field in (
+                        'score', 'cumtime', 'tiebreaker',
+                        'frozen_score', 'frozen_cumtime', 'frozen_tiebreaker',
+                        'format_data',
+                ):
+                    setattr(self, field, getattr(participation, field))
     recompute_results.alters_data = True
 
     def check_ban(self):
         if not settings.VNOJ_SHOULD_BAN_FOR_CHEATING_IN_CONTESTS or self.contest.is_organization_private:
             return
 
-        disqualifications_count = ContestParticipation.objects.filter(
-            user=self.user,
-            contest__is_organization_private=False,
-            is_disqualified=True,
-        ).count()
-        if disqualifications_count >= settings.VNOJ_MAX_DISQUALIFICATIONS_BEFORE_BANNING and \
-                not self.user.is_banned:
-            self.user.ban_user(settings.VNOJ_CONTEST_CHEATING_BAN_MESSAGE)
-        elif disqualifications_count < settings.VNOJ_MAX_DISQUALIFICATIONS_BEFORE_BANNING and \
-                self.user.is_banned and self.user.ban_reason == settings.VNOJ_CONTEST_CHEATING_BAN_MESSAGE:
-            self.user.unban_user()
+        with transaction.atomic():
+            profile = Profile.objects.select_for_update().select_related('user').get(pk=self.user_id)
+            if profile.qualifies_for_disqualification_ban():
+                if profile.user.is_active:
+                    profile.ban_user(settings.VNOJ_CONTEST_CHEATING_BAN_MESSAGE)
+            elif profile.is_banned and profile.ban_reason == settings.VNOJ_CONTEST_CHEATING_BAN_MESSAGE:
+                if profile.warn >= WarningLog.BAN_THRESHOLD and not profile.user.is_superuser:
+                    profile.ban_user(WarningLog.BAN_REASON)
+                else:
+                    profile.unban_user()
     check_ban.alters_data = True
 
     def set_disqualified(self, disqualified):

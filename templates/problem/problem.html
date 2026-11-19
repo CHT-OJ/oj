@@ -1,5 +1,6 @@
 {% extends "common-content.html" %}
 {% block content_media %}
+    {% if form %}{{ form.media.css }}{% endif %}
     {% if not comment_lock %}
         {% include "comments/media-css.html" %}
     {% endif %}
@@ -58,6 +59,7 @@
     {% if not comment_lock %}
         {% include "comments/media-js.html" %}
     {% endif %}
+    {% if form and not no_judges %}{% include "problem/submit-js.html" %}{% endif %}
     <script type="text/javascript">
         $(function() {
             $('#pdf_button').click(async function(e) {
@@ -108,6 +110,9 @@
             </span>
         {% endif %}
         <span class="spacer"></span>
+        {% if contest_problem and contest_problem.contest.use_clarifications and not request.profile.mute %}
+            <a class="button clarify" href="{{ url('new_problem_ticket', problem.code) }}">{{ _('Request clarification') }}</a>
+        {% endif %}
         {% if has_pdf_render %}
             <a href="{{ url('problem_pdf', problem.code) }}" class="view-pdf">
         {% else %}
@@ -180,6 +185,9 @@
         {% if not problem.is_manually_managed %}
             <div><a href="{{ url('problem_data', problem.code) }}">{{ _('Edit test data') }}</a></div>
         {% endif %}
+        <div>
+            <a href="{{ url('problem_download_full_package', problem.code) }}">{{ _('Download package') }}</a>
+        </div>
     {% elif request.user.is_authenticated and has_tickets %}
         <hr>
         <div>
@@ -306,6 +314,15 @@
             {% endwith %}
         </div>
     {% endif %}
+    {% if contest_codes %}
+        <nav aria-label="{{ _('Problems') }}">
+            {% for code in contest_codes %}
+                <a href="{{ url('problem_detail', code) }}"{% if code == problem.code %} aria-current="page"{% endif %}>
+                    {% if code == problem.code %}<strong>{% endif %}{{ contest_problem.contest.get_label_for_problem(loop.index0) }}{% if code == problem.code %}</strong>{% endif %}
+                </a>
+            {% endfor %}
+        </nav>
+    {% endif %}
     {% if show_languages %}
         <div id="allowed-langs">
             <div class="toggle open unselectable">
@@ -366,6 +383,12 @@
 {% endblock %}
 
 {% block post_description_end %}
+    {% if form %}
+        <details id="inline-submit">
+            <summary>{{ _('Submit solution') }}</summary>
+            {% include "problem/submit-form.html" %}
+        </details>
+    {% endif %}
     {% if request.user.is_authenticated and not request.profile.mute %}
         <a href="{{ url('new_problem_ticket', problem.code) }}" class="button clarify">
             {%- if comment_lock and request.profile.current_contest.live -%}

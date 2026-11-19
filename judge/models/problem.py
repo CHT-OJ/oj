@@ -46,6 +46,19 @@ class ProblemType(models.Model):
         verbose_name_plural = _('problem types')
 
 
+class OrganizationProblemTag(models.Model):
+    organization = models.ForeignKey(Organization, related_name='problem_tags', on_delete=CASCADE)
+    name = models.CharField(max_length=64)
+    problems = models.ManyToManyField('Problem', related_name='organization_tags', blank=True)
+
+    class Meta:
+        ordering = ['name']
+        unique_together = [('organization', 'name')]
+
+    def __str__(self):
+        return self.name
+
+
 class ProblemGroup(models.Model):
     name = models.CharField(max_length=20, verbose_name=_('problem group ID'), unique=True)
     full_name = models.CharField(max_length=100, verbose_name=_('problem group name'))

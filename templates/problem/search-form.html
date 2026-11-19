@@ -7,6 +7,16 @@
                 <input id="search" type="text" name="search" value="{{ search_query or '' }}"
                        placeholder="{{ _('Search problems...') }}">
             </div>
+            {% if org_tags is defined %}
+                <label for="org-tag">{{ _('Organization tags') }}</label>
+                <select id="org-tag" name="tag">
+                    <option value="">{{ _('All') }}</option>
+                    {% for tag in org_tags %}
+                        <option value="{{ tag.pk }}" {% if request.GET.get('tag') == tag.pk|string %}selected{% endif %}>{{ tag.name }}</option>
+                    {% endfor %}
+                </select>
+                {% if can_manage_tags %}<a href="{{ url('organization_tags', organization.slug) }}">{{ _('Manage tags') }}</a>{% endif %}
+            {% endif %}
             {% if has_fts %}
                 <div>
                     <input id="full_text" type="checkbox" name="full_text" value="1"

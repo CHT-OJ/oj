@@ -23,7 +23,15 @@
     <script type="text/javascript">
         $(function() {
             $('#form_set tr').formset({
-                prefix: '{{ contest_problem_formset.prefix }}'
+                prefix: '{{ contest_problem_formset.prefix }}',
+                added: function(row) {
+                    {% if contest_org %}
+                    var $probSel = row.find('select[data-problem-src]');
+                    if ($probSel.data('select2')) $probSel.select2('destroy');
+                    $probSel.val(null).data('problemSrc', 'org');
+                    _initProblemPicker($probSel[0]);
+                    {% endif %}
+                },
             });
 
             var noResults = function () {
@@ -59,6 +67,44 @@
                     });
                 }
             });
+
+            {% if contest_org %}
+            var _problemSrcUrls = {
+                org: "{{ url('org_problem_select2', org_pk=contest_org.id) }}",
+                public: "{{ url('public_problem_select2') }}",
+            };
+            function _initProblemPicker(select) {
+                var $sel = $(select);
+                if ($sel.data('select2')) $sel.select2('destroy');
+                $sel.select2({
+                    ajax: {
+                        url: function() { return _problemSrcUrls[$sel.data('problemSrc') || 'org']; },
+                        delay: 300,
+                        data: function(p) { return { term: p.term || '', page: p.page || 1 }; },
+                        processResults: function(d) { return { results: d.results, pagination: { more: d.more } }; },
+                    },
+                    placeholder: '---------',
+                    minimumInputLength: 0,
+                    width: '100%',
+                });
+                var $buttons = $sel.siblings('.tab-bar').find('button');
+                function showSource() {
+                    $buttons.each(function () {
+                        var active = this.value === $sel.data('problemSrc');
+                        $(this).toggleClass('active', active).attr('aria-pressed', String(active));
+                    });
+                }
+                showSource();
+                $buttons.off('click.problemBank').on('click.problemBank', function () {
+                    $sel.select2('close');
+                    $sel.data('problemSrc', this.value);
+                    showSource();
+                    $sel.select2('open');
+                });
+            }
+
+            $('#form_set select[data-problem-src]').each(function() { _initProblemPicker(this); });
+            {% endif %}
         })
     </script>
     {{ form.media.js }}
@@ -79,7 +125,24 @@
     </tr>
     {% endif %}
     <tr>
-        <td>{{ form.id }} {{ form.problem.errors }}{{ form.problem }}</td>
+        <td>{{ form.id }} {{ form.problem.errors }}
+            {% if contest_org %}
+            <div class="tab-bar" role="group" aria-label="{{ _('Problem source') }}">
+                <button class="tab-bar-btn" type="button" value="org">{{ _('Organization problems') }}</button>
+                <button class="tab-bar-btn" type="button" value="public">{{ _('Public problems') }}</button>
+            </div>
+            <select name="{{ form.problem.html_name }}" id="{{ form.problem.auto_id }}" style="width:100%"
+                    data-problem-src="{{ 'public' if form.instance.problem_id and not form.instance.problem.is_organization_private else 'org' }}">
+                {% if form.instance.problem_id %}
+                <option value="{{ form.instance.problem_id }}" selected>
+                    [{{ form.instance.problem.code }}] {{ form.instance.problem.name }}
+                </option>
+                {% endif %}
+            </select>
+            {% else %}
+            {{ form.problem }}
+            {% endif %}
+        </td>
         <td class="points-column">{{ form.points.errors }}{{ form.points }}</td>
         <td>{{ form.order.errors }}{{ form.order }}</td>
         <td>{{ form.max_submissions.errors }}{{ form.max_submissions }}</td>

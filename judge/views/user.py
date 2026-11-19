@@ -367,13 +367,14 @@ class UserWarningPage(UserPage):
 
     def get_context_data(self, **kwargs):
         context = super(UserWarningPage, self).get_context_data(**kwargs)
-        result = WarningLog.objects.all().filter(offender__user__username=self.object.user.username)
+        result = WarningLog.objects.filter(offender=self.object).order_by('-timestamp', '-pk')
 
         formatted_result = []
         for warning in result:
             formatted_result.append({
                 'timestamp': warning.timestamp.strftime('%Y/%m/%d %H:%M:%S'),
                 'reason': warning.reason,
+                'cleared': warning.cleared,
             })
 
         context['warning_history'] = formatted_result

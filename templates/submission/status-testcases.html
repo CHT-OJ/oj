@@ -163,7 +163,7 @@
         {% endfor %}
         {% if statuses and submission.is_graded %}
             <br>
-            {% if submission.result != "AB" %}
+            {% if submission.status != "AB" %}
                 {% if can_view_testcase_status %}
                     <b>{{ _('Resources:') }}</b>
                     {% if submission.result == "TLE" %}

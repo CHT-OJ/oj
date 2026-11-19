@@ -2,46 +2,18 @@ from collections import namedtuple
 from datetime import timedelta
 
 from django.core.exceptions import ValidationError
-from django.db import connection
 from django.template.defaultfilters import floatformat
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext as _, gettext_lazy, ngettext
 
+from judge.contest_format.base import best_problem_results
 from judge.contest_format.default import DefaultContestFormat
 from judge.contest_format.registry import register_contest_format
-from judge.timezone import from_database_time, to_database_time
 from judge.utils.timedelta import nice_repr
 
 ParticipationInfo = namedtuple('ParticipationInfo', 'cumtime score tiebreaker format_data')
-
-DEFAULT_RANKING_SQL = """
-SELECT MAX(cs.points) as `points`, (
-    SELECT MIN(csub.date)
-        FROM judge_contestsubmission ccs LEFT OUTER JOIN
-                judge_submission csub ON (csub.id = ccs.submission_id)
-        WHERE ccs.problem_id = cp.id AND ccs.participation_id = %s AND ccs.points = MAX(cs.points)
-) AS `time`, cp.id AS `prob`
-FROM judge_contestproblem cp INNER JOIN
-        judge_contestsubmission cs ON (cs.problem_id = cp.id AND cs.participation_id = %s) LEFT OUTER JOIN
-        judge_submission sub ON (sub.id = cs.submission_id)
-GROUP BY cp.id
-"""
-
-FROZEN_RANKING_SQL = """
-SELECT MAX(cs.points) as `points`, (
-    SELECT MIN(csub.date)
-        FROM judge_contestsubmission ccs LEFT OUTER JOIN
-                judge_submission csub ON (csub.id = ccs.submission_id)
-        WHERE ccs.problem_id = cp.id AND ccs.participation_id = %s AND ccs.points = MAX(cs.points) AND csub.date < %s
-) AS `time`, cp.id AS `prob`
-FROM judge_contestproblem cp INNER JOIN
-        judge_contestsubmission cs ON (cs.problem_id = cp.id AND cs.participation_id = %s) LEFT OUTER JOIN
-        judge_submission sub ON (sub.id = cs.submission_id)
-WHERE sub.date < %s
-GROUP BY cp.id
-"""
 
 
 @register_contest_format('vnoj')
@@ -85,49 +57,43 @@ class VNOJContestFormat(DefaultContestFormat):
 
         frozen_time = participation.contest.frozen_time
 
-        with connection.cursor() as cursor:
-            if not frozen:
-                cursor.execute(DEFAULT_RANKING_SQL, (participation.id, participation.id))
-            else:
-                db_time = to_database_time(frozen_time)
-                cursor.execute(FROZEN_RANKING_SQL, (participation.id, db_time,
-                                                    participation.id, db_time))
+        submissions = participation.submissions.all()
+        if frozen:
+            submissions = submissions.filter(submission__date__lt=frozen_time)
+        for prob, time, points in best_problem_results(submissions):
+            dt = (time - participation.start).total_seconds()
+            # An IE can have a submission result of `None`
+            problem_subs = participation.submissions.exclude(submission__result__isnull=True) \
+                                        .exclude(submission__result__in=['IE', 'CE']) \
+                                        .filter(problem_id=prob)
 
-            for points, time, prob in cursor.fetchall():
-                time = from_database_time(time)
-                dt = (time - participation.start).total_seconds()
-                # An IE can have a submission result of `None`
-                problem_subs = participation.submissions.exclude(submission__result__isnull=True) \
-                                            .exclude(submission__result__in=['IE', 'CE']) \
-                                            .filter(problem_id=prob)
-
-                # Compute penalty
-                if self.config['penalty']:
-                    subs = problem_subs
-                    if frozen:
-                        subs = subs.filter(submission__date__lt=frozen_time)
-
-                    if points:
-                        prev = subs.filter(submission__date__lte=time).count() - 1
-                        penalty += prev * self.config['penalty'] * 60
-                    else:
-                        # We should always display the penalty, even if the user has a score of 0
-                        prev = subs.count()
-                else:
-                    prev = 0
+            # Compute penalty
+            if self.config['penalty']:
+                subs = problem_subs
+                if frozen:
+                    subs = subs.filter(submission__date__lt=frozen_time)
 
                 if points:
-                    cumtime += dt
-                    last = max(last, dt)
+                    prev = subs.filter(submission__date__lte=time).count() - 1
+                    penalty += prev * self.config['penalty'] * 60
+                else:
+                    # We should always display the penalty, even if the user has a score of 0
+                    prev = subs.count()
+            else:
+                prev = 0
 
-                format_data[str(prob)] = {'time': dt, 'points': points, 'penalty': prev}
+            if points:
+                cumtime += dt
+                last = max(last, dt)
 
-                if not frozen and participation.contest.frozen_last_minutes != 0:
-                    format_data[str(prob)]['pending'] = problem_subs \
-                        .filter(submission__date__gte=frozen_time) \
-                        .count()
+            format_data[str(prob)] = {'time': dt, 'points': points, 'penalty': prev}
 
-                score += points
+            if not frozen and participation.contest.frozen_last_minutes != 0:
+                format_data[str(prob)]['pending'] = problem_subs \
+                    .filter(submission__date__gte=frozen_time) \
+                    .count()
+
+            score += points
 
         return ParticipationInfo(
             cumtime=max((last if self.config['LSO'] else cumtime) + penalty, 0),

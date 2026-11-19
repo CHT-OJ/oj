@@ -4,6 +4,7 @@ import json
 import os
 import secrets
 import struct
+from datetime import timedelta
 
 import pyotp
 import webauthn
@@ -11,7 +12,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.files.storage import FileSystemStorage
 from django.core.validators import RegexValidator
-from django.db import models
+from django.db import models, transaction
 from django.db.models import F, Max, Sum
 from django.forms import forms
 from django.template.defaultfilters import filesizeformat
@@ -249,6 +250,41 @@ class Profile(models.Model):
                                              blank=True, null=True)
     warn = models.IntegerField(default=0)
     last_warned = models.DateTimeField(default=None, null=True, blank=True)
+    warning_expires_at = models.DateTimeField(
+        'Hạn hiển thị cảnh cáo', null=True, blank=True,
+        help_text='Để trống để dùng thời hạn mặc định tính từ lần cảnh cáo gần nhất.',
+    )
+
+    @property
+    def warning_banner_ms(self):
+        if self.warn <= 0 or self.last_warned is None:
+            return 0
+        until = self.warning_expires_at or self.last_warned + timedelta(days=settings.CHTOJ_WARNING_BANNER_DAYS)
+        return max(0, int((until - timezone.now()).total_seconds() * 1000))
+
+    def qualifies_for_disqualification_ban(self):
+        return settings.VNOJ_SHOULD_BAN_FOR_CHEATING_IN_CONTESTS and self.contest_history.filter(
+            contest__is_organization_private=False, is_disqualified=True,
+        ).count() >= settings.VNOJ_MAX_DISQUALIFICATIONS_BEFORE_BANNING
+
+    @property
+    def is_warning_banned(self):
+        return not self.user.is_active and self.ban_reason in (WarningLog.BAN_REASON, WarningLog.LEGACY_BAN_REASON)
+
+    def apply_warning_count(self):
+        """Apply a changed strike count while the caller holds the profile lock."""
+        if self.warn == 0:
+            self.warning_offender.filter(cleared=False).update(cleared=True)
+            self.last_warned = self.warning_expires_at = None
+        self.save(update_fields=['warn', 'last_warned', 'warning_expires_at'])
+        if self.warn >= WarningLog.BAN_THRESHOLD:
+            if self.user.is_active and not self.user.is_superuser:
+                self.ban_user(WarningLog.BAN_REASON)
+        elif self.is_warning_banned:
+            if self.qualifies_for_disqualification_ban():
+                self.ban_user(settings.VNOJ_CONTEST_CHEATING_BAN_MESSAGE)
+            else:
+                self.unban_user()
 
     @cached_property
     def organization(self):
@@ -307,7 +343,7 @@ class Profile(models.Model):
 
     _pp_table = [pow(settings.DMOJ_PP_STEP, i) for i in range(settings.DMOJ_PP_ENTRIES)]
 
-    def calculate_points(self, table=_pp_table):
+    def calculate_points(self, table=_pp_table, update_organizations=True):
         from judge.models import Problem
         public_problems = Problem.get_public_problems()
         data = (
@@ -330,8 +366,9 @@ class Profile(models.Model):
             self.problem_count = problems
             self.performance_points = pp
             self.save(update_fields=['points', 'problem_count', 'performance_points'])
-            for org in self.organizations.get_queryset():
-                org.calculate_points()
+            if update_organizations:
+                for org in self.organizations.get_queryset():
+                    org.calculate_points()
         return points
 
     calculate_points.alters_data = True
@@ -477,6 +514,14 @@ class Profile(models.Model):
 
 
 class WarningLog(models.Model):
+    BAN_THRESHOLD = 5
+    BAN_REASON = 'Tài khoản đã bị khóa do có từ 5 cảnh cáo gian lận trên hệ thống CHTOJ.'
+    LEGACY_BAN_REASON = """Tài khoản của bạn đã vi phạm quá 5 lần trên hệ thống CHTOJ.
+                Nếu chúng tôi có sai sót hãy tạo ticket trong server discord hoặc nhắn tin fanpage Facebook
+                của CLB Lập trình trường THPT Chuyên Hà Tĩnh để nhận được sự hỗ trợ."""
+
+    contest = models.ForeignKey('Contest', on_delete=models.SET_NULL, null=True, blank=True)
+    cleared = models.BooleanField(default=False, editable=False)
     offender = models.ForeignKey(Profile, on_delete=models.CASCADE,
                                  related_name='warning_offender', verbose_name=_('offender'))
     judge = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='warning_judge',
@@ -485,10 +530,24 @@ class WarningLog(models.Model):
                               verbose_name=_('warning reason'))
     timestamp = models.DateTimeField(auto_now_add=True, verbose_name=_('timestamp'))
 
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            return super().save(*args, **kwargs)
+        with transaction.atomic():
+            profile = Profile.objects.select_for_update().select_related('user').get(pk=self.offender_id)
+            if profile.warn <= 0:
+                # Profiles reset by older versions can still have historical logs.
+                profile.warning_offender.filter(cleared=False).update(cleared=True)
+            super().save(*args, **kwargs)
+            profile.warn = max(0, profile.warn) + 1
+            profile.last_warned = self.timestamp
+            profile.warning_expires_at = None
+            profile.apply_warning_count()
+
     class Meta:
         db_table = 'judge_warninglog'
         constraints = [
-            models.UniqueConstraint(fields=['reason'], name='unique_warning_log'),
+            models.UniqueConstraint(fields=['offender', 'contest'], name='unique_moss_warning_per_contest'),
         ]
 
 

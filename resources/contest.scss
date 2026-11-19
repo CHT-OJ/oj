@@ -254,6 +254,35 @@ form.contest-join-pseudotab {
         display: none;
     }
 
+    .ranking-avatar-placeholder {
+        position: absolute;
+        font-size: 1.2rem;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .fav-button {
+        cursor: pointer;
+        margin-inline-end: 0.2em;
+
+        &:focus-visible {
+            outline: 2px solid currentColor;
+            outline-offset: 2px;
+        }
+        color: red;
+
+        &.fa-heart-o {
+            color: $color_primary50;
+        }
+    }
+
+    /* Separates the pinned favorite rows from the rest of the ranking. */
+    tr.last-favorite > td {
+        border-bottom: 3px solid $color_primary75;
+    }
+
     .virtual-participation {
         color: grey;
         float: right
@@ -263,6 +292,8 @@ form.contest-join-pseudotab {
         color: $color_primary100;
     }
 }
+
+.replay-blocked { cursor: not-allowed; }
 
 #org-dropdown-check-list {
     display: inline-block;

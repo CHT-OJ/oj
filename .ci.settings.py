@@ -16,6 +16,7 @@ DATABASES = {
         'PASSWORD': 'root',
         'HOST': 'localhost',
         'PORT': '3306',
+        'TEST': {'CHARSET': 'utf8mb4'},
         'OPTIONS': {
             'charset': 'utf8mb4',
         },

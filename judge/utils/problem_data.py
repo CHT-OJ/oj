@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import uuid
 import zipfile
 
 import yaml
@@ -30,9 +31,27 @@ class ProblemDataStorage(FileSystemStorage):
         return reverse('problem_data_file', args=path)
 
     def _save(self, name, content):
-        if self.exists(name):
-            self.delete(name)
-        return super(ProblemDataStorage, self)._save(name, content)
+        # Judges can keep reading the previous file while its replacement is written.
+        temporary = os.path.join(os.path.dirname(name), '.upload-%s.tmp' % uuid.uuid4().hex)
+        try:
+            source = getattr(content, 'verified_path', None)
+            if source is not None:
+                target = self.path(temporary)
+                os.makedirs(os.path.dirname(target), mode=self.directory_permissions_mode or 0o777, exist_ok=True)
+                try:
+                    os.link(source, target)
+                except OSError:
+                    # Shared volumes may disable hard links or live on different filesystems.
+                    super()._save(temporary, content)
+                else:
+                    if self.file_permissions_mode is not None:
+                        os.chmod(target, self.file_permissions_mode)
+            else:
+                super()._save(temporary, content)
+            os.replace(self.path(temporary), self.path(name))
+        finally:
+            self.delete(temporary)
+        return name.replace(os.sep, '/')
 
     def get_available_name(self, name, max_length=None):
         return name
@@ -106,6 +125,18 @@ def get_problem_testcases_data(problem):
     return testcases_data
 
 
+def parse_batch_dependencies(value, batch_number):
+    if not value.strip():
+        return []
+    try:
+        dependencies = [int(part.strip()) for part in value.split(',')]
+    except ValueError:
+        raise ProblemDataError(_('Enter earlier subtask numbers separated by commas.'))
+    if any(n < 1 or n >= batch_number for n in dependencies):
+        raise ProblemDataError(_('Dependencies must refer to earlier subtasks.'))
+    return list(dict.fromkeys(dependencies))
+
+
 class ProblemDataCompiler(object):
     def __init__(self, problem, data, cases, files):
         self.problem = problem
@@ -127,6 +158,7 @@ class ProblemDataCompiler(object):
 
         cases = []
         batch = None
+        batch_count = 0
 
         def end_batch():
             if not batch['batched']:
@@ -258,15 +290,18 @@ class ProblemDataCompiler(object):
                 case.save(update_fields=('checker_args', 'is_pretest'))
                 (batch['batched'] if batch else cases).append(data)
             elif case.type == 'S':
+                batch_count += 1
                 if batch:
                     end_batch()
                 if case.points is None:
                     raise ProblemDataError(_('Batch start case #%d requires points.') % i)
+                dependencies = parse_batch_dependencies(case.batch_dependencies, batch_count)
                 total_points += case.points
                 batch = {
                     'points': case.points,
                     'batched': [],
                     'is_pretest': case.is_pretest,
+                    'dependencies': dependencies,
                 }
                 if case.generator_args:
                     batch['generator_args'] = case.generator_args.splitlines()
@@ -297,6 +332,15 @@ class ProblemDataCompiler(object):
             raise ProblemDataError(_('Total points must be greater than 0.'))
         if batch:
             end_batch()
+
+        # The judge numbers pretest batches differently when validating and when grading,
+        # so dependencies can only be resolved correctly when there are no pretest batches.
+        batches = [case for case in cases if 'batched' in case]
+        if any(batch['dependencies'] for batch in batches) and any(batch['is_pretest'] for batch in batches):
+            raise ProblemDataError(_('Batch dependencies are not supported for problems with pretest batches.'))
+        for batch in batches:
+            if not batch['dependencies']:
+                del batch['dependencies']
 
         init = {}
 
@@ -351,25 +395,26 @@ class ProblemDataCompiler(object):
     def compile(self):
         from judge.models import problem_data_storage
 
-        yml_file = '%s/init.yml' % self.problem.code
         try:
             init = self.make_init()
-            if init:
-                init = yaml.safe_dump(init)
         except ProblemDataError as e:
             self.data.feedback = e.message
             self.data.save()
-            problem_data_storage.delete(yml_file)
+            problem_data_storage.delete('%s/init.yml' % self.problem.code)
         else:
-            self.data.feedback = ''
-            self.data.save()
-            if init:
-                problem_data_storage.save(yml_file, ContentFile(init))
-            else:
-                # Don't write empty init.yml since we should be looking in manually managed
-                # judge-server#670 will not update cache on empty init.yml,
-                # but will do so if there is no init.yml, so we delete the init.yml
-                problem_data_storage.delete(yml_file)
+            self.save_init(init)
+
+    def save_init(self, init):
+        from judge.models import problem_data_storage
+
+        yml_file = '%s/init.yml' % self.problem.code
+        self.data.feedback = ''
+        self.data.save()
+        if init:
+            problem_data_storage.save(yml_file, ContentFile(yaml.safe_dump(init)))
+        else:
+            # A missing init.yml tells the judge to refresh an empty problem.
+            problem_data_storage.delete(yml_file)
 
     @classmethod
     def generate(cls, *args, **kwargs):

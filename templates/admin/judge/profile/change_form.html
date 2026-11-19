@@ -10,6 +10,12 @@
 {% endblock extrahead %}
 
 {% block after_field_sets %}{{ block.super }}
+    {% if can_clear_warnings %}
+        <button type="submit" formnovalidate formaction="{% url 'admin:judge_profile_clear_warnings' original.pk %}"
+                onclick="return confirm('Xóa toàn bộ cảnh cáo của tài khoản này? Lịch sử vi phạm vẫn được lưu.');">
+            Xóa cảnh cáo của người dùng
+        </button>
+    {% endif %}
     {% if original %}
         <a style="display: none" title="{% trans "Edit user" %}" href="{% url 'admin:auth_user_change' original.user.pk %}"
            class="button userlink">
