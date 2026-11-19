@@ -35,6 +35,14 @@ class TicketTimelineActionTestCase(TestCase):
 
     # --- action rows ----------------------------------------------------
 
+    def test_failed_action_insert_rolls_back_status(self):
+        with mock.patch.object(TicketMessage, 'save', side_effect=RuntimeError('unavailable')):
+            with self.assertRaises(RuntimeError):
+                self._post('ticket_close')
+        self.ticket.refresh_from_db()
+        self.assertTrue(self.ticket.is_open)
+        self.assertFalse(self.ticket.messages.exists())
+
     def test_close_records_exactly_one_close_action(self):
         response = self._post('ticket_close')
         self.assertEqual(response.status_code, 204)
@@ -155,7 +163,9 @@ class TicketActionEventPayloadTestCase(TestCase):
     def _capture_events(self, url_name):
         with mock.patch('judge.views.ticket.event') as fake_event:
             fake_event.real = True
-            self.client.post(reverse(url_name, args=[self.ticket.id]))
+            with self.captureOnCommitCallbacks(execute=True):
+                self.client.post(reverse(url_name, args=[self.ticket.id]))
+                fake_event.post.assert_not_called()
         return {call.args[0]: call.args[1] for call in fake_event.post.call_args_list}
 
     def test_global_tickets_channel_payload_is_unchanged(self):

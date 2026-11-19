@@ -4,6 +4,7 @@ from django import forms
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ImproperlyConfigured, PermissionDenied, ValidationError
+from django.db import transaction
 from django.http import Http404, HttpResponse, HttpResponseBadRequest, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.template.defaultfilters import truncatechars
@@ -201,35 +202,36 @@ class TicketStatusChangeView(TicketMixin, SingleObjectMixin, View):
     open = None
     contributive = None
 
+    @transaction.atomic
     def post(self, request, *args, **kwargs):
         if self.open is None and self.contributive is None:
             raise ImproperlyConfigured('Need to define open or contributive')
-        ticket = self.get_object()
+        ticket = self.get_object(self.get_queryset().select_for_update())
         if self.open is not None and ticket.is_open != self.open:
             ticket.is_open = self.open
-            ticket.save()
+            ticket.save(update_fields=['is_open'])
             action_msg = TicketMessage(ticket=ticket, user=request.profile, body='',
                                        action=TicketMessage.OPEN if self.open else TicketMessage.CLOSE)
             action_msg.save()
             if event.real:
-                event.post('tickets', {
-                    'type': 'ticket-status', 'id': ticket.id,
-                    'open': self.open, 'user': ticket.user_id,
-                    'assignees': list(ticket.assignees.values_list('id', flat=True)),
-                    'title': ticket.title,
-                })
-                event.post('ticket-%d' % ticket.id, {
-                    'type': 'ticket-action', 'open': self.open, 'message': action_msg.id,
-                })
-
+                transaction.on_commit(lambda: self.publish_status(ticket, action_msg))
         if self.contributive is not None and ticket.is_contributive != self.contributive:
             if not request.user.has_perm('change_ticket') and self.request.profile == ticket.user:
                 return HttpResponseBadRequest(_('You cannot vote your own ticket.'), content_type='text/plain')
             ticket.user.update_contribution_points(settings.VNOJ_CP_TICKET *
                                                    (self.contributive - ticket.is_contributive))
             ticket.is_contributive = self.contributive
-            ticket.save()
+            ticket.save(update_fields=['is_contributive'])
         return HttpResponse(status=204)
+
+    def publish_status(self, ticket, message):
+        event.post('tickets', {
+            'type': 'ticket-status', 'id': ticket.pk, 'open': ticket.is_open, 'user': ticket.user_id,
+            'assignees': list(ticket.assignees.values_list('id', flat=True)), 'title': ticket.title,
+        })
+        event.post('ticket-%d' % ticket.pk, {
+            'type': 'ticket-action', 'open': ticket.is_open, 'message': message.pk,
+        })
 
 
 class TicketNotesForm(forms.Form):
@@ -247,7 +249,7 @@ class TicketNotesEditView(TicketMixin, SingleObjectFormView):
     def form_valid(self, form):
         ticket = self.get_object()
         ticket.notes = notes = form.cleaned_data['notes']
-        ticket.save()
+        ticket.save(update_fields=['notes'])
         if notes:
             return HttpResponse(linebreaks(notes, autoescape=True))
         else:
