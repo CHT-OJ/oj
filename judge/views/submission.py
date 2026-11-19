@@ -317,7 +317,7 @@ class SubmissionSourceDownload(SubmissionDetailBase):
             url_path = urlparse(submission.source.source).path
             if not url_path.startswith('/'):
                 url_path = '/' + url_path
-            
+
             file_path = default_storage.path(os.path.join(settings.SUBMISSION_FILE_UPLOAD_MEDIA_DIR, problem_code,
                                                           str(user_id), os.path.basename(url_path)))
             add_file_response(request, response, url_path, file_path)

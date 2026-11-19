@@ -3,6 +3,7 @@ from unittest.mock import patch
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.translation import gettext as _
 
 from judge.models import Contest
 from judge.models.tests.util import create_contest, create_organization, create_problem, create_user
@@ -146,8 +147,8 @@ class ContestEditProblemPickerTestCase(TestCase):
         )
         response = self._edit_page(contest)
         self.assertContains(response, 'data-problem-src')
-        self.assertContains(response, 'Organization problems')
-        self.assertContains(response, 'Public problems')
+        self.assertContains(response, _('Organization problems'))
+        self.assertContains(response, _('Public problems'))
         self.assertContains(response, reverse('org_problem_select2', args=[self.org.id]))
         self.assertContains(response, reverse('public_problem_select2'))
 
@@ -155,7 +156,7 @@ class ContestEditProblemPickerTestCase(TestCase):
         contest = create_contest(key='global_contest', authors=('picker_editor',))
         response = self._edit_page(contest)
         self.assertNotContains(response, 'data-problem-src')
-        self.assertNotContains(response, 'Organization problems')
+        self.assertNotContains(response, _('Organization problems'))
 
     def test_multi_organization_contest_falls_back_to_normal_picker(self):
         """Never silently pick organizations.first() when the context is ambiguous."""
@@ -168,7 +169,7 @@ class ContestEditProblemPickerTestCase(TestCase):
         response = self._edit_page(contest)
         self.assertEqual(contest.organizations.count(), 2)
         self.assertNotContains(response, 'data-problem-src')
-        self.assertNotContains(response, 'Organization problems')
+        self.assertNotContains(response, _('Organization problems'))
 
 
 @override_settings(MOSS_API_KEY=None)
@@ -256,8 +257,8 @@ class ContestCreateOrganizationPickerTestCase(TestCase):
 
     def test_create_page_offers_both_problem_sources(self):
         response = self._create_page()
-        self.assertContains(response, 'Organization problems')
-        self.assertContains(response, 'Public problems')
+        self.assertContains(response, _('Organization problems'))
+        self.assertContains(response, _('Public problems'))
 
     def test_org_endpoint_points_at_this_organization(self):
         response = self._create_page()

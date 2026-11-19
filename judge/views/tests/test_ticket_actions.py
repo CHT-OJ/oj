@@ -3,6 +3,7 @@ from unittest import mock
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 from django.urls import reverse
+from django.utils.translation import gettext as _
 
 from judge.models import Problem, Ticket, TicketMessage
 from judge.models.tests.util import create_problem, create_user
@@ -100,13 +101,13 @@ class TicketTimelineActionTestCase(TestCase):
         response = self.client.get(reverse('ticket', args=[self.ticket.id]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'ticket-action')
-        self.assertContains(response, 'closed this')
+        self.assertContains(response, _('closed this'))
 
     def test_reopen_renders_reopened_this(self):
         self._post('ticket_close')
         self._post('ticket_open')
         response = self.client.get(reverse('ticket', args=[self.ticket.id]))
-        self.assertContains(response, 'reopened this')
+        self.assertContains(response, _('reopened this'))
 
     def test_message_still_renders_as_a_message_section(self):
         TicketMessage.objects.create(ticket=self.ticket, user=self.author.profile, body='plain text')
@@ -121,8 +122,8 @@ class TicketTimelineActionTestCase(TestCase):
                                    {'message': action.id})
         self.assertEqual(response.status_code, 200)
         payload = response.json()
-        self.assertIn('closed this', payload['message'])
-        self.assertEqual(payload['notification']['body'], 'Status changed')
+        self.assertIn(_('closed this'), payload['message'])
+        self.assertEqual(payload['notification']['body'], _('Status changed'))
 
     def test_ajax_still_returns_body_for_normal_messages(self):
         message = TicketMessage.objects.create(

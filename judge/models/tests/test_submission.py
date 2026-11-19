@@ -114,7 +114,7 @@ class SubmissionTestCase(CommonDataMixin, TestCase):
 
         self.assertEqual(
             str(self.full_ac_submission_source),
-            'Source of Submission %d of full_ac by normal' % self.full_ac_submission.id,
+            _('Source of %(submission)s') % {'submission': self.full_ac_submission},
         )
 
     def test_submission_lock(self):

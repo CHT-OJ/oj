@@ -10,7 +10,7 @@ jobs:
       with:
         python-version: '3.12'
     - name: Install flake8
-      run: pip install flake8 flake8-import-order flake8-future-import flake8-commas flake8-logging-format flake8-quotes
+      run: python -m pip install -r requirements-lint.txt
     - name: Lint with flake8
       run: |
         flake8 --version
@@ -28,17 +28,37 @@ jobs:
       with:
         path: ~/.cache/pip
         key: pip-${{ runner.os }}-${{ secrets.CACHE_VERSION }}-${{ hashFiles('requirements.txt') }}
+    - name: Install gettext
+      run: |
+        sudo apt-get update
+        sudo apt-get install --yes --no-install-recommends gettext
     - name: Install unit test dependencies
       run: |
-        pip install wheel
-        pip install -r requirements.txt
-        pip install coverage
-        pip install --upgrade setuptools
+        python -m pip install setuptools==80.9.0
+        python -m pip install -r requirements.txt
+        python -m pip install coverage
         cp .ci.settings.py dmoj/local_settings.py
-        python3 manage.py makemigrations
-        python3 manage.py migrate auth
+    - name: Prepare translation catalogs
+      run: |
+        python manage.py compilemessages
+        python manage.py compilejsi18n
     - name: Start MySQL
-      run: sudo systemctl start mysql.service
+      run: |
+        sudo systemctl start mysql.service
+        for attempt in {1..30}; do
+          if mysqladmin ping --user=root --password=root --silent; then
+            break
+          fi
+          if [ "$attempt" -eq 30 ]; then
+            exit 1
+          fi
+          sleep 1
+        done
+        mysql --user=root --password=root --execute="CREATE DATABASE IF NOT EXISTS dmoj CHARACTER SET utf8mb4;"
+    - name: Prepare test database schema
+      run: |
+        python3 manage.py makemigrations judge --noinput
+        python3 manage.py migrate --noinput
     - name: Run unit tests
       run: coverage run --source=. manage.py test judge
     - name: Generate coverage report
@@ -53,5 +73,29 @@ jobs:
           node-version: '20.x'
       - name: Install npm packages
         run: npm ci
+      - name: Run Resolver tests
+        run: npm run test:resolver
       - name: Build style.css
         run: ./make_style.sh
+  i18n:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: pip
+    - name: Install translation dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install --yes --no-install-recommends gettext
+        python -m pip install setuptools==80.9.0
+        python -m pip install -r requirements.txt
+        cp .ci.settings.py dmoj/local_settings.py
+    - name: Compile gettext catalogs
+      run: python manage.py compilemessages
+    - name: Compile and verify JavaScript catalogs
+      run: |
+        python manage.py compilejsi18n
+        test -s static/jsi18n/vi/djangojs.js

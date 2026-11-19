@@ -837,16 +837,18 @@ class ContestTagTestCase(TestCase):
     @classmethod
     def setUpTestData(self):
         self.basic_tag = ContestTag.objects.create(
-            name='basic',
+            key='basic',
+            display_name='Basic',
             color='#fff',
         )
         self.dark_tag = ContestTag.objects.create(
-            name='dark',
+            key='dark',
+            display_name='Dark',
             color='#010001',
         )
 
     def test_basic_tag(self):
-        self.assertEqual(str(self.basic_tag), self.basic_tag.name)
+        self.assertEqual(str(self.basic_tag), self.basic_tag.key)
         self.assertEqual(self.basic_tag.text_color, '#000')
 
     def test_dark_tag(self):

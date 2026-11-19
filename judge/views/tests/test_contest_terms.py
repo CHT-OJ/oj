@@ -1,6 +1,7 @@
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.translation import gettext as _
 
 from judge.models import ContestParticipation
 from judge.models.tests.util import create_contest, create_user
@@ -48,7 +49,7 @@ class ContestJoinEntryTestCase(ContestEntryFormTestCaseMixin, TestCase):
         self.client.force_login(self.user)
         response = self.client.post(self._join_url(contest))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'You must agree to the terms to continue.')
+        self.assertContains(response, _('You must agree to the terms to continue.'))
         self.assertFalse(self._participations(contest).exists())
 
     def test_terms_only_accepts_checked_agreement(self):
@@ -63,7 +64,7 @@ class ContestJoinEntryTestCase(ContestEntryFormTestCaseMixin, TestCase):
         self.client.force_login(self.user)
         response = self.client.post(self._join_url(contest), {'access_code': 'nope'})
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Wrong access code.')
+        self.assertContains(response, _('Wrong access code.'))
         self.assertFalse(self._participations(contest).exists())
 
     def test_access_code_only_accepts_right_code(self):
@@ -87,7 +88,7 @@ class ContestJoinEntryTestCase(ContestEntryFormTestCaseMixin, TestCase):
         self.client.force_login(self.user)
         response = self.client.post(self._join_url(contest), {'access_code': CODE})
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'You must agree to the terms to continue.')
+        self.assertContains(response, _('You must agree to the terms to continue.'))
         self.assertFalse(self._participations(contest).exists())
 
     def test_both_requires_code_even_with_terms_agreed(self):
@@ -95,7 +96,7 @@ class ContestJoinEntryTestCase(ContestEntryFormTestCaseMixin, TestCase):
         self.client.force_login(self.user)
         response = self.client.post(self._join_url(contest), {'terms_agreed': 'on'})
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Wrong access code.')
+        self.assertContains(response, _('Wrong access code.'))
         self.assertFalse(self._participations(contest).exists())
 
     def test_both_satisfied_joins(self):
@@ -141,7 +142,7 @@ class ContestJoinEntryTestCase(ContestEntryFormTestCaseMixin, TestCase):
         self.client.force_login(self.user)
         response = self.client.post(self._join_url(contest))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'You must agree to the terms to continue.')
+        self.assertContains(response, _('You must agree to the terms to continue.'))
         self.assertFalse(self._participations(contest).exists())
 
     def test_virtual_join_after_end_succeeds_once_terms_agreed(self):
@@ -167,7 +168,7 @@ class ContestJoinEntryTestCase(ContestEntryFormTestCaseMixin, TestCase):
         )
         self.client.force_login(self.user)
         response = self.client.post(self._join_url(contest), {'terms_agreed': 'on'})
-        self.assertContains(response, 'Virtual joining is not allowed for this contest.')
+        self.assertContains(response, _('Virtual joining is not allowed for this contest.'))
         self.assertFalse(self._participations(contest).exists())
 
     def test_banned_user_still_blocked_after_terms(self):
@@ -175,7 +176,7 @@ class ContestJoinEntryTestCase(ContestEntryFormTestCaseMixin, TestCase):
         contest = self._make_contest('banned', terms=TERMS, banned_users=('banned_entrant',))
         self.client.force_login(banned)
         response = self.client.post(self._join_url(contest), {'terms_agreed': 'on'})
-        self.assertContains(response, 'persona non grata')
+        self.assertContains(response, _('Banned from joining'))
         self.assertFalse(self._participations(contest, banned).exists())
 
 
@@ -199,7 +200,7 @@ class ContestRegisterEntryTestCase(ContestEntryFormTestCaseMixin, TestCase):
         self.client.force_login(self.user)
         response = self.client.post(self._register_url(contest))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'You must agree to the terms to continue.')
+        self.assertContains(response, _('You must agree to the terms to continue.'))
         self.assertFalse(self._participations(contest).exists())
 
     def test_register_rejects_wrong_access_code(self):
@@ -207,7 +208,7 @@ class ContestRegisterEntryTestCase(ContestEntryFormTestCaseMixin, TestCase):
         self.client.force_login(self.user)
         response = self.client.post(self._register_url(contest), {'access_code': 'bad'})
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Wrong access code.')
+        self.assertContains(response, _('Wrong access code.'))
         self.assertFalse(self._participations(contest).exists())
 
     def test_register_with_terms_and_code(self):
@@ -222,7 +223,7 @@ class ContestRegisterEntryTestCase(ContestEntryFormTestCaseMixin, TestCase):
         contest = self._registerable('reg_editor', terms=TERMS)
         self.client.force_login(self.editor)
         response = self.client.post(self._register_url(contest))
-        self.assertContains(response, 'You cannot register for this contest.')
+        self.assertContains(response, _('You cannot register for this contest.'))
         self.assertFalse(self._participations(contest, self.editor).exists())
 
     def test_registration_window_still_enforced_after_terms(self):
@@ -234,7 +235,7 @@ class ContestRegisterEntryTestCase(ContestEntryFormTestCaseMixin, TestCase):
         )
         self.client.force_login(self.user)
         response = self.client.post(self._register_url(contest), {'terms_agreed': 'on'})
-        self.assertContains(response, 'You cannot register for this contest now.')
+        self.assertContains(response, _('You cannot register for this contest now.'))
         self.assertFalse(self._participations(contest).exists())
 
     def test_registration_not_required_still_reported_after_terms(self):
@@ -246,7 +247,7 @@ class ContestRegisterEntryTestCase(ContestEntryFormTestCaseMixin, TestCase):
         )
         self.client.force_login(self.user)
         response = self.client.post(self._register_url(contest), {'terms_agreed': 'on'})
-        self.assertContains(response, 'Registration is not required for this contest.')
+        self.assertContains(response, _('Registration is not required for this contest.'))
         self.assertFalse(self._participations(contest).exists())
 
 

@@ -1,5 +1,6 @@
 from django.test import TestCase
 from django.urls import reverse
+from django.utils.translation import gettext as _
 
 from judge.jinja2.format import htmltojs
 from judge.models.tests.util import create_problem, create_user
@@ -22,7 +23,7 @@ class ProblemDataZipBuilderTestCase(TestCase):
     def test_zip_builder_ui_is_rendered(self):
         html = self._get_page()
         self.assertIn('btn-build-test-data', html)
-        self.assertIn('or click here to build zip file', html)
+        self.assertIn(htmltojs(_('or click here to build zip file')), html)
         self.assertIn('build-test-data-modal', html)
         self.assertIn('build-drop-zone', html)
         self.assertIn('build-files-input', html)
@@ -48,16 +49,16 @@ class ProblemDataZipBuilderTestCase(TestCase):
         """CHT-specific functionality that must not be lost to the VNOJ port."""
         html = self._get_page()
         # Per-testcase "Public?" column header.
-        self.assertIn('Public?', html)
+        self.assertIn(_('Public?'), html)
         # "Public all testcases" bulk checkbox and its handler.
         self.assertIn('public-tests', html)
-        self.assertIn('Public all testcases ?', html)
+        self.assertIn(_('Public all testcases ?'), html)
         self.assertIn("input[type=checkbox][id$='-public']", html)
 
     def test_manual_zip_upload_still_available(self):
         html = self._get_page()
         self.assertIn('id_problem-data-zipfile', html)
-        self.assertIn('Please press this button if you have just updated the zip data', html)
+        self.assertIn(_('Please press this button if you have just updated the zip data'), html)
 
     def test_checker_and_grader_ui_survive(self):
         html = self._get_page()
