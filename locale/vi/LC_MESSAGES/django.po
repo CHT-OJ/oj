@@ -8319,3 +8319,21 @@ msgstr "Ẩn hoặc hiện thanh điều khiển trình diễn"
 #: templates/contest/spotlight-ranking.html
 msgid "Close help, show controls or leave fullscreen"
 msgstr "Đóng trợ giúp, hiện điều khiển hoặc thoát toàn màn hình"
+
+msgid "For a large ZIP, enable JavaScript and select the archive in the test data editor."
+msgstr "Với tệp ZIP lớn, hãy bật JavaScript và chọn tệp trong trang chỉnh sửa bộ test."
+
+msgid "Please select the ZIP again."
+msgstr "Vui lòng chọn lại tệp ZIP."
+
+msgid "Uploading ZIP…"
+msgstr "Đang tải tệp ZIP lên…"
+
+msgid "Checking the ZIP…"
+msgstr "Đang kiểm tra tệp ZIP…"
+
+msgid "ZIP verified. Apply to save the test data."
+msgstr "Đã kiểm tra tệp ZIP. Nhấn Áp dụng để lưu bộ test."
+
+msgid "The ZIP exceeds the size limit for this account."
+msgstr "Tệp ZIP vượt quá giới hạn dung lượng của tài khoản này."

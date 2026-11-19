@@ -19,7 +19,7 @@ from judge.views import TitledTemplateView, api, blog, comment, contests, langua
     preview, problem, problem_download, problem_manage, ranked_submission, register, stats, status, submission, tag, \
     tasks, ticket, two_factor, user, widgets
 from judge.views.magazine import MagazinePage
-from judge.views.problem_data import ProblemDataView, ProblemSubmissionDiff, \
+from judge.views.problem_data import ProblemDataView, ProblemSubmissionDiff, ProblemUploadView, \
     problem_data_file, problem_init_view
 from judge.views.register import ActivationView, RegistrationView
 from judge.views.select2 import AssigneeSelect2View, CommentSelect2View, ContestSelect2View, \
@@ -138,6 +138,8 @@ urlpatterns = [
         path('/', lambda _, problem: HttpResponsePermanentRedirect(reverse('problem_detail', args=[problem]))),
 
         path('/test_data', ProblemDataView.as_view(), name='problem_data'),
+        path('/test_data/uploads', ProblemUploadView.as_view(http_method_names=['post']), name='problem_upload_start'),
+        path('/test_data/uploads/<uuid:upload_id>', ProblemUploadView.as_view(), name='problem_upload'),
         path('/test_data/init', problem_init_view, name='problem_data_init'),
         path('/test_data/diff', ProblemSubmissionDiff.as_view(), name='problem_submission_diff'),
         path('/data/<path:path>', problem_data_file, name='problem_data_file'),

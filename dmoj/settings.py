@@ -188,6 +188,10 @@ DMOJ_CAMO_HTTPS = False
 DMOJ_CAMO_EXCLUDE = ()
 
 DMOJ_PROBLEM_DATA_ROOT = None
+# Private directory shared by the web and Celery processes. The default is beside the live problem data.
+CHTOJ_UPLOAD_STAGING_ROOT = None
+CHTOJ_EDITOR_ZIP_MAX_BYTES = 100 * 1024 * 1024
+CHTOJ_EDITOR_ZIP_MAX_EXPANDED_BYTES = 2 * 1024 ** 3
 
 DMOJ_PROBLEM_MIN_TIME_LIMIT = 0.01  # seconds
 DMOJ_PROBLEM_MAX_TIME_LIMIT = 60  # seconds

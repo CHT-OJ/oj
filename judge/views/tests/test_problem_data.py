@@ -37,8 +37,8 @@ class ProblemDataZipBuilderTestCase(TestCase):
         self.assertIn('.ds_store', html)
         self.assertIn('__MACOSX/', html)
         self.assertIn("'._'", html)
-        # 100 MB client-side guard, JSZip DEFLATE, fixed archive name, DataTransfer handoff.
-        self.assertIn('100 * 1024 * 1024', html)
+        self.assertIn(reverse('problem_upload_start', args=[self.problem.code]), html)
+        self.assertIn('test-data-upload.js', html)
         self.assertIn("compression: 'DEFLATE'", html)
         self.assertIn("'tests.zip'", html)
         self.assertIn('new DataTransfer()', html)

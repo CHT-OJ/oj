@@ -58,10 +58,14 @@ class ProblemPackageDownloadTestCase(TestCase):
         self.client.force_login(self.editor)
         response = self.client.get(self._url())
         self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.streaming)
         return response
 
+    def _archive(self, response):
+        return zipfile.ZipFile(io.BytesIO(b''.join(response.streaming_content)))
+
     def _names(self, response):
-        return set(zipfile.ZipFile(io.BytesIO(response.content)).namelist())
+        return set(self._archive(response).namelist())
 
     # --- authorization -------------------------------------------------
 
@@ -96,7 +100,7 @@ class ProblemPackageDownloadTestCase(TestCase):
 
     def test_statement_md_included_when_description_present(self):
         response = self._download()
-        archive = zipfile.ZipFile(io.BytesIO(response.content))
+        archive = self._archive(response)
         self.assertIn('statement.md', archive.namelist())
         self.assertEqual(archive.read('statement.md').decode(), '# Statement body')
 
@@ -122,7 +126,8 @@ class ProblemPackageDownloadTestCase(TestCase):
             data.save()
 
             response = self._download()
-            archive = zipfile.ZipFile(io.BytesIO(response.content))
+            archive = self._archive(response)
+            self.assertEqual(archive.getinfo('tests.zip').compress_type, zipfile.ZIP_STORED)
             self.assertEqual(archive.read('tests.zip'), b'ZIPDATA')
             self.assertEqual(archive.read('checker.cpp'), b'CHECKER')
             self.assertEqual(archive.read('grader.cpp'), b'GRADER')
@@ -135,13 +140,13 @@ class ProblemPackageDownloadTestCase(TestCase):
             data.save()
 
             response = self._download()
-            names = self._names(response)
+            archive = self._archive(response)
+            names = set(archive.namelist())
             # The package still builds, with an error note in place of the file.
             self.assertIn('zipfile_error.txt', names)
             self.assertNotIn('vanished.zip', names)
             self.assertIn('statement.md', names)
 
-            archive = zipfile.ZipFile(io.BytesIO(response.content))
             self.assertIn('File recorded but not found on disk',
                           archive.read('zipfile_error.txt').decode())
 
@@ -160,7 +165,7 @@ class ProblemPackageDownloadTestCase(TestCase):
             response = self._download()
 
         get.assert_called_once()
-        archive = zipfile.ZipFile(io.BytesIO(response.content))
+        archive = self._archive(response)
         self.assertEqual(archive.read('statement.pdf'), b'%PDF-1.4 fake')
         self.assertNotIn('statement_pdf_error.txt', archive.namelist())
 
@@ -173,7 +178,7 @@ class ProblemPackageDownloadTestCase(TestCase):
                         side_effect=requests.exceptions.ConnectionError('boom')):
             response = self._download()
 
-        archive = zipfile.ZipFile(io.BytesIO(response.content))
+        archive = self._archive(response)
         self.assertIn('statement_pdf_error.txt', archive.namelist())
         self.assertIn('Failed to download PDF', archive.read('statement_pdf_error.txt').decode())
         # The rest of the package survived the PDF failure.
@@ -183,7 +188,7 @@ class ProblemPackageDownloadTestCase(TestCase):
         self.problem.pdf_url = 'https://external.example/statement.pdf'
         self.problem.save()
         with mock.patch('judge.views.problem_download.requests.get') as fetch:
-            archive = zipfile.ZipFile(io.BytesIO(self._download().content))
+            archive = self._archive(self._download())
         fetch.assert_not_called()
         self.assertEqual(archive.read('statement_pdf_url.txt').decode(), self.problem.pdf_url)
 
