@@ -374,11 +374,16 @@ class ProblemSubmitForm(ModelForm):
         source = self.cleaned_data.get('source', '')
         content = self.files.get('submission_file', None)
         language = self.cleaned_data.get('language', None)
-        lang_obj = Language.objects.get(name=language)
+        if language is None:
+            return
+        lang_obj = language
 
-        if (source != '' and content is not None) or (source == '' and content is None) or \
-                (source != '' and lang_obj.file_only) or (content == '' and not lang_obj.file_only):
-            raise forms.ValidationError(_('Source code/file is missing or redundant. Please try again'))
+        if lang_obj.file_only:
+            if content is None or source != '':
+                raise forms.ValidationError(_('Source code/file is missing or redundant. Please try again'))
+        else:
+            if source == '' or content is not None:
+                raise forms.ValidationError(_('Source code/file is missing or redundant. Please try again'))
 
         if content:
             max_file_size = lang_obj.file_size_limit * 1024 * 1024
@@ -637,9 +642,50 @@ class ContestCloneForm(Form):
 class ProposeContestProblemForm(ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
+        self.contest_org = kwargs.pop('contest_org', None)
         super(ProposeContestProblemForm, self).__init__(*args, **kwargs)
 
-        self.fields['problem'].queryset = Problem.get_visible_problems(self.user)
+        self.allowed_problems = Problem.get_contest_selectable_problems(self.user, contest_org=self.contest_org)
+        queryset = self.allowed_problems
+        if self.instance.pk and self.instance.problem_id:
+            queryset = Problem.objects.defer('description').filter(
+                Q(pk__in=self.allowed_problems.values('pk')) | Q(pk=self.instance.problem_id),
+            ).distinct()
+        self.fields['problem'].queryset = queryset
+
+    def clean_problem(self):
+        problem = self.cleaned_data.get('problem')
+        if problem is None:
+            return problem
+        if self.instance.pk and problem.pk == self.instance.problem_id:
+            return problem
+        if not self.allowed_problems.filter(pk=problem.pk).exists():
+            raise ValidationError(self.fields['problem'].error_messages['invalid_choice'], code='invalid_choice')
+        return problem
+
+    @property
+    def selected_problem(self):
+        if self.is_bound:
+            raw_val = self.data.get(self.add_prefix('problem'))
+            if raw_val:
+                try:
+                    pk = int(raw_val)
+                except (TypeError, ValueError):
+                    return None
+                return self.fields['problem'].queryset.filter(pk=pk).only(
+                    'id', 'code', 'name', 'is_organization_private',
+                ).first()
+            return None
+        if self.instance.pk and self.instance.problem_id:
+            return self.instance.problem
+        return None
+
+    @property
+    def selected_problem_source(self):
+        problem = self.selected_problem
+        if problem is not None and not problem.is_organization_private:
+            return 'public'
+        return 'org'
 
     class Meta:
         model = ContestProblem

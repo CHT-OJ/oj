@@ -46,6 +46,19 @@ class ProblemType(models.Model):
         verbose_name_plural = _('problem types')
 
 
+class OrganizationProblemTag(models.Model):
+    organization = models.ForeignKey(Organization, related_name='problem_tags', on_delete=CASCADE)
+    name = models.CharField(max_length=64)
+    problems = models.ManyToManyField('Problem', related_name='organization_tags', blank=True)
+
+    class Meta:
+        ordering = ['name']
+        unique_together = [('organization', 'name')]
+
+    def __str__(self):
+        return self.name
+
+
 class ProblemGroup(models.Model):
     name = models.CharField(max_length=20, verbose_name=_('problem group ID'), unique=True)
     full_name = models.CharField(max_length=100, verbose_name=_('problem group name'))
@@ -401,6 +414,50 @@ class Problem(models.Model):
     @classmethod
     def get_public_problems(cls):
         return cls.objects.filter(is_public=True, is_organization_private=False).defer('description')
+
+    @classmethod
+    def _q_editable_private(cls, user):
+        if not user or not user.is_authenticated or not user.has_perm('judge.edit_own_problem'):
+            return Q(pk__in=[])
+        if user.has_perm('judge.edit_all_problem'):
+            return Q()
+        profile = user.profile
+        q = (
+            Exists(cls.authors.through.objects.filter(problem=OuterRef('pk'), profile=profile)) |
+            Exists(cls.curators.through.objects.filter(problem=OuterRef('pk'), profile=profile)) |
+            Q(suggester=profile)
+        )
+        if user.has_perm('judge.suggest_new_problem'):
+            q |= Q(suggester__isnull=False, is_public=False)
+        return q
+
+    @classmethod
+    def get_organization_bank_problems(cls, user, org_pk):
+        if not user or not user.is_authenticated or not org_pk:
+            return cls.objects.none()
+        qs = cls.objects.defer('description').filter(
+            is_organization_private=True,
+            organizations=org_pk,
+        )
+        if user.has_perm('judge.edit_own_problem') and user.has_perm('judge.edit_all_problem'):
+            return qs.distinct()
+        is_org_admin = Organization.objects.filter(pk=org_pk, admins=user.profile).exists()
+        q = cls._q_editable_private(user)
+        if is_org_admin or user.has_perm('judge.see_organization_problem'):
+            q |= Q(is_public=True)
+        return qs.filter(q).distinct()
+
+    @classmethod
+    def get_contest_selectable_problems(cls, user, contest_org=None):
+        public_q = Q(is_public=True, is_organization_private=False)
+        if not user or not user.is_authenticated:
+            return cls.objects.defer('description').filter(public_q)
+        if contest_org is not None:
+            org_pk = contest_org.pk if hasattr(contest_org, 'pk') else contest_org
+            org_qs = cls.get_organization_bank_problems(user, org_pk)
+            return cls.objects.defer('description').filter(public_q | Q(pk__in=org_qs.values('pk'))).distinct()
+        q = public_q | cls._q_editable_private(user)
+        return cls.objects.defer('description').filter(q).distinct()
 
     @classmethod
     def get_editable_problems(cls, user):

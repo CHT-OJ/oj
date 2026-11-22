@@ -16,15 +16,16 @@ from martor.views import markdown_search_user
 from judge.feed import AtomBlogFeed, AtomCommentFeed, AtomProblemFeed, BlogFeed, CommentFeed, ProblemFeed
 from judge.sitemap import sitemaps
 from judge.views import TitledTemplateView, api, blog, comment, contests, language, license, mailgun, organization, \
-    preview, problem, problem_manage, ranked_submission, register, stats, status, submission, tag, tasks, ticket, \
-    two_factor, user, widgets
+    preview, problem, problem_download, problem_manage, ranked_submission, register, stats, status, submission, tag, \
+    tasks, ticket, two_factor, user, widgets
 from judge.views.magazine import MagazinePage
-from judge.views.problem_data import ProblemDataView, ProblemSubmissionDiff, \
+from judge.views.problem_data import ProblemDataView, ProblemSubmissionDiff, ProblemUploadView, \
     problem_data_file, problem_init_view
 from judge.views.register import ActivationView, RegistrationView
 from judge.views.select2 import AssigneeSelect2View, CommentSelect2View, ContestSelect2View, \
-    ContestUserSearchSelect2View, OrganizationSelect2View, OrganizationUserSelect2View, ProblemSelect2View, \
-    TagGroupSelect2View, TagSelect2View, TicketUserSelect2View, UserSearchSelect2View, UserSelect2View
+    ContestUserSearchSelect2View, OrganizationProblemSelect2View, OrganizationSelect2View, \
+    OrganizationUserSelect2View, ProblemSelect2View, PublicProblemSelect2View, TagGroupSelect2View, \
+    TagSelect2View, TicketUserSelect2View, UserSearchSelect2View, UserSelect2View
 from judge.views.widgets import martor_image_uploader
 
 admin.autodiscover()
@@ -137,9 +138,14 @@ urlpatterns = [
         path('/', lambda _, problem: HttpResponsePermanentRedirect(reverse('problem_detail', args=[problem]))),
 
         path('/test_data', ProblemDataView.as_view(), name='problem_data'),
+        path('/test_data/uploads', ProblemUploadView.as_view(http_method_names=['post']), name='problem_upload_start'),
+        path('/test_data/uploads/<uuid:upload_id>', ProblemUploadView.as_view(), name='problem_upload'),
         path('/test_data/init', problem_init_view, name='problem_data_init'),
         path('/test_data/diff', ProblemSubmissionDiff.as_view(), name='problem_submission_diff'),
         path('/data/<path:path>', problem_data_file, name='problem_data_file'),
+
+        path('/download/package', problem_download.DownloadProblemFullPackage.as_view(),
+             name='problem_download_full_package'),
 
         path('/tickets/', ticket.ProblemTicketListView.as_view(), name='problem_ticket_list'),
         path('/tickets/new', ticket.NewProblemTicketView.as_view(), name='new_problem_ticket'),
@@ -244,6 +250,7 @@ urlpatterns = [
         path('/moss/export', contests.ExportMoss.as_view(), name='export_moss'),
         path('/announce', contests.ContestAnnounce.as_view(), name='contest_announce'),
         path('/clone', contests.ContestClone.as_view(), name='contest_clone'),
+        path('/ranking/replay/', contests.ContestReplay.as_view(), name='contest_replay'),
         path('/ranking/', contests.ContestRanking.as_view(), name='contest_ranking'),
         path('/spotlight_ranking/', contests.SpotlightContestRanking.as_view(), name='spotlight_ranking'),
         path('/public_ranking/', contests.ContestPublicRanking.as_view(), name='contest_public_ranking'),
@@ -254,6 +261,8 @@ urlpatterns = [
         path('/stats', contests.ContestStats.as_view(), name='contest_stats'),
         path('/data/prepare/', contests.ContestPrepareData.as_view(), name='contest_prepare_data'),
         path('/data/download/', contests.ContestDownloadData.as_view(), name='contest_download_data'),
+        path('/make_problems_public', contests.ContestProblemMakePublic.as_view(),
+             name='contest_problems_make_public'),
 
         path('/rank/<str:problem>/',
              paged_list_view(ranked_submission.ContestRankedSubmission, 'contest_ranked_submissions')),
@@ -289,6 +298,10 @@ urlpatterns = [
         path('', organization.OrganizationHome.as_view(), name='organization_home'),
         path('/<int:page>', organization.OrganizationHome.as_view(), name='organization_home'),
         path('/users/', organization.OrganizationUsers.as_view(), name='organization_users'),
+        path('/users/<str:user>/solved/', organization.OrganizationSolvedProblems.as_view(),
+             name='organization_solved'),
+        path('/problem-tags/', organization.OrganizationTags.as_view(), name='organization_tags'),
+        path('/problem-tags/<str:problem>/', organization.OrganizationTags.as_view(), name='organization_problem_tags'),
         path('/join', organization.JoinOrganization.as_view(), name='join_organization'),
         path('/leave', organization.LeaveOrganization.as_view(), name='leave_organization'),
         path('/edit', organization.EditOrganization.as_view(), name='edit_organization'),
@@ -410,6 +423,9 @@ urlpatterns = [
              name='organization_profile_select2'),
         path('organization/', OrganizationSelect2View.as_view(), name='organization_select2'),
         path('problem/', ProblemSelect2View.as_view(), name='problem_select2'),
+        path('problem/public/', PublicProblemSelect2View.as_view(), name='public_problem_select2'),
+        path('problem/org/<int:org_pk>/', OrganizationProblemSelect2View.as_view(),
+             name='org_problem_select2'),
         path('contest/', ContestSelect2View.as_view(), name='contest_select2'),
         path('comment/', CommentSelect2View.as_view(), name='comment_select2'),
         path('tag/', TagSelect2View.as_view(), name='tag_select2'),

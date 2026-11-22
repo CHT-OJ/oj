@@ -224,6 +224,8 @@
                         </td>
                         <td class="problem-name">
                             <a href="{{ url('problem_detail', problem.code) }}">{{ problem.i18n_name or problem.name }}</a>
+                            {% for tag in problem.local_tags %} <span class="type-tag org-problem-tag">{{ tag.name }}</span>{% endfor %}
+                            {% if can_manage_tags %} <a class="org-edit-tags-link" href="{{ url('organization_problem_tags', organization.slug, problem.code) }}">{{ _('Edit tags') }}</a>{% endif %}
                         </td>
                         <td class="category">{{ problem.group.full_name }}</td>
                         {% if show_types %}

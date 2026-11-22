@@ -1,6 +1,10 @@
 {% extends "user/base-users-table-contest.html" %}
 
 {% block user_name_display scoped %}
+    {% if enable_favorites %}
+        <i class="fav-button fa fa-heart fa-heart-o" data-username="{{ user.username }}"
+           role="button" tabindex="0" aria-pressed="false" aria-label="{{ _('Pin participant') }} · {{ user.username }}"></i>
+    {% endif %}
     {% if user.virtual > 0 %}
     {{ link_user(user) }}<sup class="virtual-participation" title="{{ _("%(cnt)s virtual participation of this user", cnt=ordinal(user.virtual)) }}">[{{user.virtual}}]</sup>
     {% else %}
@@ -49,7 +53,7 @@
 
 {% block personal_info_data scoped %}
     {% if user.organization %}
-        <span class="organization"><a href="{{ user.organization.get_absolute_url() }}">
+        <span class="organization"><a href="{{ user.organization.get_absolute_url() }}" data-org="{{ user.organization.short_name }}">
             {{- user.organization.short_name -}}
         </a></span>
     {% endif %}
@@ -74,6 +78,7 @@
 {% endblock %}
 
 {% block row_extra %}
+    data-participation-id="{{ user.participation.id }}"
     {% if user.participation.is_disqualified -%}
         class="disqualified"
     {%- endif %}

@@ -274,6 +274,7 @@ export class ResolverPage {
     const status = this._snapshotStatus();
     const inProgressCount = this.payload.contest.in_progress_submission_count;
     const pretestedCount = this.payload.contest.pretested_submission_count;
+    const failedJudgingCount = this.payload.contest.failed_judging_submission_count;
     const messages = [];
     if (status.kind === "preview") {
       this.nodes.snapshotMode.textContent = gettext("Preview");
@@ -303,6 +304,15 @@ export class ResolverPage {
             "%(count)s submission still contains pretest-only results.",
             "%(count)s submissions still contain pretest-only results.",
             pretestedCount,
+          ),
+        );
+      }
+      if (failedJudgingCount > 0) {
+        messages.push(
+          ngettext(
+            "%(count)s submission has an unresolved judging failure.",
+            "%(count)s submissions have unresolved judging failures.",
+            failedJudgingCount,
           ),
         );
       }
@@ -1608,28 +1618,32 @@ export class ResolverPage {
       return;
     }
     this.busy = true;
-    const previousPositions = captureRowPositions(this.nodes.tableBody);
-    const moved = direction === "back" ? this.session.back() : this.session.forward();
-    this.policy.clear();
-    if (moved) {
-      this.statusMessage =
-        direction === "back"
-          ? gettext("Stepped back one reveal.")
-          : gettext("Stepped forward one reveal.");
+    try {
+      const previousPositions = captureRowPositions(this.nodes.tableBody);
+      const moved = direction === "back" ? this.session.back() : this.session.forward();
+      this.policy.clear();
+      if (moved) {
+        this.statusMessage =
+          direction === "back"
+            ? gettext("Stepped back one reveal.")
+            : gettext("Stepped forward one reveal.");
+        this._render();
+        await Promise.all([
+          animateRows(this.nodes.tableBody, previousPositions),
+          direction === "forward"
+            ? animateRevealHighlight(
+                this.rowElements,
+                transition.targets ?? [transition.target],
+                this.revealHighlightDurationMs,
+              )
+            : Promise.resolve(),
+        ]);
+      }
+    } finally {
+      this.busy = false;
       this._render();
-      await Promise.all([
-        animateRows(this.nodes.tableBody, previousPositions),
-        direction === "forward"
-          ? animateRevealHighlight(
-              this.rowElements,
-              transition.targets ?? [transition.target],
-              this.revealHighlightDurationMs,
-            )
-          : Promise.resolve(),
-      ]);
+      await this._settleDeferredPresenterAction();
     }
-    this.busy = false;
-    this._render();
   }
 
   async _reset(useReplay) {
@@ -1637,24 +1651,28 @@ export class ResolverPage {
       return;
     }
     this.busy = true;
-    const previousPositions = captureRowPositions(this.nodes.tableBody);
-    if (this.player && this.policyName !== "manual") {
-      await this.player.resetToBeginning();
-    } else if (useReplay) {
-      this.session.replay();
-    } else {
-      this.session.reset();
+    try {
+      const previousPositions = captureRowPositions(this.nodes.tableBody);
+      if (this.player && this.policyName !== "manual") {
+        await this.player.resetToBeginning();
+      } else if (useReplay) {
+        this.session.replay();
+      } else {
+        this.session.reset();
+      }
+      this.busy = true;
+      this.policy.clear();
+      this.statusMessage = gettext("%(action)s from %(baseline)s.", {
+        action: useReplay ? gettext("Replay") : gettext("Reset"),
+        baseline: this._baselineLabel(),
+      });
+      this._render();
+      await animateRows(this.nodes.tableBody, previousPositions);
+    } finally {
+      this.busy = false;
+      this._render();
+      await this._settleDeferredPresenterAction();
     }
-    this.busy = true;
-    this.policy.clear();
-    this.statusMessage = gettext("%(action)s from %(baseline)s.", {
-      action: useReplay ? gettext("Replay") : gettext("Reset"),
-      baseline: this._baselineLabel(),
-    });
-    this._render();
-    await animateRows(this.nodes.tableBody, previousPositions);
-    this.busy = false;
-    this._render();
   }
 
   async _replay() {

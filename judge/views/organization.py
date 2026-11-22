@@ -6,7 +6,8 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.auth.models import Group
 from django.core.exceptions import ImproperlyConfigured, PermissionDenied
-from django.db.models import Count, FilteredRelation, Q
+from django.db import transaction
+from django.db.models import Count, FilteredRelation, Prefetch, Q, prefetch_related_objects
 from django.db.models.expressions import F, Value
 from django.db.models.functions import Coalesce
 from django.forms import Form, modelformset_factory
@@ -25,6 +26,7 @@ from judge.models import BlogPost, Comment, Contest, Language, Organization, Org
     Problem, Profile
 from judge.tasks import on_new_problem
 from judge.utils.infinite_paginator import InfinitePaginationMixin
+from judge.utils.problems import user_completed_ids
 from judge.utils.ranker import ranker
 from judge.utils.views import DiggPaginatorMixin, QueryStringSortMixin, TitleMixin, generic_message
 from judge.views.blog import BlogPostCreate, PostListBase
@@ -537,32 +539,115 @@ class ProblemListOrganization(PrivateOrganizationMixin, ProblemList):
         context = super(ProblemListOrganization, self).get_context_data(**kwargs)
         if not self.is_in_organization_subdomain():
             context['title'] = self.organization.name
+        context['org_tags'] = self.organization.problem_tags.all()
+        context['can_manage_tags'] = self.can_edit_organization()
+        prefetch_organization_tags(context['problems'], self.organization)
         return context
 
     def get_filter(self):
-        """Get filter for visible problems in an organization
+        visible = organization_problem_filter(self.organization, self.request)
+        if self.request.GET.get('tag'):
+            return visible & Q(organization_tags__in=self.organization.problem_tags.filter(
+                pk=positive_tag_id(self.request.GET['tag']),
+            ))
+        return visible
 
-        The logic of this is:
-            - If user has perm `see_private_problem`, they
-            can view all org's problem (including private problems)
-            - Otherwise, they can view all public problems and
-            problems that they are authors/curators/testers
 
-        With that logic, Organization admins cannot view private
-        problems of other admins unless they are authors/curators/testers
-        """
-        if self.request.user.has_perm('judge.see_private_problem'):
-            return Q(organizations=self.organization)
+def positive_tag_id(value):
+    return int(value) if value.isascii() and value.isdigit() and len(value) <= 18 else None
 
-        _filter = Q(is_public=True)
 
-        # Authors, curators, and testers should always have access, so OR at the very end.
-        if self.profile is not None:
-            _filter |= Q(authors=self.profile)
-            _filter |= Q(curators=self.profile)
-            _filter |= Q(testers=self.profile)
+def organization_problem_filter(organization, request):
+    scope = Q(organizations=organization)
+    if request.user.has_perm('judge.see_private_problem'):
+        return scope
+    visible = Q(is_public=True)
+    if request.profile:
+        visible |= Q(authors=request.profile) | Q(curators=request.profile) | Q(testers=request.profile)
+    return scope & visible
 
-        return _filter & Q(organizations=self.organization)
+
+class OrganizationSolvedProblems(AdminOrganizationMixin, ListView):
+    template_name = 'organization/solved.html'
+    context_object_name = 'problems'
+    paginate_by = 50
+
+    def get(self, request, *args, **kwargs):
+        self.member = self.organization.members.filter(user__username=kwargs['user']).select_related('user').first()
+        if self.member is None:
+            return generic_message(request, _('Members'), _('Member not found.'), status=404)
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        visible = organization_problem_filter(self.organization, self.request)
+        return Problem.objects.filter(visible, pk__in=user_completed_ids(self.member)).distinct().order_by('name', 'pk')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['member'] = self.member
+        context['title'] = _('Solved problems')
+        prefetch_organization_tags(context['problems'], self.organization)
+        return context
+
+
+def prefetch_organization_tags(problems, organization):
+    prefetch_related_objects(problems, Prefetch('organization_tags', queryset=organization.problem_tags.all(),
+                                                to_attr='local_tags'))
+
+
+class OrganizationTags(AdminOrganizationMixin, View):
+    def get(self, request, *args, **kwargs):
+        return self.page()
+
+    def page(self, form=None):
+        code = self.kwargs.get('problem')
+        self.problem = None
+        if code:
+            self.problem = get_object_or_404(Problem.objects.filter(
+                organization_problem_filter(self.organization, self.request),
+            ).distinct(), code=code)
+        return render(self.request, 'organization/problem-tags.html', {
+            'organization': self.organization, 'problem': self.problem, 'form': form or self.tag_form(),
+            'tags': self.organization.problem_tags.all(), 'title': _('Organization tags'),
+        })
+
+    def tag_form(self, data=None):
+        form = forms.Form(data)
+        if self.problem:
+            form.fields['tags'] = forms.ModelMultipleChoiceField(
+                self.organization.problem_tags.all(), required=False, label=_('Organization tags'),
+                initial=self.problem.organization_tags.filter(organization=self.organization),
+            )
+        else:
+            form.fields['name'] = forms.CharField(max_length=64, label=_('Name'))
+        return form
+
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        code = kwargs.get('problem')
+        self.problem = None
+        if code:
+            scope = organization_problem_filter(self.organization, request)
+            problem_id = Problem.objects.filter(scope, code=code).values_list('pk', flat=True).distinct().first()
+            if problem_id is None:
+                raise Http404()
+            self.problem = get_object_or_404(Problem.objects.select_for_update(), pk=problem_id)
+            if not Problem.objects.filter(scope, pk=self.problem.pk).exists():
+                raise Http404()
+        elif 'delete' in request.POST:
+            self.organization.problem_tags.filter(id=positive_tag_id(request.POST['delete'])).delete()
+            return HttpResponseRedirect(request.path)
+        form = self.tag_form(request.POST)
+        if not form.is_valid():
+            return self.page(form)
+        if self.problem:
+            chosen = list(form.cleaned_data['tags'].values_list('pk', flat=True))
+            existing = self.problem.organization_tags.filter(organization=self.organization).exclude(pk__in=chosen)
+            self.problem.organization_tags.remove(*existing)
+            self.problem.organization_tags.add(*chosen)
+            return HttpResponseRedirect(reverse('problem_list_organization', args=[self.organization.slug]))
+        self.organization.problem_tags.get_or_create(name=form.cleaned_data['name'])
+        return HttpResponseRedirect(request.path)
 
 
 class ContestListOrganization(PrivateOrganizationMixin, ContestList):
@@ -668,6 +753,17 @@ class ContestCreateOrganization(AdminOrganizationMixin, CreateContest):
         kwargs = super().get_form_kwargs()
         kwargs['org_pk'] = self.organization.pk
         return kwargs
+
+    def get_contest_org(self):
+        return self.organization
+
+    def get_context_data(self, **kwargs):
+        # The contest is always created for exactly this organization, so the
+        # split organization/public problem picker in contest/edit.html has an
+        # unambiguous organization to scope its Select2 endpoint to.
+        context = super().get_context_data(**kwargs)
+        context['contest_org'] = self.organization
+        return context
 
     def save_contest_form(self, form):
         self.object = form.save()

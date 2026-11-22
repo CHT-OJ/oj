@@ -6,8 +6,9 @@
     <script type="text/javascript" src="{{ static('vnoj/jquery-ui/jquery-ui.min.js') }}"></script>
     <script type="text/javascript" src="{{ static('libs/featherlight/featherlight.min.js') }}"></script>
     <script type="text/javascript" src="{{ static('vnoj/jszip/jszip.min.js') }}"></script>
+    <script src="{{ static('test-data-upload.js') }}"></script>
     <script type="text/javascript">
-        window.valid_files = {{valid_files_json}}.sort();
+        window.valid_files = {{ valid_files|list|tojson }}.sort();
         window.testcase_limit = {{testcase_limit}};
         window.testcase_soft_limit = {{testcase_soft_limit}};
 
@@ -269,6 +270,12 @@
                 for: "public-tests",
                 text: "{{ _('Public all testcases ?') }}",
             }).appendTo($file_test.parent());
+            $("<br>").appendTo($file_test.parent());
+            $('<a>', {
+                href: '#',
+                id: 'btn-build-test-data',
+                text: {{ _('or click here to build zip file')|htmltojs }},
+            }).appendTo($file_test.parent());
             $("#public-tests").change(function() {
                 const _checked = this.checked;
                 const cases = $("table#case-table > tbody > tr > td > input[type=checkbox][id$='-public']").each(function() {
@@ -314,6 +321,7 @@
                             disabled = $prevs.length && $prevs.get(0).getAttribute('data-type') == 'S';
                             $tr.find('input[id$=points], input[id$=pretest]').toggle(val == 'C' && !disabled);
                     }
+                    $tr.find('input[id$=batch_dependencies]').toggle(val === 'S');
                     $tr.attr('data-type', val).nextUntil('tr[data-type=S], tr[data-type=E], tr[data-type=""]')
                         .find('input[id$=points], input[id$=pretest]').toggle(!disabled);
                 }).change();
@@ -375,6 +383,45 @@
                     if ($(this).parent().is(':hidden')) {
                         $(this).attr('checked', true);
                     }
+                });
+            });
+
+            $('#problem-data-form').on('submit', function (event) {
+                if (uploadController) { event.preventDefault(); return; }
+                if (event.isDefaultPrevented() || (!this.elements.test_upload.value &&
+                        !Array.from(this.querySelectorAll('input[type=file]')).some(input => input.files.length))) return;
+                event.preventDefault();
+                var form = this;
+                if (form.dataset.uploading) return;
+                form.dataset.uploading = '1';
+                var progress = document.getElementById('upload-progress');
+                progress.hidden = false;
+                progress.removeAttribute('value');
+                var payload = new FormData(form);
+                if (form.elements.test_upload.value) payload.delete('problem-data-zipfile');
+                $.ajax({
+                    url: form.action, method: 'POST', data: payload,
+                    processData: false, contentType: false,
+                    xhr: function () {
+                        var xhr = $.ajaxSettings.xhr();
+                        xhr.upload.onprogress = function (e) {
+                            if (e.lengthComputable) progress.value = 100 * e.loaded / e.total;
+                        };
+                        return xhr;
+                    }
+                }).done(function (html, status, xhr) {
+                    $(form).dirty('setAsClean');
+                    if (xhr.status === 204) {
+                        window.location.reload();
+                    } else {
+                        document.open();
+                        document.write(html);
+                        document.close();
+                    }
+                }).fail(function () {
+                    delete form.dataset.uploading;
+                    progress.hidden = true;
+                    alert({{ _('Upload failed. Please try again.')|htmltojs }});
                 });
             });
 
@@ -464,7 +511,7 @@
                 ];
 
                 var out_re = [
-                    new RegExp(/^(.+\.out|.+\.ok|.+\.ans|out|ok|ans)$/),
+                    new RegExp(/^(.+\.out|.+\.ok|.+\.ans|.+\.ou|out|ok|ans)$/),
                     new RegExp(/^output.(.+\d+)$/),
                     new RegExp(/^(.+\d+\.a)$/),
                     new RegExp(/^(?=.*?\.out|out).*?(?:(?:^|\W)(?<batch>\d+)[^\d\s]+)?(?<case>\d+)[^\d\s]*$/),
@@ -577,23 +624,244 @@
                 fill_testcases();
             }
 
-            $("#id_problem-data-zipfile").change((event) => {
-                let fileInput = event.target.files[0];
-                var reader = new FileReader();
-                reader.onload = function(ev) {
-                    JSZip.loadAsync(ev.target.result).then(function(zip) {
-                        window.valid_files = Object.keys(zip.files).sort();
-                        fill_testcases();
-                    }).catch(function(err) {
-                        console.log(err);
-                        console.error("Failed to open as ZIP file");
-                        alert("{{ _('Test file must be a ZIP file') }}");
-                        event.target.value = "";
-                    })
-                };
-                reader.readAsArrayBuffer(fileInput);
-            })
-            $('form').dirty('setAsClean');
+            function shouldIgnoreFile(path) {
+                if (!path) return true;
+                var parts = path.split('/');
+                var last = parts[parts.length - 1];
+                if (!last) return true;
+                var lower = last.toLowerCase();
+                return lower === '.ds_store' || lower.indexOf('._') === 0 || path.indexOf('__MACOSX/') === 0;
+            }
+
+            var uploadController = null;
+            $file_test.on('change', async function () {
+                var input = this;
+                var form = input.form;
+                var progress = document.getElementById('upload-progress');
+                var status = document.getElementById('zip-upload-status');
+                if (uploadController) uploadController.abort();
+                uploadController = null;
+                form.elements.test_upload.value = '';
+                form.querySelectorAll('[type=submit]').forEach(button => button.disabled = false);
+                progress.hidden = true;
+                status.textContent = '';
+                input.setCustomValidity('');
+                var file = input.files[0];
+                if (!file) return;
+                const controller = uploadController = new AbortController();
+                form.querySelectorAll('[type=submit]').forEach(button => button.disabled = true);
+                progress.hidden = false;
+                progress.value = 0;
+                status.textContent = {{ _('Uploading ZIP…')|htmltojs }};
+                try {
+                    const staged = await stageTestArchive(file, form.dataset.uploadUrl,
+                        form.elements.csrfmiddlewaretoken.value, controller.signal, function (percent) {
+                            if (percent === null) {
+                                progress.removeAttribute('value');
+                                status.textContent = {{ _('Checking the ZIP…')|htmltojs }};
+                            } else {
+                                progress.value = percent;
+                            }
+                        });
+                    if (controller.signal.aborted) return;
+                    form.elements.test_upload.value = staged.id;
+                    window.valid_files = staged.files.filter(name => !shouldIgnoreFile(name)).sort();
+                    valid_files_options = window.valid_files.map(name => ({id: name, text: name}));
+                    if (Number($total.val()) === 0) fill_testcases();
+                    status.textContent = {{ _('ZIP verified. Apply to save the test data.')|htmltojs }};
+                } catch (error) {
+                    if (controller.signal.aborted) return;
+                    input.value = '';
+                    status.textContent = error.message === 'invalid' ? {{ _('Your zip file is invalid!')|htmltojs }} :
+                        error.message === 'too_large' ? {{ _('The ZIP exceeds the size limit for this account.')|htmltojs }} :
+                        {{ _('Upload failed. Please try again.')|htmltojs }};
+                    input.setCustomValidity(status.textContent);
+                } finally {
+                    if (uploadController === controller) {
+                        uploadController = null;
+                        progress.hidden = true;
+                        form.querySelectorAll('[type=submit]').forEach(button => button.disabled = false);
+                    }
+                }
+            });
+            (function () {
+                var selectedFiles = [];
+                var $modal = $('#build-test-data-modal');
+                var $dropZone = $('#build-drop-zone');
+                var $fileList = $('#build-test-data-file-list');
+                var $countLabel = $('#build-test-data-count');
+                var $buildBtn = $('#btn-build-upload');
+
+                var folderInputEl = document.getElementById('build-folder-input');
+                if (folderInputEl) {
+                    folderInputEl.setAttribute('webkitdirectory', '');
+                    folderInputEl.setAttribute('directory', '');
+                }
+
+                function renderFileList() {
+                    $fileList.empty();
+                    if (!selectedFiles.length) {
+                        $countLabel.text({{ _('No files selected')|htmltojs }});
+                        $buildBtn.prop('disabled', true);
+                        return;
+                    }
+                    $countLabel.text(selectedFiles.length + ' ' + {{ _('files selected')|htmltojs }});
+                    $buildBtn.prop('disabled', false);
+                    selectedFiles.slice(0, 50).forEach(function (entry) {
+                        $('<li>').text(entry.path).appendTo($fileList);
+                    });
+                    if (selectedFiles.length > 50) {
+                        $('<li class="build-more-label">').text(
+                            '... ' + {{ _('and')|htmltojs }} + ' ' + (selectedFiles.length - 50) + ' ' + {{ _('more files')|htmltojs }}
+                        ).appendTo($fileList);
+                    }
+                }
+
+                function setFiles(entries) {
+                    selectedFiles = entries.filter(function (e) { return !shouldIgnoreFile(e.path); });
+                    renderFileList();
+                }
+
+                function fromFileList(files) {
+                    return Array.from(files).map(function (f) {
+                        return {file: f, path: f.webkitRelativePath || f.name};
+                    });
+                }
+
+                // Recursively read a FileSystemEntry into [{file, path}]
+                function readEntry(entry, basePath) {
+                    return new Promise(function (resolve) {
+                        if (entry.isFile) {
+                            entry.file(function (file) {
+                                var path = basePath ? basePath + '/' + entry.name : entry.name;
+                                resolve([{file: file, path: path}]);
+                            }, function () { resolve([]); });
+                        } else if (entry.isDirectory) {
+                            var dirPath = basePath ? basePath + '/' + entry.name : entry.name;
+                            var reader = entry.createReader();
+                            var allEntries = [];
+                            function readBatch() {
+                                reader.readEntries(function (batch) {
+                                    if (!batch.length) {
+                                        Promise.all(allEntries.map(function (e) {
+                                            return readEntry(e, dirPath);
+                                        })).then(function (results) {
+                                            resolve([].concat.apply([], results));
+                                        });
+                                    } else {
+                                        allEntries = allEntries.concat(Array.from(batch));
+                                        readBatch();
+                                    }
+                                }, function () { resolve([]); });
+                            }
+                            readBatch();
+                        } else {
+                            resolve([]);
+                        }
+                    });
+                }
+
+                function handleDropped(dataTransfer) {
+                    var items = dataTransfer.items;
+                    if (items && items.length && items[0].webkitGetAsEntry) {
+                        var promises = Array.from(items).map(function (item) {
+                            var entry = item.webkitGetAsEntry();
+                            return entry ? readEntry(entry, '') : Promise.resolve([]);
+                        });
+                        Promise.all(promises).then(function (results) {
+                            setFiles([].concat.apply([], results));
+                        });
+                    } else {
+                        setFiles(fromFileList(dataTransfer.files));
+                    }
+                }
+
+                function closeModal() { $modal.hide(); }
+
+                $(document).on('keydown.buildModal', function (e) {
+                    if (e.key === 'Escape' && $modal.is(':visible')) closeModal();
+                });
+
+                $('#btn-build-test-data').click(function (e) {
+                    e.preventDefault();
+                    selectedFiles = [];
+                    renderFileList();
+                    $modal.show();
+                });
+
+                $('#btn-build-cancel').click(closeModal);
+                $('#build-test-data-overlay').click(closeModal);
+
+                $('#btn-choose-files').click(function () {
+                    $('#build-files-input').val('').trigger('click');
+                });
+
+                $('#btn-choose-folder').click(function () {
+                    $('#build-folder-input').val('').trigger('click');
+                });
+
+                $('#build-files-input').change(function () { setFiles(fromFileList(this.files)); });
+                $('#build-folder-input').change(function () { setFiles(fromFileList(this.files)); });
+
+                var dragCounter = 0;
+                $dropZone.on('dragenter', function (e) {
+                    e.preventDefault();
+                    if (++dragCounter === 1) $dropZone.addClass('drag-over');
+                }).on('dragleave', function () {
+                    if (--dragCounter <= 0) {
+                        dragCounter = 0;
+                        $dropZone.removeClass('drag-over');
+                    }
+                }).on('dragover', function (e) {
+                    e.preventDefault();
+                }).on('drop', function (e) {
+                    e.preventDefault();
+                    dragCounter = 0;
+                    $dropZone.removeClass('drag-over');
+                    handleDropped(e.originalEvent.dataTransfer);
+                });
+
+                $buildBtn.click(function () {
+                    if (!selectedFiles.length) return;
+
+                    var $btn = $(this);
+                    $btn.prop('disabled', true);
+
+                    var zip = new JSZip();
+                    var total = selectedFiles.length;
+                    selectedFiles.forEach(function (entry, i) {
+                        zip.file(entry.path, entry.file);
+                        $btn.text({{ _('Adding files...')|htmltojs }} + ' ' + (i + 1) + '/' + total);
+                    });
+
+                    zip.generateAsync(
+                        {type: 'blob', compression: 'DEFLATE', compressionOptions: {level: 9}},
+                        function (meta) {
+                            $btn.text({{ _('Compressing...')|htmltojs }} + ' ' + Math.round(meta.percent) + '%');
+                        }
+                    ).then(function (blob) {
+                        var zipName = 'tests.zip';
+                        var zipFile = new File([blob], zipName, {type: 'application/zip'});
+
+                        if (typeof DataTransfer === 'undefined') {
+                            alert({{ _('Automatic zipping is not supported in this browser. Please upload a ZIP file manually.')|htmltojs }});
+                            return;
+                        }
+                        var dt = new DataTransfer();
+                        dt.items.add(zipFile);
+                        $file_test[0].files = dt.files;
+                        $file_test.trigger('change');
+                        closeModal();
+                    }).catch(function (err) {
+                        console.error(err);
+                        alert({{ _('Failed to create ZIP file')|htmltojs }});
+                    }).finally(function () {
+                        $btn.prop('disabled', false).text({{ _('Build & Upload ZIP')|htmltojs }});
+                    });
+                });
+            })();
+
+            $('#problem-data-form').dirty('setAsClean');
         }).change();
     </script>
 {% endblock %}
@@ -684,6 +952,102 @@
             padding-bottom: 1em;
             background: #e99;
         }
+
+        #build-test-data-modal {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #build-test-data-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        #build-test-data-dialog {
+            position: relative;
+            background: var(--body-bg, #fff);
+            color: var(--body-fg, #333);
+            border-radius: 6px;
+            padding: 1.5em;
+            width: 500px;
+            max-width: 90vw;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+            z-index: 1;
+        }
+
+        #build-test-data-dialog h3 {
+            margin: 0 0 0.75em;
+        }
+
+        .build-actions {
+            display: flex;
+            gap: 0.5em;
+            margin-bottom: 1em;
+        }
+
+        #build-test-data-count {
+            margin: 0 0 0.4em;
+            font-size: 0.9em;
+            color: var(--body-fg, #555);
+        }
+
+        #build-test-data-file-list {
+            overflow-y: auto;
+            max-height: 240px;
+            margin: 0 0 1em;
+            padding: 0.4em 0.4em 0.4em 1.8em;
+            font-size: 0.82em;
+            font-family: monospace;
+            background: var(--input-bg, #f5f5f5);
+            border: 1px solid var(--border-color, #ccc);
+            border-radius: 4px;
+            list-style: disc;
+        }
+
+        #build-test-data-file-list li.build-more-label {
+            color: var(--body-fg, #888);
+            list-style: none;
+        }
+
+        #build-drop-zone {
+            border: 2px dashed var(--border-color, #ccc);
+            border-radius: 4px;
+            padding: 1.2em;
+            text-align: center;
+            color: var(--body-fg, #888);
+            margin-bottom: 0.75em;
+            cursor: default;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+        }
+
+        #build-drop-zone.drag-over {
+            background: rgba(0, 120, 255, 0.08);
+            border-color: #0078ff;
+            color: #0078ff;
+        }
+
+        #build-drop-zone i {
+            font-size: 1.4em;
+            display: block;
+            margin-bottom: 0.25em;
+        }
+
+        .build-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5em;
+            margin-top: auto;
+        }
     </style>
 {% endblock %}
 
@@ -712,9 +1076,13 @@
             <li>{{ data_form.instance.feedback }}</li>
         </ul>
     {% endif %}
-    <form action="" method="POST" enctype="multipart/form-data">
+    <form id="problem-data-form" action="" method="POST" enctype="multipart/form-data"
+          data-upload-url="{{ url('problem_upload_start', problem.code) }}">
+        <input type="hidden" name="test_upload" value="{{ staged_upload.pk if staged_upload else '' }}">
+        <span id="zip-upload-status" role="status">{% if staged_upload %}{{ staged_upload.filename }}{% endif %}</span>
         {% csrf_token %}
         {{ cases_formset.management_form }}
+        <progress hidden id="upload-progress" max="100" aria-label="{{ _('Upload progress') }}"></progress>
         <table class="table">
             {{ data_form.as_table() }}
         </table>
@@ -740,6 +1108,7 @@
                 <th>{{ _('Points') }}</th>
                 <th>{{ _('Pretest?') }}</th>
                 <th>{{ _('Public?') }}</th>
+                <th>{{ _('Batch dependencies') }}<br><small>{{ _('Earlier subtasks, e.g. 1,2') }}</small></th>
                 <!-- <th class="generator-args">{{ _('Generator args') }}</th> -->
                 {% if cases_formset.can_delete %}
                     <th>{{ _('Delete?') }}
@@ -753,7 +1122,7 @@
             {% for form in all_case_forms %}
                 {% if form.non_field_errors() %}
                     <tr>
-                        <td colspan="{{ 9 + cases_formset.can_delete }}">{{ form.non_field_errors() }}</td>
+                        <td colspan="{{ 10 + cases_formset.can_delete }}">{{ form.non_field_errors() }}</td>
                     </tr>
                 {% endif %}
                 {% if form.prefix and '__prefix__' in form.prefix %}
@@ -775,6 +1144,7 @@
                     <td>{{ form.points.errors }}{{ form.points }}</td>
                     <td>{{ form.is_pretest.errors }}{{ form.is_pretest }}</td>
                     <td>{{ form.public.errors }}{{ form.public }}</td>
+                    <td>{{ form.batch_dependencies.errors }}{{ form.batch_dependencies }}</td>
                     <!-- <td class="generator-args">{{ form.generator_args.errors }}{{ form.generator_args }}
                         <a href="javascript:void(0)" class="edit-generator-args">
                             <i class="fa fa-pencil"></i>
@@ -792,4 +1162,31 @@
         <a id="add-case-row" href="#" style="display: None;"><i class="fa fa-plus"></i> {{ _('Add new case') }}</a>
     </form>
     <div style="display: none" class="generator-args-editor"><textarea></textarea><a class="button">{{ _('Save') }}</a></div>
+
+    <div id="build-test-data-modal" style="display: none;">
+        <div id="build-test-data-overlay"></div>
+        <div id="build-test-data-dialog">
+            <h3>{{ _('Build Test Data') }}</h3>
+            <div class="build-actions">
+                <button type="button" id="btn-choose-files" class="button">
+                    <i class="fa fa-file-o"></i> {{ _('Choose Files') }}
+                </button>
+                <button type="button" id="btn-choose-folder" class="button">
+                    <i class="fa fa-folder-open-o"></i> {{ _('Choose Folder') }}
+                </button>
+            </div>
+            <div id="build-drop-zone">
+                <i class="fa fa-cloud-upload"></i>
+                <span>{{ _('Drop files or folder here') }}</span>
+            </div>
+            <p id="build-test-data-count">{{ _('No files selected') }}</p>
+            <ul id="build-test-data-file-list"></ul>
+            <div class="build-footer">
+                <button type="button" id="btn-build-cancel" class="button">{{ _('Cancel') }}</button>
+                <button type="button" id="btn-build-upload" class="button" disabled>{{ _('Build & Upload ZIP') }}</button>
+            </div>
+            <input type="file" id="build-files-input" multiple accept=".in,.inp,.out,.ok,.ans,.a,.txt" style="display: none;">
+            <input type="file" id="build-folder-input" style="display: none;">
+        </div>
+    </div>
 {% endblock %}

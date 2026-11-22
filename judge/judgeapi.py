@@ -9,12 +9,21 @@ from django.utils import timezone
 
 from judge import event_poster as event
 from judge.judge_priority import BATCH_REJUDGE_PRIORITY, CONTEST_SUBMISSION_PRIORITY, DEFAULT_PRIORITY, REJUDGE_PRIORITY
+from judge.submission_finalization import publish_aborted_result, publish_infrastructure_failure
 
 logger = logging.getLogger('judge.judgeapi')
 size_pack = struct.Struct('!I')
 
 
 def _post_update_submission(submission, done=False):
+    from .models import Submission
+
+    if not isinstance(submission, Submission):
+        submission = Submission.objects.select_related('problem', 'user', 'language', 'contest_object').get(
+            id=submission,
+        )
+    else:
+        submission.refresh_from_db()
     if submission.problem.is_public:
         event.post('submissions', {'type': 'done-submission' if done else 'update-submission',
                                    'id': submission.id,
@@ -24,6 +33,16 @@ def _post_update_submission(submission, done=False):
                                    'organizations':
                                    [x[0] for x in submission.user.organizations.get_queryset().values_list('id')],
                                    })
+
+
+def _publish_judging_failure(publication):
+    from .models import Submission
+
+    event.post(
+        'sub_%s' % Submission.get_id_secret(publication.submission_id),
+        {'type': 'internal-error'},
+    )
+    _post_update_submission(publication.submission_id, done=True)
 
 
 def judge_request(packet, reply=True):
@@ -54,10 +73,18 @@ def judge_request(packet, reply=True):
 
 
 def judge_submission(submission, rejudge=False, batch_rejudge=False, judge_id=None):
-    from .models import ContestSubmission, Submission, SubmissionTestCase
+    from .models import ContestSubmission, Submission
 
-    updates = {'time': None, 'memory': None, 'points': None, 'result': None, 'case_points': 0, 'case_total': 0,
-               'error': None, 'rejudged_date': timezone.now() if rejudge or batch_rejudge else None, 'status': 'QU'}
+    # Preserve the last authoritative result while a rejudge is queued. Operational
+    # status tells readers that the result is unsettled until a new publication wins.
+    updates = {
+        'error': None,
+        'rejudged_date': timezone.now() if rejudge or batch_rejudge else None,
+        'status': 'QU',
+        'current_testcase': 0,
+        'batch': False,
+        'judged_on': None,
+    }
     try:
         # This is set proactively; it might get unset in judgecallback's on_grading_begin if the problem doesn't
         # actually have pretests stored on the judge.
@@ -68,18 +95,13 @@ def judge_submission(submission, rejudge=False, batch_rejudge=False, judge_id=No
     else:
         priority = CONTEST_SUBMISSION_PRIORITY
 
-    # This should prevent double rejudge issues by permitting only the judging of
-    # QU (which is the initial state) and D (which is the final state).
-    # Even though the bridge will not queue a submission already being judged,
-    # we will destroy the current state by deleting all SubmissionTestCase objects.
-    # However, we can't drop the old state immediately before a submission is set for judging,
-    # as that would prevent people from knowing a submission is being scheduled for rejudging.
+    # This prevents a rejudge from replacing a result that is already processing or grading.
+    # The bridge queue is also idempotent, so scheduling the same queued submission twice is safe.
+    # Previous authoritative metrics and testcase rows remain until grading actually begins.
     # It is worth noting that this mechanism does not prevent a new rejudge from being scheduled
     # while already queued, but that does not lead to data corruption.
     if not Submission.objects.filter(id=submission.id).exclude(status__in=('P', 'G')).update(**updates):
         return False
-
-    SubmissionTestCase.objects.filter(submission_id=submission.id).delete()
 
     banned_judges = []
     if hasattr(submission, 'contest'):
@@ -101,15 +123,29 @@ def judge_submission(submission, rejudge=False, batch_rejudge=False, judge_id=No
             'banned-judges': banned_judges,
             'priority': BATCH_REJUDGE_PRIORITY if batch_rejudge else (REJUDGE_PRIORITY if rejudge else priority),
         })
-    except BaseException:
+    except Exception:
         logger.exception('Failed to send request to judge')
-        Submission.objects.filter(id=submission.id).update(status='IE', result='IE')
+        publish_infrastructure_failure(
+            submission.id,
+            'IE',
+            None,
+            expected_statuses=Submission.IN_PROGRESS_GRADING_STATUS,
+            callback=_publish_judging_failure,
+        )
         success = False
     else:
-        if response['name'] != 'submission-received' or response['submission-id'] != submission.id:
-            Submission.objects.filter(id=submission.id).update(status='IE', result='IE')
-        _post_update_submission(submission)
-        success = True
+        if response.get('name') != 'submission-received' or response.get('submission-id') != submission.id:
+            publish_infrastructure_failure(
+                submission.id,
+                'IE',
+                None,
+                expected_statuses=Submission.IN_PROGRESS_GRADING_STATUS,
+                callback=_publish_judging_failure,
+            )
+            success = False
+        else:
+            _post_update_submission(submission.id)
+            success = True
     return success
 
 
@@ -131,6 +167,14 @@ def abort_submission(submission):
     # This defaults to true, so that in the case the JudgeList fails to remove the submission from the queue,
     # and returns a bad-request, the submission is not falsely shown as "Aborted" when it will still be judged.
     if not response.get('judge-aborted', True):
-        Submission.objects.filter(id=submission.id).update(status='AB', result='AB', points=0)
-        event.post('sub_%s' % Submission.get_id_secret(submission.id), {'type': 'aborted'})
-        _post_update_submission(submission, done=True)
+        def publish(publication):
+            event.post('sub_%s' % Submission.get_id_secret(publication.submission_id), {'type': 'aborted'})
+            if publication.authoritative and publication.contest_id is not None:
+                event.post('contest_%d' % publication.contest_id, {'type': 'update'})
+            _post_update_submission(publication.submission_id, done=True)
+
+        publish_aborted_result(
+            submission.id,
+            expected_statuses=Submission.IN_PROGRESS_GRADING_STATUS,
+            callback=publish,
+        )

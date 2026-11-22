@@ -52,7 +52,7 @@ function payload(
     ),
   );
   return {
-    schema_version: 2,
+    schema_version: 3,
     contest: {
       id: 1,
       key: `resolver-${format}`,
@@ -69,6 +69,7 @@ function payload(
       snapshot_state: "final",
       in_progress_submission_count: 0,
       pretested_submission_count: 0,
+      failed_judging_submission_count: 0,
       results_settled_at_generation: true,
     },
     problems,

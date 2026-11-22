@@ -43,12 +43,12 @@ export class UnsupportedResolverBaselineError extends Error {
 function validatePayload(payload) {
   if (
     !payload ||
-    payload.schema_version !== 2 ||
+    payload.schema_version !== 3 ||
     !payload.contest ||
     !Array.isArray(payload.problems) ||
     !Array.isArray(payload.contestants)
   ) {
-    throw new TypeError(gettext("Invalid Resolver schema version 2 payload."));
+    throw new TypeError(gettext("Invalid Resolver schema version 3 payload."));
   }
 }
 

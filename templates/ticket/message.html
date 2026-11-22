@@ -1,3 +1,6 @@
+{% if message.action != 'message' %}
+{% include "ticket/action.html" %}
+{% else %}
 <section id="message-{{ message.id }}" class="ticket-message">
     <div class="info">
         <a href="{{ url('user_page', message.user.user.username) }}" class="user">
@@ -19,8 +22,9 @@
                 {% endif %}
             </span>
         </div>
-        <div class="content content-description">
+        <div class="content content-description ticket-body">
             {{ message.body|markdown('ticket', MATH_ENGINE)|reference|str|safe }}
         </div>
     </div>
 </section>
+{% endif %}

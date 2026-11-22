@@ -17,6 +17,7 @@ function metadata(snapshotState, overrides = {}) {
     snapshot_state: snapshotState,
     in_progress_submission_count: snapshotState === "unsettled" ? 3 : 0,
     pretested_submission_count: 0,
+    failed_judging_submission_count: 0,
     results_settled_at_generation: settled,
     ...overrides,
   };
@@ -29,6 +30,7 @@ function snapshotPage(status, contest = {}, { setupMode = "initial", session = n
     contest: {
       in_progress_submission_count: 0,
       pretested_submission_count: 0,
+      failed_judging_submission_count: 0,
       ...contest,
     },
   };
@@ -162,6 +164,24 @@ test("pretested-only unsettled metadata is verified and blocked", () => {
   );
 });
 
+test("failed-judging-only unsettled metadata is verified and blocked", () => {
+  assert.deepEqual(
+    getResolverSnapshotStatus(
+      metadata("unsettled", {
+        in_progress_submission_count: 0,
+        failed_judging_submission_count: 2,
+      }),
+    ),
+    {
+      kind: "unsettled",
+      verified: true,
+      canStart: false,
+      contestMayHaveEnded: false,
+      remainingMs: null,
+    },
+  );
+});
+
 test("preview without an informational clock remains verified but never becomes final", () => {
   assert.deepEqual(getResolverSnapshotStatus(metadata("preview")), {
     kind: "preview",
@@ -217,6 +237,27 @@ test("unsettled snapshot UI explains both blockers and disables initial Start", 
   assert.match(page.nodes.snapshotMessage.textContent, /3 submissions are still being judged/);
   assert.match(page.nodes.snapshotMessage.textContent, /14 submissions still contain pretest-only/);
   assert.equal(classes.has("alert-danger"), true);
+});
+
+test("unsettled snapshot UI explains unresolved judging failures", () => {
+  const { page } = snapshotPage(
+    {
+      kind: "unsettled",
+      verified: true,
+      canStart: false,
+      contestMayHaveEnded: false,
+      remainingMs: null,
+    },
+    { failed_judging_submission_count: 2 },
+  );
+
+  page._renderSnapshotSafety();
+
+  assert.equal(page.nodes.setupSubmit.disabled, true);
+  assert.match(
+    page.nodes.snapshotMessage.textContent,
+    /2 submissions have unresolved judging failures/,
+  );
 });
 
 test("verified final snapshot UI enables Start Resolver", () => {

@@ -71,15 +71,17 @@ div.ticket-title {
     margin: 0 auto;
     display: flex;
     flex-direction: row;
-    flex-wrap: wrap-reverse;
+    flex-wrap: nowrap;
+    align-items: flex-start;
     max-width: 1200px;
 }
 
 .ticket-sidebar {
-    flex: 1;
-    padding: 10px 0 0 10px;
-    min-width: 150px;
-    max-width: 200px;
+    flex: 0 0 200px;
+    padding: 10px 0 0 16px;
+    min-width: 180px;
+    max-width: 220px;
+    box-sizing: border-box;
 }
 
 .ticket-info {
@@ -88,7 +90,40 @@ div.ticket-title {
 }
 
 .ticket-messages {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+@media (max-width: 760px) {
+    .ticket-container {
+        flex-wrap: wrap;
+    }
+
+    .ticket-sidebar {
+        flex: 1 1 100%;
+        max-width: none;
+        padding: 16px 0 0;
+    }
+
+    .ticket-info {
+        position: static;
+    }
+}
+
+#messages {
+    position: relative;
+    padding-bottom: 20px;
+
+    &::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 65px;
+        width: 2px;
+        background-color: $color_primary25;
+        z-index: 0;
+    }
 }
 
 .info-box {
@@ -159,16 +194,66 @@ div.ticket-title {
     margin-bottom: 0;
 }
 
+.ticket-action {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 0 8px 130px;
+    margin: 15px 0;
+    position: relative;
+    border-left: none;
+    color: #586069;
+    font-size: 0.9em;
+    z-index: 1;
+
+    .action-icon {
+        position: absolute;
+        left: 65px;
+        transform: translateX(-50%);
+        background: $color_primary0;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid $color_primary25;
+        box-sizing: border-box;
+
+        .fa-check-circle {
+            color: #44AD41;
+            font-size: 16px;
+        }
+        .fa-exclamation-circle {
+            color: #DE2121;
+            font-size: 16px;
+        }
+    }
+
+    .action-gravatar {
+        width: 20px;
+        height: 20px;
+        border-radius: 6px;
+        vertical-align: middle;
+    }
+}
+
 .ticket-message {
     display: flex;
     padding-top: 15px;
+    position: relative;
+    z-index: 1;
 
     .info {
         width: 130px;
+        text-align: center;
+        position: relative;
     }
 
     img.user-gravatar {
         margin: 0 auto;
+        position: relative;
+        z-index: 2;
     }
 
     .detail {
@@ -176,6 +261,8 @@ div.ticket-title {
         border-radius: 5px;
         flex: 1;
         min-width: 300px;
+        position: relative;
+        background: $color_primary0;
     }
 
     .header {

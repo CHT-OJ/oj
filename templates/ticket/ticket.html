@@ -31,8 +31,12 @@
                 var open = $(this).attr('data-open') == '1';
                 $.ajax({
                     url: $(this).attr('data-ajax'), type: 'POST',
-                    success: function () {
+                    success: function (data, textStatus, jqXHR) {
                         update_ticket_state(open);
+                        var actionMsgId = jqXHR && jqXHR.getResponseHeader('X-Ticket-Action-Message-Id');
+                        if (actionMsgId) {
+                            ticket_message({message: actionMsgId});
+                        }
                     },
                     error: function (data) {
                         alert('{{ _('Could not change ticket: {error}') }}'.replace('{error}', data.responseText));
@@ -110,30 +114,43 @@
                 decrease_page_ref();
             });
 
-            function ticket_status(ticket) {
-                update_ticket_state(ticket.open);
-                if (is_highest_ref())
-                    notify('ticket', (ticket.open ? '{{ _('Reopened: ') }}' :
-                        '{{ _('Closed: ') }}') + $title.text());
+            function ticket_action(data) {
+                if (data.open !== undefined) {
+                    update_ticket_state(data.open);
+                    if (is_highest_ref())
+                        notify('ticket', (data.open ? '{{ _('Reopened: ') }}' :
+                            '{{ _('Closed: ') }}') + $title.text());
+                }
+                ticket_message(data);
             }
 
+            var inflightMessages = {};
+
             function ticket_message(ticket) {
-                console.log('Fetching data for: ' + ticket.message);
+                var msgId = String(ticket.message || '');
+                if (!msgId) return;
+                if (document.getElementById('message-' + msgId) || inflightMessages[msgId]) {
+                    return;
+                }
+                inflightMessages[msgId] = true;
                 $.ajax({
                     url: '{{ url('ticket_message_ajax', ticket.id) }}',
-                    data: {message: ticket.message},
+                    data: {message: msgId},
                     success: function (data) {
-                        console.log('Got data for: ' + ticket.message);
-                        console.log(data);
-                        $('#messages').append($(data.message));
+                        if (!document.getElementById('message-' + msgId)) {
+                            $('#messages').append($(data.message));
+                        }
                     },
                     error: function (data) {
                         if (data.status === 403)
-                            console.log('No right to see: ' + ticket.message);
+                            console.log('No right to see: ' + msgId);
                         else {
                             console.log('Could not load ticket message:');
                             console.log(data.responseText);
                         }
+                    },
+                    complete: function () {
+                        delete inflightMessages[msgId];
                     }
                 });
             }
@@ -143,11 +160,8 @@
                 event_dispatcher.on('ticket-{{ ticket.id }}', function (message) {
                         console.log(message);
                         switch (message.type) {
-                            case 'ticket-status':
-                                ticket_status(message);
-                                break;
-                            case 'ticket-message':
-                                ticket_message(message);
+                            case 'ticket-action':
+                                ticket_action(message);
                                 break;
                         }
                     }

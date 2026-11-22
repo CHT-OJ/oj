@@ -103,6 +103,8 @@ VNOJ_TESTCASE_VISIBLE_LENGTH = 60
 
 VNOJ_TAG_PROBLEM_MIN_RATING = 1900  # Minimum rating to be able to tag a problem
 
+CHTOJ_WARNING_BANNER_DAYS = 30
+
 VNOJ_SHOULD_BAN_FOR_CHEATING_IN_CONTESTS = False
 VNOJ_CONTEST_CHEATING_BAN_MESSAGE = 'Banned for multiple cheating offenses during contests'
 VNOJ_MAX_DISQUALIFICATIONS_BEFORE_BANNING = 3
@@ -176,7 +178,7 @@ DISCORD_WEBHOOK = {
 
 SITE_FULL_URL = None  # ie 'https://oj.vnoi.info', please remove the last / if needed
 
-ACE_URL = '//cdnjs.cloudflare.com/ajax/libs/ace/1.1.3'
+ACE_URL = '//cdnjs.cloudflare.com/ajax/libs/ace/1.4.2'
 SELECT2_JS_URL = '//cdnjs.cloudflare.com/ajax/libs/select2/4.0.3/js/select2.min.js'
 SELECT2_CSS_URL = '//cdnjs.cloudflare.com/ajax/libs/select2/4.0.3/css/select2.min.css'
 
@@ -186,6 +188,10 @@ DMOJ_CAMO_HTTPS = False
 DMOJ_CAMO_EXCLUDE = ()
 
 DMOJ_PROBLEM_DATA_ROOT = None
+# Private directory shared by the web and Celery processes. The default is beside the live problem data.
+CHTOJ_UPLOAD_STAGING_ROOT = None
+CHTOJ_EDITOR_ZIP_MAX_BYTES = 100 * 1024 * 1024
+CHTOJ_EDITOR_ZIP_MAX_EXPANDED_BYTES = 2 * 1024 ** 3
 
 DMOJ_PROBLEM_MIN_TIME_LIMIT = 0.01  # seconds
 DMOJ_PROBLEM_MAX_TIME_LIMIT = 60  # seconds
@@ -649,6 +655,9 @@ MARTOR_UPLOAD_SAFE_EXTS = {
     '.md',
 }
 
+# External HTTPS hosts whose PDFs may be included in editor downloads.
+# Other external statements are included as links. Locally uploaded PDFs use Django storage.
+PROBLEM_PACKAGE_PDF_HOSTS = ()
 PDF_STATEMENT_UPLOAD_URL_PREFIX = '/pdf'
 PDF_STATEMENT_UPLOAD_MEDIA_DIR = 'pdf'
 PDF_STATEMENT_SAFE_EXTS = {'pdf'}

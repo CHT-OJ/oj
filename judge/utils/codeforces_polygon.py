@@ -222,6 +222,35 @@ class ImportPolygonError(Exception):
     pass
 
 
+def resolve_batch_dependencies(groups, retained):
+    # Empty groups have no test to grade. Propagate their prerequisites just like ignored groups.
+    retained = {name: group for name, group in retained.items() if group['cases']}
+    ordered = {}
+    expanded = {}
+    pending = dict(groups)
+    while pending:
+        previous_size = len(pending)
+        for name, group in list(pending.items()):
+            if any(parent not in expanded for parent in group['dependencies']):
+                continue
+            cases = set(group['cases'])
+            parents = set()
+            for parent in group['dependencies']:
+                if parent in retained:
+                    parents.add(parent)
+                else:
+                    extra_cases, ancestors = expanded[parent]
+                    cases.update(extra_cases)
+                    parents.update(ancestors)
+            expanded[name] = cases, parents
+            if name in retained:
+                ordered[name] = dict(group, cases=sorted(cases), dependencies=parents)
+            del pending[name]
+        if len(pending) == previous_size:
+            raise ImportPolygonError('Unknown or cyclic Polygon group dependency')
+    return ordered
+
+
 class PolygonImporter:
     def __init__(
             self,
@@ -419,9 +448,9 @@ class PolygonImporter:
         # For each-test batches, their tests are added as normal tests.
         # Each batch can also have a list of dependencies, which are other batches
         # that must be fully solved before the batch is run.
-        # To support dependencies, we just add all dependent tests before the actual tests.
-        # (There is actually a more elegant way to do this by using field `dependencies` in init.yml,
-        # but site does not support it yet)
+        # Dependencies are mapped to the `dependencies` field of batches in init.yml.
+        # If a dependency is not imported as a batch (each-test or ignored zero-point batches),
+        # its tests are added to the dependent batch instead.
         # Our judge does cache result for each test, so the same test will not be run twice.
         # In addition, we only support dependencies for complete-group batches.
         # (Technically, we could support dependencies for each-test batch by splitting it
@@ -479,32 +508,16 @@ class PolygonImporter:
                 else:
                     self.meta['normal_cases'].append(i)
 
-        def get_tests_by_batch(name):
-            batch = self.meta['batches'][name]
+        # Keep all groups around to resolve dependencies on groups that are not imported as batches
+        original_batches = self.meta['batches']
 
-            if len(batch['dependencies']) == 0:
-                return batch['cases']
-
-            # Polygon guarantees no cycles
-            cases = set(batch['cases'])
-            for dependency in batch['dependencies']:
-                cases.update(get_tests_by_batch(dependency))
-
-            batch['dependencies'] = []
-            batch['cases'] = list(cases)
-            return batch['cases']
-
-        each_test_batches = []
-        for batch in self.meta['batches'].values():
+        for batch in original_batches.values():
             if batch['points_policy'] == 'each-test':
-                each_test_batches.append(batch['name'])
                 self.meta['normal_cases'] += batch['cases']
-                continue
 
-            batch['cases'] = get_tests_by_batch(batch['name'])
-
-        for batch in each_test_batches:
-            del self.meta['batches'][batch]
+        self.meta['batches'] = {
+            name: batch for name, batch in original_batches.items() if batch['points_policy'] == 'complete-group'
+        }
 
         # Normalize points if necessary
         # Polygon allows fractional points, but DMOJ does not
@@ -563,6 +576,8 @@ class PolygonImporter:
                         idx for idx in self.meta['normal_cases'] if self.meta['cases_data'][idx]['points'] > 0
                     ]
                     self.log(f'Ignored {zero_point_cases_count} zero-point tests.')
+
+        self.meta['batches'] = resolve_batch_dependencies(original_batches, self.meta['batches'])
 
         # Sort tests by index
         self.meta['normal_cases'].sort()
@@ -864,10 +879,8 @@ class PolygonImporter:
         order = 0
         last_case = None
 
+        batch_numbers = {name: i + 1 for i, name in enumerate(self.meta['batches'])}
         for batch in self.meta['batches'].values():
-            if len(batch['cases']) == 0:
-                continue
-
             order += 1
             start_batch = ProblemTestCase(
                 dataset=problem,
@@ -875,6 +888,9 @@ class PolygonImporter:
                 type='S',
                 points=batch['points'],
                 is_pretest=False,
+                batch_dependencies=','.join(
+                    str(number) for number in sorted(batch_numbers[name] for name in batch['dependencies'])
+                ),
             )
             start_batch.save()
             last_case = start_batch

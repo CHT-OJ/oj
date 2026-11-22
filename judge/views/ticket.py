@@ -1,9 +1,11 @@
 import json
+import logging
 
 from django import forms
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ImproperlyConfigured, PermissionDenied, ValidationError
+from django.db import transaction
 from django.http import Http404, HttpResponse, HttpResponseBadRequest, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.template.defaultfilters import truncatechars
@@ -123,7 +125,7 @@ class NewProblemTicketView(ProblemMixin, TitleMixin, NewTicketView):
     template_name = 'ticket/new_problem.html'
 
     def get_assignees(self):
-        if self.request.in_contest:
+        if self.request.in_contest and self.request.participation and self.request.participation.live:
             contest = self.request.participation.contest
             if self.object.contests.filter(contest=contest).exists():
                 return contest.authors.all()
@@ -182,7 +184,7 @@ class TicketView(TitleMixin, TicketMixin, SingleObjectFormView):
                 'assignees': list(self.object.assignees.values_list('id', flat=True)),
             })
             event.post('ticket-%d' % self.object.id, {
-                'type': 'ticket-message', 'message': message.id,
+                'type': 'ticket-action', 'message': message.id,
             })
         on_new_ticket_message.delay(message.pk, message.ticket.pk, message.body)
         return HttpResponseRedirect('%s#message-%d' % (reverse('ticket', args=[self.object.id]), message.id))
@@ -197,36 +199,50 @@ class TicketView(TitleMixin, TicketMixin, SingleObjectFormView):
         return context
 
 
+logger = logging.getLogger('judge.ticket')
+
+
 class TicketStatusChangeView(TicketMixin, SingleObjectMixin, View):
     open = None
     contributive = None
 
+    @transaction.atomic
     def post(self, request, *args, **kwargs):
         if self.open is None and self.contributive is None:
             raise ImproperlyConfigured('Need to define open or contributive')
-        ticket = self.get_object()
+        ticket = self.get_object(self.get_queryset().select_for_update())
+        action_msg = None
         if self.open is not None and ticket.is_open != self.open:
             ticket.is_open = self.open
-            ticket.save()
+            ticket.save(update_fields=['is_open'])
+            action_msg = TicketMessage(ticket=ticket, user=request.profile, body='',
+                                       action=TicketMessage.OPEN if self.open else TicketMessage.CLOSE)
+            action_msg.save()
             if event.real:
-                event.post('tickets', {
-                    'type': 'ticket-status', 'id': ticket.id,
-                    'open': self.open, 'user': ticket.user_id,
-                    'assignees': list(ticket.assignees.values_list('id', flat=True)),
-                    'title': ticket.title,
-                })
-                event.post('ticket-%d' % ticket.id, {
-                    'type': 'ticket-status', 'open': self.open,
-                })
-
+                transaction.on_commit(lambda: self.publish_status(ticket, action_msg))
         if self.contributive is not None and ticket.is_contributive != self.contributive:
             if not request.user.has_perm('change_ticket') and self.request.profile == ticket.user:
                 return HttpResponseBadRequest(_('You cannot vote your own ticket.'), content_type='text/plain')
             ticket.user.update_contribution_points(settings.VNOJ_CP_TICKET *
                                                    (self.contributive - ticket.is_contributive))
             ticket.is_contributive = self.contributive
-            ticket.save()
-        return HttpResponse(status=204)
+            ticket.save(update_fields=['is_contributive'])
+        response = HttpResponse(status=204)
+        if action_msg is not None:
+            response['X-Ticket-Action-Message-Id'] = str(action_msg.pk)
+        return response
+
+    def publish_status(self, ticket, message):
+        try:
+            event.post('tickets', {
+                'type': 'ticket-status', 'id': ticket.pk, 'open': ticket.is_open, 'user': ticket.user_id,
+                'assignees': list(ticket.assignees.values_list('id', flat=True)), 'title': ticket.title,
+            })
+            event.post('ticket-%d' % ticket.pk, {
+                'type': 'ticket-action', 'open': ticket.is_open, 'message': message.pk,
+            })
+        except Exception:
+            logger.exception('Failed to publish ticket status event for ticket %s', ticket.pk)
 
 
 class TicketNotesForm(forms.Form):
@@ -244,7 +260,7 @@ class TicketNotesEditView(TicketMixin, SingleObjectFormView):
     def form_valid(self, form):
         ticket = self.get_object()
         ticket.notes = notes = form.cleaned_data['notes']
-        ticket.save()
+        ticket.save(update_fields=['notes'])
         if notes:
             return HttpResponse(linebreaks(notes, autoescape=True))
         else:
@@ -378,6 +394,7 @@ class TicketMessageDataAjax(TicketMixin, SingleObjectMixin, View):
             'message': get_template('ticket/message.html').render({'message': message, 'ticket': ticket}, request),
             'notification': {
                 'title': _('New Ticket Message For: %s') % ticket.title,
-                'body': truncatechars(message.body, 200),
+                'body': truncatechars(message.body, 200)
+                if message.action == TicketMessage.MESSAGE else _('Status changed'),
             },
         })

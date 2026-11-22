@@ -53,7 +53,15 @@
                     });
                 }
             });
-        })
+        });
+        $(function () {
+            var input = $('#id_memory_limit');
+            [128, 256, 512].forEach(function (mb) {
+                $('<button>', {type: 'button', text: mb + ' MB'}).on('click', function () {
+                    input.val(mb * 1024).trigger('change');
+                }).insertBefore(input);
+            });
+        });
     </script>
 {% endblock %}
 

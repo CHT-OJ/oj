@@ -1,8 +1,16 @@
 import errno
+import logging
 import os
+import uuid
+from datetime import timedelta
+from pathlib import Path
 
+from django.conf import settings
 from django.core.validators import FileExtensionValidator
-from django.db import models
+from django.db import models, transaction
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from judge.utils.problem_data import ProblemDataStorage
@@ -115,6 +123,49 @@ class ProblemData(models.Model):
     _update_code.alters_data = True
 
 
+class ProblemDataUpload(models.Model):
+    """A private, immutable candidate once the last chunk has been received."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    problem = models.ForeignKey('Problem', on_delete=models.CASCADE)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    filename = models.CharField(max_length=100)
+    size = models.PositiveBigIntegerField()
+    offset = models.PositiveBigIntegerField(default=0)
+    state = models.CharField(max_length=12, default='uploading')
+    updated = models.DateTimeField(auto_now=True, db_index=True)
+
+    @staticmethod
+    def cutoff():
+        return timezone.now() - timedelta(days=1)
+
+    @classmethod
+    def purge_expired(cls, batch_size=32):
+        expired = cls.objects.filter(updated__lt=cls.cutoff())
+        ids = list(expired.order_by('updated').values_list('pk', flat=True)[:batch_size])
+        return expired.filter(pk__in=ids).delete()[0]
+
+    @property
+    def path(self):
+        root = settings.CHTOJ_UPLOAD_STAGING_ROOT or Path(problem_data_storage.location).parent / '.chtoj-test-uploads'
+        return Path(root) / self.pk.hex
+
+    def remove_file_after_commit(self):
+        path = self.path
+
+        def remove():
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                logging.getLogger(__name__).exception('Could not remove staged test upload %s', path)
+
+        transaction.on_commit(remove)
+
+
+@receiver(post_delete, sender=ProblemDataUpload)
+def delete_staged_file(sender, instance, **kwargs):
+    instance.remove_file_after_commit()
+
+
 class ProblemTestCase(models.Model):
     dataset = models.ForeignKey('Problem', verbose_name=_('problem data set'), related_name='cases',
                                 on_delete=models.CASCADE)
@@ -135,3 +186,4 @@ class ProblemTestCase(models.Model):
     checker = models.CharField(max_length=10, verbose_name=_('checker'), choices=CHECKERS, blank=True)
     checker_args = models.TextField(verbose_name=_('checker arguments'), blank=True,
                                     help_text=_('Checker arguments as a JSON object.'))
+    batch_dependencies = models.CharField(_('Batch dependencies'), max_length=255, blank=True, default='')

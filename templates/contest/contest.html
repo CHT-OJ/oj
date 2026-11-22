@@ -187,6 +187,14 @@
     {% if is_in_contest or contest.ended or request.user.is_superuser or is_editor or is_tester %}
         <div class="contest-problems">
             <h2 style="margin-bottom: 0.2em; float:left;"><i class="fa fa-fw fa-question-circle"></i>{{ _('Problems') }} </h2>
+            {% if can_edit %}
+                <form method="post" action="{{ url('contest_problems_make_public', contest.key) }}" style="display: inline; float:right; margin-left: 10px;">
+                    {% csrf_token %}
+                    <button type="submit" class="button" onclick="return confirm('{{ _('Are you sure you want to make all problems and unpublished editorials in this contest public? Already-scheduled editorials will keep their scheduled publish date.') }}');">
+                        <i class="fa fa-unlock"></i> {{ _('Make All Problems Public') }}
+                    </button>
+                </form>
+            {% endif %}
             {% if can_edit and can_download_data %}
                 <a class="button" style="float:right" href="{{ url('contest_prepare_data', contest.key) }}">{{ _('Download data') }}</a>
             {% endif %}
@@ -198,6 +206,8 @@
                         <th><i class="fa fa-check"></i></th>
                     {% endif %}
                     <th>{{ _('Problem') }}</th>
+                    <th>{{ _('Time limit') }}</th>
+                    <th>{{ _('Memory limit') }}</th>
                     {% if not is_ICPC_format %}
                         <th>{{ _('Points') }}</th>
                     {% endif %}
@@ -248,6 +258,8 @@
                                 {{ problem.i18n_name or problem.name }}
                             {% endif %}
                         </td>
+                        <td>{{ problem.time_limit }} s</td>
+                        <td>{{ problem.memory_limit|kbsimpleformat }}</td>
                         {% if not is_ICPC_format %}
                             <td>{{ problem.points|floatformat(-2) }}</td>
                         {% endif %}

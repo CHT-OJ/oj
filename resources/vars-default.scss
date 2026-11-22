@@ -43,6 +43,16 @@ $color_user_submission_activity4: #216e39;
 
 $color_problem_submit_select2: #757575;
 
+// Problem page inline-submit tab colors (ported from VNOI-Admin/OJ#623)
+$color_problem_tab_bg: #f5f5f5;
+$color_problem_tab_border: #ddd;
+$color_problem_tab_text: #333;
+$color_problem_tab_hover_bg: #e8e8e8;
+$color_problem_tab_active_bg: #fff;
+$color_problem_tab_active_text: #007bff;
+$color_problem_submit_bg: #f9f9f9;
+$color_contest_problem_highlight: #f7ef81;
+
 $color_voted_mark: #0000ff;
 
 $path_to_root: '.';     // relative path from style.css to STATIC_ROOT

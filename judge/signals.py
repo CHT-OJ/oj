@@ -7,7 +7,8 @@ from django.contrib.flatpages.models import FlatPage
 from django.core.cache import cache
 from django.core.cache.utils import make_template_fragment_key
 from django.db import transaction
-from django.db.models.signals import m2m_changed, post_delete, post_save
+from django.db.models import Max
+from django.db.models.signals import m2m_changed, post_delete, post_save, pre_delete
 from django.dispatch import receiver
 from registration.models import RegistrationProfile
 from registration.signals import user_registered
@@ -35,30 +36,27 @@ def unlink_if_exists(file):
             raise
 
 
-@receiver(post_save, sender=WarningLog)
-def warning_update(sender, instance, **kwargs):
-    profile = instance.offender
-    profile.warn = WarningLog.objects.filter(offender=instance.offender).count()
-    profile.last_warned = WarningLog.objects.filter(offender=instance.offender).order_by('-id')[0].timestamp
-    if int(profile.warn) >= 5:
-        reason = """Tài khoản của bạn đã vi phạm quá 5 lần trên hệ thống CHTOJ.
-                Nếu chúng tôi có sai sót hãy tạo ticket trong server discord hoặc nhắn tin fanpage Facebook
-                của CLB Lập trình trường THPT Chuyên Hà Tĩnh để nhận được sự hỗ trợ."""
-        profile.ban_user(reason=reason)
-    profile.save()
+@receiver(pre_delete, sender=WarningLog)
+def lock_warning_on_delete(sender, instance, **kwargs):
+    # A bulk deletion may have collected this instance before an admin cleared its warnings.
+    Profile.objects.select_for_update().filter(pk=instance.offender_id).exists()
+    instance._counted_at_deletion = WarningLog.objects.filter(pk=instance.pk, cleared=False).exists()
 
 
 @receiver(post_delete, sender=WarningLog)
 def update_warn_count_on_delete(sender, instance, **kwargs):
-    profile = instance.offender
-    profile.warn = WarningLog.objects.filter(offender=instance.offender).count()
-    if int(profile.warn) <= 0:
-        profile.last_warned = None
-    else:
-        profile.last_warned = WarningLog.objects.filter(offender=instance.offender).order_by('-id')[0].timestamp
-    if int(profile.warn) < 5:
-        profile.unban_user()
-    profile.save()
+    if not instance._counted_at_deletion:
+        return
+    # Django's deletion collector runs these signals inside the delete transaction.
+    profile = Profile.objects.select_for_update().select_related('user').filter(pk=instance.offender_id).first()
+    if profile is None or profile.warn <= 0:
+        return
+    profile.warn -= 1
+    if profile.last_warned == instance.timestamp:
+        remaining = profile.warning_offender.filter(cleared=False)
+        profile.last_warned = remaining.aggregate(latest=Max('timestamp'))['latest']
+        profile.warning_expires_at = None
+    profile.apply_warning_count()
 
 
 @receiver(post_save, sender=Problem)

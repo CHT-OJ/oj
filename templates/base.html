@@ -480,14 +480,6 @@
 		  object-fit: cover;
 		  display: flex;
         }
-        #avatarPlaceholder {
-          position: absolute;
-		  font-size: 1.2rem;
-		  inset: 0;
-		  display: flex;
-		  align-items: center;
-		  justify-content: center;
-        }
         #contest-info {
           border-left: 5px solid rgba(0,0,0,0);
           min-width: 6rem !important;
@@ -691,8 +683,27 @@
     </noscript>
     <br>
     <main id="content">
-        {% if request.profile.last_warned != None and request.user.is_authenticated %}
-        <div class="acc-warning-ticket">Tài khoản <b><i>{{ request.user.username }}</i></b> có <strong>{{ request.profile.warn }}</strong> lần cảnh báo từ hệ thống <strong>CHTOJ</strong>, xem chi tiết tại <a href="http://{{ request.get_host() }}/user/{{ request.user.username }}/warning/" style="text-shadow:.2px .2px 2px #66bbff7d!important"><b>bấm vào đây. </b></a><strong style='text-transform: uppercase'>thực hiện hành vi vi phạm từ 5 lần trở lên thì tài khoản của bạn sẽ bị khóa vĩnh viễn!</strong></div>
+        {% set warning_ms = request.profile.warning_banner_ms if request.user.is_authenticated else 0 %}
+        {% if warning_ms %}
+            <div id="account-warning" class="acc-warning-ticket">
+                Tài khoản <b>{{ request.user.username }}</b> có <strong>{{ request.profile.warn }}</strong> lần cảnh cáo.
+                <a href="{{ url('user_warninglogs', request.user.username) }}">Xem lịch sử cảnh cáo</a>.
+                Tài khoản sẽ bị khóa từ lần cảnh cáo thứ 5.
+            </div>
+            <script>
+                (function () {
+                    var deadline = Date.now() + {{ warning_ms }};
+                    function dismissWhenExpired() {
+                        var remaining = deadline - Date.now();
+                        if (remaining > 0) {
+                            window.setTimeout(dismissWhenExpired, Math.min(remaining, 2147483647));
+                        } else {
+                            document.getElementById('account-warning').remove();
+                        }
+                    }
+                    dismissWhenExpired();
+                })();
+            </script>
         {% endif %}
         {% if misc_config.top_notification %}
             {{ render_django(misc_config.top_notification) }}

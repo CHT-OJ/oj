@@ -43,7 +43,7 @@
     <tbody>
     {% for data in warning_history %}
     <tr>   
-        <td>{{data.reason}}</td> 
+        <td>{{ data.reason }}{% if data.cleared %} (đã gỡ){% endif %}</td>
         <td>{{data.timestamp}}</td>
     </tr>
 

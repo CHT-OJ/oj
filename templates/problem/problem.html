@@ -1,5 +1,6 @@
 {% extends "common-content.html" %}
 {% block content_media %}
+    {% if form %}{{ form.media.css }}{% endif %}
     {% if not comment_lock %}
         {% include "comments/media-css.html" %}
     {% endif %}
@@ -58,6 +59,11 @@
     {% if not comment_lock %}
         {% include "comments/media-js.html" %}
     {% endif %}
+    {% if form and not no_judges %}
+        {% with ace_already_loaded=(not comment_lock and comment_form is defined and comment_form) %}
+            {% include "problem/submit-js.html" %}
+        {% endwith %}
+    {% endif %}
     <script type="text/javascript">
         $(function() {
             $('#pdf_button').click(async function(e) {
@@ -69,6 +75,96 @@
                     await new Promise(r => setTimeout(r, 200));
                 }
                 frames['raw_problem'].print();
+            });
+
+            var $tabs = $('.problem-tabs a[role="tab"]');
+            var $panels = $('.problem-tab-panel');
+
+            function activateTab(tabKey, pushHistory) {
+                var $tab = $tabs.filter('[data-tab="' + tabKey + '"]');
+                if (!$tab.length) {
+                    $tab = $tabs.first();
+                    tabKey = $tab.attr('data-tab');
+                }
+                if (!$tab.length) return;
+
+                $tabs.removeClass('active').attr('aria-selected', 'false').attr('tabindex', '-1');
+                $tab.addClass('active').attr('aria-selected', 'true').attr('tabindex', '0');
+
+                $panels.removeClass('active').attr('hidden', true);
+                var panelId = $tab.attr('aria-controls');
+                $('#' + panelId).addClass('active').removeAttr('hidden');
+
+                if (tabKey === 'submit' && window.initProblemSubmitPanel) {
+                    window.initProblemSubmitPanel();
+                }
+
+                if (pushHistory) {
+                    var targetHash = $tab.attr('href');
+                    if (history.pushState) {
+                        history.pushState(null, null, targetHash);
+                    } else {
+                        location.hash = targetHash;
+                    }
+                }
+            }
+
+            function syncTabFromHash(shouldScroll) {
+                var hash = window.location.hash;
+                if (/^#comment-\d+$/.test(hash)) {
+                    activateTab('comments', false);
+                    if (shouldScroll) {
+                        var el = document.getElementById(hash.slice(1));
+                        if (el && el.scrollIntoView) {
+                            el.scrollIntoView({behavior: 'auto', block: 'start'});
+                        }
+                    }
+                    return true;
+                }
+                if (hash === '#comments') {
+                    activateTab('comments', false);
+                    return true;
+                }
+                if (hash === '#submit' && $tabs.filter('[data-tab="submit"]').length) {
+                    activateTab('submit', false);
+                    return true;
+                }
+                return false;
+            }
+
+            $tabs.on('click', function(e) {
+                e.preventDefault();
+                activateTab($(this).attr('data-tab'), true);
+            });
+
+            $tabs.on('keydown', function(e) {
+                var idx = $tabs.index(this);
+                var nextIdx = null;
+                if (e.key === 'ArrowRight') nextIdx = (idx + 1) % $tabs.length;
+                else if (e.key === 'ArrowLeft') nextIdx = (idx - 1 + $tabs.length) % $tabs.length;
+                else if (e.key === 'Home') nextIdx = 0;
+                else if (e.key === 'End') nextIdx = $tabs.length - 1;
+                if (nextIdx !== null) {
+                    e.preventDefault();
+                    var $next = $tabs.eq(nextIdx);
+                    activateTab($next.attr('data-tab'), true);
+                    $next.focus();
+                }
+            });
+
+            var hasServerErrors = $('.problem-tabs').attr('data-has-errors') === 'true';
+            if (!hasServerErrors) {
+                if (!syncTabFromHash(true)) {
+                    if ($('#submit-panel').hasClass('active') && window.initProblemSubmitPanel) {
+                        window.initProblemSubmitPanel();
+                    }
+                }
+            } else if ($('#submit-panel').hasClass('active') && window.initProblemSubmitPanel) {
+                window.initProblemSubmitPanel();
+            }
+
+            $(window).on('hashchange popstate', function() {
+                syncTabFromHash(true);
             });
         });
     </script>
@@ -180,6 +276,9 @@
         {% if not problem.is_manually_managed %}
             <div><a href="{{ url('problem_data', problem.code) }}">{{ _('Edit test data') }}</a></div>
         {% endif %}
+        <div>
+            <a href="{{ url('problem_download_full_package', problem.code) }}">{{ _('Download package') }}</a>
+        </div>
     {% elif request.user.is_authenticated and has_tickets %}
         <hr>
         <div>
@@ -306,6 +405,30 @@
             {% endwith %}
         </div>
     {% endif %}
+    {% if contest_codes %}
+        <div id="contest-problems-list">
+            <div class="toggle open unselectable">
+                <i class="fa fa-chevron-right fa-fw"></i>{{ _('Problems') }}
+            </div>
+            <div class="toggled">
+                <nav class="contest-problem-nav" aria-label="{{ _('Problems') }}">
+                    <table class="table striped">
+                        <tbody>
+                            {% for code in contest_codes %}
+                                <tr>
+                                    <td{% if code == problem.code %} class="highlighted"{% endif %}>
+                                        <a href="{{ url('problem_detail', code) }}"{% if code == problem.code %} aria-current="page"{% endif %}>
+                                            {{ contest_problem.contest.get_label_for_problem(loop.index0) }}
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </nav>
+            </div>
+        </div>
+    {% endif %}
     {% if show_languages %}
         <div id="allowed-langs">
             <div class="toggle open unselectable">
@@ -365,36 +488,79 @@
     {% include "problem/problem-detail.html" %}
 {% endblock %}
 
-{% block post_description_end %}
-    {% if request.user.is_authenticated and not request.profile.mute %}
-        <a href="{{ url('new_problem_ticket', problem.code) }}" class="button clarify">
-            {%- if comment_lock and request.profile.current_contest.live -%}
-                {{ _('Request clarification') }}
-            {%- else -%}
-                {{ _('Report an issue') }}
-            {%- endif -%}
-        </a>
-    {% endif %}
-{% endblock %}
+{% block post_description_end %}{% endblock %}
 
 {% block comments %}
-    {% if comment_lock %}
-        <div class="clarifications-area">
-            <h2><i class="fa fa-question-circle"></i> {{ _('Clarifications') }}</h2>
-            {% if has_clarifications %}
-                {% for clarification in clarifications %}
-                    <div class="problem-clarification">
-                        <div class="time">{{ relative_time(clarification.date) }}</div>
-                        <span class="body">
-                            {{ clarification.description|markdown('problem', MATH_ENGINE)|reference }}
-                        </span>
-                    </div>
-                {% endfor %}
-            {% else %}
-                <p class="no-comments-message">{{ _('No clarifications have been made at this time.') }}</p>
+    {% set has_submit_tab = request.user.is_authenticated and form %}
+    {% set submit_has_errors = has_submit_tab and (form.errors or form.non_field_errors()) %}
+    {% set comments_has_errors = comment_form and comment_form.errors %}
+    {% set comments_tab_active = (not has_submit_tab) or (comments_has_errors and not submit_has_errors) %}
+
+    <noscript><style>.problem-tab-panel { display: block !important; }</style></noscript>
+
+    <div class="problem-tabs" data-has-errors="{{ 'true' if (submit_has_errors or comments_has_errors) else 'false' }}">
+        <ul role="tablist" aria-label="{{ _('Problem') }}">
+            {% if has_submit_tab %}
+                <li role="presentation">
+                    <a id="problem-tab-submit" role="tab" href="#submit" data-tab="submit"
+                       aria-controls="submit-panel"
+                       aria-selected="{{ 'false' if comments_tab_active else 'true' }}"
+                       tabindex="{{ '-1' if comments_tab_active else '0' }}"
+                       class="{% if not comments_tab_active %}active{% endif %}">{{ _('Submit solution') }}</a>
+                </li>
             {% endif %}
+            <li role="presentation">
+                <a id="problem-tab-comments" role="tab" href="#comments" data-tab="comments"
+                   aria-controls="comments-panel"
+                   aria-selected="{{ 'true' if comments_tab_active else 'false' }}"
+                   tabindex="{{ '0' if comments_tab_active else '-1' }}"
+                   class="{% if comments_tab_active %}active{% endif %}">{{ _('Clarifications') if (comment_lock and contest_problem) else _('Comments') }}</a>
+            </li>
+        </ul>
+        {% if can_request_clarification or can_report_issue %}
+            <div class="problem-tabs-actions">
+                <a href="{{ url('new_problem_ticket', problem.code) }}" class="button clarify">
+                    {%- if can_request_clarification -%}
+                        {{ _('Request clarification') }}
+                    {%- else -%}
+                        {{ _('Report an issue') }}
+                    {%- endif -%}
+                </a>
+            </div>
+        {% endif %}
+    </div>
+
+    {% if has_submit_tab %}
+        <div id="submit-panel" role="tabpanel" aria-labelledby="problem-tab-submit"
+             class="problem-tab-panel {% if not comments_tab_active %}active{% endif %}"
+             {% if comments_tab_active %}hidden{% endif %}>
+            <div class="submit-tab-content">
+                {% include "problem/submit-form.html" %}
+            </div>
         </div>
-    {% else %}
-        {% include "comments/list.html" %}
     {% endif %}
+
+    <div id="comments-panel" role="tabpanel" aria-labelledby="problem-tab-comments"
+         class="problem-tab-panel {% if comments_tab_active %}active{% endif %}"
+         {% if not comments_tab_active %}hidden{% endif %}>
+        {% if comment_lock %}
+            <div id="comments" class="clarifications-area">
+                <h2><i class="fa fa-question-circle"></i> {{ _('Clarifications') }}</h2>
+                {% if has_clarifications %}
+                    {% for clarification in clarifications %}
+                        <div class="problem-clarification">
+                            <div class="time">{{ relative_time(clarification.date) }}</div>
+                            <span class="body">
+                                {{ clarification.description|markdown('problem', MATH_ENGINE)|reference }}
+                            </span>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="no-comments-message">{{ _('No clarifications have been made at this time.') }}</p>
+                {% endif %}
+            </div>
+        {% else %}
+            {% include "comments/list.html" %}
+        {% endif %}
+    </div>
 {% endblock %}

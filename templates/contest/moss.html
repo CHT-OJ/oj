@@ -30,36 +30,27 @@
                 return confirm('{{ _('Are you sure you want to delete the MOSS results?') }}');
             });
         });
-        function Compute_moss(){
-            if(confirm('Bạn có chắc muốn cảnh cáo các tài khoản vi phạm? (Có thể khiến tài khoản bị khóa nếu vượt quá 5 lần vi phạm)')){
-                const rows = document.querySelectorAll('.table.striped tbody tr');
-                data = [];
-                rows.forEach(row => {
-                
-                    const cells = row.querySelectorAll('td');
-                    const rowData = {
-                        problem: cells[0].innerText.trim(),
-                        c: cells[1].querySelector('a') ? cells[1].querySelector('a').href : "No submission",
-                        cpp: cells[2].querySelector('a') ? cells[2].querySelector('a').href : "No submission",
-                        java: cells[3].querySelector('a') ? cells[3].querySelector('a').href : "No submission",
-                        python: cells[4].querySelector('a') ? cells[4].querySelector('a').href : "No submission",
-                        pascal: cells[5].querySelector('a') ? cells[5].querySelector('a').href : "No submission",
-                        moss: cells[6].querySelector('input').value.trim() 
-                    };
-                    data.push(rowData);
+        async function Compute_moss(button) {
+            const thresholds = Object.create(null);
+            for (const input of document.querySelectorAll('input[data-problem]')) {
+                if (!input.reportValidity()) return;
+                thresholds[input.dataset.problem] = input.valueAsNumber;
+            }
+            if (!confirm('Cảnh cáo các tài khoản đạt ngưỡng MOSS? Tài khoản bị khóa từ lần cảnh cáo thứ 5.')) return;
+            button.disabled = true;
+            try {
+                const response = await fetch("{{ url('compute_moss', contest.key) }}", {
+                    method: 'POST',
+                    headers: {'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json'},
+                    body: JSON.stringify(thresholds)
                 });
-                var csrftoken = '{{ csrf_token }}';
-                fetch(`moss/calculate`, {
-                  method: 'POST',
-                  headers: {
-                    'X-CSRFToken': csrftoken,
-                    'Content-Type': 'application/json'
-                  },
-                  body: JSON.stringify(data)
-                })
-                .then(response => response.json())
-                .then(data => alert('Tính điểm thành công'))
-                .catch((error) => alert('Tính điểm thất bại'));
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error);
+                alert('Số tài khoản nhận cảnh cáo mới: ' + data.Result.length);
+            } catch (error) {
+                alert(error.message || 'Không thể ghi cảnh cáo.');
+            } finally {
+                button.disabled = false;
             }
         }
         function Export_moss(){
@@ -131,7 +122,7 @@
                                 {% endif %}
                             </td>
                         {% endfor %}
-                        <td><input type="number" value="100"></td>
+                        <td><input type="number" min="0" max="100" required value="100" data-problem="{{ problem.code }}"></td>
                     </tr>
                 {% endfor %}
             </tbody>
@@ -155,7 +146,7 @@
                 </form>
             </div>
             <div class="pane">
-                <button class="unselectable button full" style="padding: 10px;" onclick="Compute_moss()">Cảnh cáo gian lận</button>
+                <button class="unselectable button full" style="padding: 10px;" onclick="Compute_moss(this)">Cảnh cáo gian lận</button>
             </div>       
             <div class="pane">
                 <button class="unselectable button full" style="padding: 10px;" onclick="Export_moss()">Export as excel</button>
