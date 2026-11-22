@@ -193,9 +193,9 @@ class ProblemTwoTabAndSubmitTestCase(TestCase):
         self.assertIn('id="contest-problems-list"', html)
         self.assertIn('class="contest-problem-nav"', html)
         self.assertIn('aria-current="page"', html)
-        self.assertEqual(response.context['contest_codes'], [self.problem.code, self.problem_2.code])
-        self.assertTrue(response.context['can_request_clarification'])
-        self.assertFalse(response.context['can_report_issue'])
+        self.assertEqual(response.context_data['contest_codes'], [self.problem.code, self.problem_2.code])
+        self.assertTrue(response.context_data['can_request_clarification'])
+        self.assertFalse(response.context_data['can_report_issue'])
         # Comment lock disables Martor, so submit-js must load ACE_URL/ace.js once.
         self.assertContains(response, '/ace.js"></script>')
 
@@ -210,8 +210,8 @@ class ProblemTwoTabAndSubmitTestCase(TestCase):
         self.user.profile.save(update_fields=['current_contest'])
         vresp = self.client.get(self._detail_url(self.problem))
         self.assertEqual(vresp.status_code, 200)
-        self.assertFalse(vresp.context['can_request_clarification'])
-        self.assertTrue(vresp.context['can_report_issue'])
+        self.assertFalse(vresp.context_data['can_request_clarification'])
+        self.assertTrue(vresp.context_data['can_report_issue'])
 
     def test_code_and_file_only_form_validation_matrix(self):
         # 1. Code language with source, no file -> valid
