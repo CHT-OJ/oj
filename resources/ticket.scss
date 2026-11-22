@@ -71,15 +71,17 @@ div.ticket-title {
     margin: 0 auto;
     display: flex;
     flex-direction: row;
-    flex-wrap: wrap-reverse;
+    flex-wrap: nowrap;
+    align-items: flex-start;
     max-width: 1200px;
 }
 
 .ticket-sidebar {
-    flex: 1;
-    padding: 10px 0 0 10px;
-    min-width: 150px;
-    max-width: 200px;
+    flex: 0 0 200px;
+    padding: 10px 0 0 16px;
+    min-width: 180px;
+    max-width: 220px;
+    box-sizing: border-box;
 }
 
 .ticket-info {
@@ -88,7 +90,24 @@ div.ticket-title {
 }
 
 .ticket-messages {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+@media (max-width: 760px) {
+    .ticket-container {
+        flex-wrap: wrap;
+    }
+
+    .ticket-sidebar {
+        flex: 1 1 100%;
+        max-width: none;
+        padding: 16px 0 0;
+    }
+
+    .ticket-info {
+        position: static;
+    }
 }
 
 #messages {

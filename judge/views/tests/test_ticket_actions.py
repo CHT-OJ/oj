@@ -54,6 +54,18 @@ class TicketTimelineActionTestCase(TestCase):
         self.assertEqual(len(actions), 1)
         self.assertEqual(actions[0].action, TicketMessage.CLOSE)
         self.assertEqual(actions[0].user_id, self.author.profile.id)
+        self.assertEqual(response['X-Ticket-Action-Message-Id'], str(actions[0].id))
+
+    def test_publish_failure_after_commit_does_not_fail_request(self):
+        with mock.patch('judge.views.ticket.event') as fake_event:
+            fake_event.real = True
+            fake_event.post.side_effect = RuntimeError('event daemon down')
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self._post('ticket_close')
+        self.assertEqual(response.status_code, 204)
+        self.ticket.refresh_from_db()
+        self.assertFalse(self.ticket.is_open)
+        self.assertEqual(self._actions().count(), 1)
 
     def test_reopen_records_exactly_one_open_action(self):
         self._post('ticket_close')

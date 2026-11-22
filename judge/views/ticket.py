@@ -1,4 +1,5 @@
 import json
+import logging
 
 from django import forms
 from django.conf import settings
@@ -198,6 +199,9 @@ class TicketView(TitleMixin, TicketMixin, SingleObjectFormView):
         return context
 
 
+logger = logging.getLogger('judge.ticket')
+
+
 class TicketStatusChangeView(TicketMixin, SingleObjectMixin, View):
     open = None
     contributive = None
@@ -207,6 +211,7 @@ class TicketStatusChangeView(TicketMixin, SingleObjectMixin, View):
         if self.open is None and self.contributive is None:
             raise ImproperlyConfigured('Need to define open or contributive')
         ticket = self.get_object(self.get_queryset().select_for_update())
+        action_msg = None
         if self.open is not None and ticket.is_open != self.open:
             ticket.is_open = self.open
             ticket.save(update_fields=['is_open'])
@@ -222,16 +227,22 @@ class TicketStatusChangeView(TicketMixin, SingleObjectMixin, View):
                                                    (self.contributive - ticket.is_contributive))
             ticket.is_contributive = self.contributive
             ticket.save(update_fields=['is_contributive'])
-        return HttpResponse(status=204)
+        response = HttpResponse(status=204)
+        if action_msg is not None:
+            response['X-Ticket-Action-Message-Id'] = str(action_msg.pk)
+        return response
 
     def publish_status(self, ticket, message):
-        event.post('tickets', {
-            'type': 'ticket-status', 'id': ticket.pk, 'open': ticket.is_open, 'user': ticket.user_id,
-            'assignees': list(ticket.assignees.values_list('id', flat=True)), 'title': ticket.title,
-        })
-        event.post('ticket-%d' % ticket.pk, {
-            'type': 'ticket-action', 'open': ticket.is_open, 'message': message.pk,
-        })
+        try:
+            event.post('tickets', {
+                'type': 'ticket-status', 'id': ticket.pk, 'open': ticket.is_open, 'user': ticket.user_id,
+                'assignees': list(ticket.assignees.values_list('id', flat=True)), 'title': ticket.title,
+            })
+            event.post('ticket-%d' % ticket.pk, {
+                'type': 'ticket-action', 'open': ticket.is_open, 'message': message.pk,
+            })
+        except Exception:
+            logger.exception('Failed to publish ticket status event for ticket %s', ticket.pk)
 
 
 class TicketNotesForm(forms.Form):
