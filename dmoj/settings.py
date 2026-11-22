@@ -178,7 +178,7 @@ DISCORD_WEBHOOK = {
 
 SITE_FULL_URL = None  # ie 'https://oj.vnoi.info', please remove the last / if needed
 
-ACE_URL = '//cdnjs.cloudflare.com/ajax/libs/ace/1.1.3'
+ACE_URL = '//cdnjs.cloudflare.com/ajax/libs/ace/1.4.2'
 SELECT2_JS_URL = '//cdnjs.cloudflare.com/ajax/libs/select2/4.0.3/js/select2.min.js'
 SELECT2_CSS_URL = '//cdnjs.cloudflare.com/ajax/libs/select2/4.0.3/css/select2.min.css'
 

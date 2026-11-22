@@ -27,11 +27,17 @@
         {% endif %}
     {% endif %}
 
+    {% set selected_lang_id = form['language'].value() %}
+    {% if not selected_lang_id and default_lang %}
+        {% set selected_lang_id = default_lang.id %}
+    {% endif %}
+
     <form id="problem_submit" action="{{ submit_action|default('') }}" method="post" class="form-area" enctype="multipart/form-data">
         {% csrf_token %}
+        <input type="hidden" name="submit_solution" value="1">
         {{ form.non_field_errors() }}
         {% if not no_judges %}
-        <div id="submit-wrapper">
+        <div id="submit-wrapper"{% if inline_submit_tab %} data-lazy-ace="true"{% endif %}>
             <div id="editor" class="hidden">
                 <div>
                     <label for="file_select"><i>{{ _('Paste your source code here or load it from a file:') }}</i></label>
@@ -50,24 +56,21 @@
                 <label for="file_upload" id="file_drag"></label>
             </div>
             <hr>
-            {% if not no_judges %}
-                <div id="language">
-                    {{ form.language.errors }}
-                    <div id="language-select">
-                        <select id="id_language" name="language">
-                            {% for lang in form.fields.language.queryset %}
-                                <option value="{{ lang.id }}" data-id="{{ lang.id }}" data-name="{{ lang.name }}"
-                                        data-info="{{ lang.info }}" data-ace="{{ lang.ace }}" data-fileonly="{{ lang.file_only }}"
-                                        data-ext="{{ lang.extension }}" data-file-size="{{ lang.file_size_limit }}"
-                                        data-judge-info="{{ runtime_versions(lang.runtime_versions()) }}"
-                                        {% if lang.id == default_lang.id %}selected{% endif %}>{{ lang.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+            <div id="language">
+                {{ form.language.errors }}
+                <div id="language-select">
+                    <select id="id_language" name="language">
+                        {% for lang in form.fields.language.queryset %}
+                            <option value="{{ lang.id }}" data-id="{{ lang.id }}" data-name="{{ lang.name }}"
+                                    data-info="{{ lang.info }}" data-ace="{{ lang.ace }}" data-fileonly="{{ lang.file_only }}"
+                                    data-ext="{{ lang.extension }}" data-file-size="{{ lang.file_size_limit }}"
+                                    data-judge-info="{{ runtime_versions(lang.runtime_versions()) }}"
+                                    {% if selected_lang_id and (lang.id|string == selected_lang_id|string) %}selected{% endif %}>{{ lang.name }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
-            {% endif %}
+            </div>
         </div>
-
         {% endif %}
         <hr>
 

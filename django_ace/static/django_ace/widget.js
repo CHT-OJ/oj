@@ -71,6 +71,12 @@
     }
 
     function apply_widget(widget) {
+        if (!widget || widget.dataset.aceInitialized === '1') {
+            return window[widget && widget.id] || null;
+        }
+        widget.dataset.aceInitialized = '1';
+        widget.className = "django-ace-widget"; // remove `loading` class
+
         var div = widget.firstChild,
             textarea = next(widget),
             editor = ace.edit(div),
@@ -178,15 +184,19 @@
 
         window[widget.id] = editor;
         $(widget).trigger('ace_load', [editor]);
+        return editor;
     }
+
+    window.djangoAceInitWidget = apply_widget;
 
     function init() {
         var widgets = document.getElementsByClassName('django-ace-widget');
 
         for (var i = 0; i < widgets.length; i++) {
             var widget = widgets[i];
-            widget.className = "django-ace-widget"; // remove `loading` class
-
+            if (widget.closest && widget.closest('[data-lazy-ace="true"]')) {
+                continue;
+            }
             apply_widget(widget);
         }
     }

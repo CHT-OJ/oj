@@ -378,9 +378,12 @@ class ProblemSubmitForm(ModelForm):
             return
         lang_obj = language
 
-        if (source != '' and content is not None) or (source == '' and content is None) or \
-                (source != '' and lang_obj.file_only) or (content == '' and not lang_obj.file_only):
-            raise forms.ValidationError(_('Source code/file is missing or redundant. Please try again'))
+        if lang_obj.file_only:
+            if content is None or source != '':
+                raise forms.ValidationError(_('Source code/file is missing or redundant. Please try again'))
+        else:
+            if source == '' or content is not None:
+                raise forms.ValidationError(_('Source code/file is missing or redundant. Please try again'))
 
         if content:
             max_file_size = lang_obj.file_size_limit * 1024 * 1024
