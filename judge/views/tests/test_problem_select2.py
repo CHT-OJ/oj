@@ -314,3 +314,164 @@ class ContestCreateOrganizationPickerTestCase(TestCase):
             list(contest.contest_problems.values_list('problem_id', flat=True)),
             [self.org_problem.id],
         )
+
+
+@override_settings(MOSS_API_KEY=None)
+class ContestProblemPolicyAndBoundStateTestCase(TestCase):
+    fixtures = ['language_all.json', 'navbar.json']
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.student_a = create_user(
+            username='member_a',
+            user_permissions=('add_contest', 'edit_own_contest'),
+        )
+        cls.tester_user = create_user(
+            username='only_tester',
+            user_permissions=('add_contest', 'edit_own_contest'),
+        )
+        cls.dual_admin = create_user(
+            username='dual_org_admin',
+            user_permissions=('create_private_contest', 'add_contest', 'edit_own_contest'),
+        )
+        cls.org_a = create_organization(name='PolicyOrgA', admins=('dual_org_admin',))
+        cls.org_b = create_organization(name='PolicyOrgB', admins=('dual_org_admin',))
+        cls.org_a.members.add(cls.student_a.profile)
+
+        cls.public_prob = create_problem(code='pol_pub', name='Policy Public', is_public=True)
+        cls.org_a_prob = create_problem(
+            code='pol_orga',
+            name='Policy Org A',
+            is_public=True,
+            is_organization_private=True,
+            organizations=('PolicyOrgA',),
+        )
+        cls.org_b_prob = create_problem(
+            code='pol_orgb',
+            name='Policy Org B',
+            is_public=True,
+            is_organization_private=True,
+            organizations=('PolicyOrgB',),
+        )
+        cls.tester_only_prob = create_problem(
+            code='pol_secret',
+            name='Policy Secret',
+            is_public=False,
+            testers=('only_tester',),
+        )
+
+    def _base_post(self, key, name, problem_id, order='1', points='100', max_submissions=''):
+        now = timezone.now()
+        return {
+            'key': key,
+            'name': name,
+            'start_time': (now + timezone.timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S'),
+            'end_time': (now + timezone.timedelta(days=2)).strftime('%Y-%m-%d %H:%M:%S'),
+            'scoreboard_visibility': Contest.SCOREBOARD_VISIBLE,
+            'format_name': 'default',
+            'description': '',
+            'contest_problems-TOTAL_FORMS': '1',
+            'contest_problems-INITIAL_FORMS': '0',
+            'contest_problems-MIN_NUM_FORMS': '0',
+            'contest_problems-MAX_NUM_FORMS': '1000',
+            'contest_problems-0-problem': str(problem_id),
+            'contest_problems-0-points': points,
+            'contest_problems-0-order': order,
+            'contest_problems-0-max_submissions': max_submissions,
+        }
+
+    def test_org_member_cannot_inject_org_private_problem_into_global_contest(self):
+        self.client.force_login(self.student_a)
+        response = self.client.post(
+            reverse('contest_new'),
+            self._base_post('student_global', 'Student Global', self.org_a_prob.id),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Contest.objects.filter(key='student_global').exists())
+
+    def test_tester_cannot_inject_unpublished_problem_into_own_contest(self):
+        self.client.force_login(self.tester_user)
+        response = self.client.post(
+            reverse('contest_new'),
+            self._base_post('tester_global', 'Tester Global', self.tester_only_prob.id),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Contest.objects.filter(key='tester_global').exists())
+
+    def test_dual_admin_cannot_inject_org_b_problem_into_org_a_contest(self):
+        self.client.force_login(self.dual_admin)
+        response = self.client.post(
+            reverse('contest_create_organization', args=[self.org_a.slug]),
+            self._base_post('policyorga_leak', 'Org A Contest', self.org_b_prob.id),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Contest.objects.filter(key='policyorga_leak').exists())
+        # Must not leak the unauthorized problem's title back into the rendered option.
+        self.assertNotContains(response, '[pol_orgb] Policy Org B')
+
+    def test_org_create_validation_error_preserves_valid_bound_problem_selection(self):
+        self.client.force_login(self.dual_admin)
+        # Missing required org key prefix triggers ContestForm validation error
+        # while the chosen public problem on row 0 is valid and must be preserved.
+        data = self._base_post('bad_prefix', 'Org A Contest', self.public_prob.id, points='75', max_submissions='5')
+        response = self.client.post(reverse('contest_create_organization', args=[self.org_a.slug]), data)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '[pol_pub] Policy Public')
+        self.assertContains(response, 'data-problem-src="public"')
+        self.assertContains(response, 'value="75"')
+        self.assertContains(response, 'value="5"')
+
+    def test_edit_contest_preserves_new_selection_on_error_and_allows_deleting_legacy_row(self):
+        from judge.models.tests.util import create_contest_problem
+        contest = create_contest(
+            key='policyorga_edit',
+            authors=('dual_org_admin',),
+            is_organization_private=True,
+            organizations=('PolicyOrgA',),
+        )
+        legacy_cp = create_contest_problem(contest=contest, problem=self.org_b_prob, order=1)
+
+        self.client.force_login(self.dual_admin)
+        url = reverse('contest_edit', args=[contest.key])
+        now = timezone.now()
+
+        # 1. Duplicate order error while adding a valid org A problem on row 1 -> preserves row 1 selection!
+        dup_data = {
+            'key': contest.key,
+            'name': contest.name,
+            'start_time': (now + timezone.timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S'),
+            'end_time': (now + timezone.timedelta(days=2)).strftime('%Y-%m-%d %H:%M:%S'),
+            'scoreboard_visibility': Contest.SCOREBOARD_VISIBLE,
+            'format_name': 'default',
+            'description': '',
+            'contest_problems-TOTAL_FORMS': '2',
+            'contest_problems-INITIAL_FORMS': '1',
+            'contest_problems-MIN_NUM_FORMS': '0',
+            'contest_problems-MAX_NUM_FORMS': '1000',
+            'contest_problems-0-id': str(legacy_cp.id),
+            'contest_problems-0-problem': str(self.org_b_prob.id),
+            'contest_problems-0-points': '100',
+            'contest_problems-0-order': '1',
+            'contest_problems-0-max_submissions': '',
+            'contest_problems-1-id': '',
+            'contest_problems-1-problem': str(self.org_a_prob.id),
+            'contest_problems-1-points': '200',
+            'contest_problems-1-order': '1',
+            'contest_problems-1-max_submissions': '3',
+        }
+        response = self.client.post(url, dup_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '[pol_orga] Policy Org A')
+        self.assertContains(response, 'value="200"')
+        self.assertContains(response, 'value="3"')
+
+        # 2. Deleting legacy out-of-policy row 0 while keeping valid row 1 succeeds!
+        fix_data = dict(dup_data)
+        fix_data['contest_problems-0-DELETE'] = 'on'
+        fix_data['contest_problems-1-order'] = '2'
+        response = self.client.post(url, fix_data)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            list(contest.contest_problems.values_list('problem_id', flat=True)),
+            [self.org_a_prob.id],
+        )

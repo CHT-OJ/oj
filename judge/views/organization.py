@@ -628,7 +628,12 @@ class OrganizationTags(AdminOrganizationMixin, View):
         self.problem = None
         if code:
             scope = organization_problem_filter(self.organization, request)
-            self.problem = get_object_or_404(Problem.objects.select_for_update().filter(scope).distinct(), code=code)
+            problem_id = Problem.objects.filter(scope, code=code).values_list('pk', flat=True).distinct().first()
+            if problem_id is None:
+                raise Http404()
+            self.problem = get_object_or_404(Problem.objects.select_for_update(), pk=problem_id)
+            if not Problem.objects.filter(scope, pk=self.problem.pk).exists():
+                raise Http404()
         elif 'delete' in request.POST:
             self.organization.problem_tags.filter(id=positive_tag_id(request.POST['delete'])).delete()
             return HttpResponseRedirect(request.path)
@@ -748,6 +753,9 @@ class ContestCreateOrganization(AdminOrganizationMixin, CreateContest):
         kwargs = super().get_form_kwargs()
         kwargs['org_pk'] = self.organization.pk
         return kwargs
+
+    def get_contest_org(self):
+        return self.organization
 
     def get_context_data(self, **kwargs):
         # The contest is always created for exactly this organization, so the

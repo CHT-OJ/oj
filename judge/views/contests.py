@@ -1477,14 +1477,22 @@ class CreateContest(PermissionRequiredMixin, TitleMixin, CreateView):
     def get_content_title(self):
         return _('Create new contest')
 
+    def get_contest_org(self):
+        return None
+
     def get_contest_problem_formset(self):
+        form_kwargs = {
+            'user': self.request.user,
+            'contest_org': self.get_contest_org(),
+        }
         if self.request.POST:
-            return ProposeContestProblemFormSet(self.request.POST, form_kwargs={'user': self.request.user})
-        return ProposeContestProblemFormSet(form_kwargs={'user': self.request.user})
+            return ProposeContestProblemFormSet(self.request.POST, form_kwargs=form_kwargs)
+        return ProposeContestProblemFormSet(form_kwargs=form_kwargs)
 
     def get_context_data(self, **kwargs):
         data = super().get_context_data(**kwargs)
-        data['contest_problem_formset'] = self.get_contest_problem_formset()
+        if 'contest_problem_formset' not in kwargs:
+            data['contest_problem_formset'] = self.get_contest_problem_formset()
         return data
 
     def save_contest_form(self, form):
@@ -1494,7 +1502,7 @@ class CreateContest(PermissionRequiredMixin, TitleMixin, CreateView):
 
     def post(self, request, *args, **kwargs):
         self.object = None
-        form = ContestForm(request.POST or None)
+        form = self.get_form()
         form_set = self.get_contest_problem_formset()
         if form.is_valid() and form_set.is_valid():
             with revisions.create_revision(atomic=True):
@@ -1508,7 +1516,10 @@ class CreateContest(PermissionRequiredMixin, TitleMixin, CreateView):
             on_new_contest.delay(self.object.key)
             return HttpResponseRedirect(self.get_success_url())
         else:
-            return self.render_to_response(self.get_context_data(*args, **kwargs))
+            return self.render_to_response(self.get_context_data(
+                form=form,
+                contest_problem_formset=form_set,
+            ))
 
     def dispatch(self, request, *args, **kwargs):
         try:
@@ -1548,10 +1559,14 @@ class EditContest(ContestMixin, LoginRequiredMixin, TitleMixin, UpdateView):
                         reverse('contest_view', args=[self.object.key]))))
 
     def get_contest_problem_formset(self):
+        form_kwargs = {
+            'user': self.request.user,
+            'contest_org': self.get_contest_org(),
+        }
         if self.request.POST:
             return ProposeContestProblemFormSet(self.request.POST, instance=self.get_object(),
-                                                form_kwargs={'user': self.request.user})
-        return ProposeContestProblemFormSet(instance=self.get_object(), form_kwargs={'user': self.request.user})
+                                                form_kwargs=form_kwargs)
+        return ProposeContestProblemFormSet(instance=self.get_object(), form_kwargs=form_kwargs)
 
     def get_contest_org(self):
         if not self.object.is_organization_private:
@@ -1561,7 +1576,8 @@ class EditContest(ContestMixin, LoginRequiredMixin, TitleMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         data = super().get_context_data(**kwargs)
-        data['contest_problem_formset'] = self.get_contest_problem_formset()
+        if 'contest_problem_formset' not in kwargs:
+            data['contest_problem_formset'] = self.get_contest_problem_formset()
         data['contest_org'] = self.get_contest_org()
         return data
 
@@ -1587,7 +1603,11 @@ class EditContest(ContestMixin, LoginRequiredMixin, TitleMixin, UpdateView):
 
             return HttpResponseRedirect(self.get_success_url())
         else:
-            return self.render_to_response(self.get_context_data(object=self.object))
+            return self.render_to_response(self.get_context_data(
+                object=self.object,
+                form=form,
+                contest_problem_formset=form_set,
+            ))
 
 
 class ContestDataMixin(ContestMixin, LoginRequiredMixin):
@@ -1702,6 +1722,19 @@ class ContestProblemMakePublic(LoginRequiredMixin, ContestMixin, SingleObjectMix
 
         return super(ContestProblemMakePublic, self).dispatch(request, *args, **kwargs)
 
+    @staticmethod
+    def _can_publish_private_problem(user, contest, contest_org_id, problem):
+        if not problem.is_editable_by(user):
+            return False
+        if user.has_perm('judge.change_public_visibility'):
+            return True
+        if not problem.is_organization_private or problem.is_suggesting:
+            return False
+        if not contest.is_organization_private or contest_org_id is None:
+            return False
+        problem_org_ids = set(problem.organizations.values_list('pk', flat=True))
+        return problem_org_ids == {contest_org_id}
+
     @transaction.atomic
     def post(self, request, *args, **kwargs):
         contest = self.get_object()
@@ -1711,19 +1744,26 @@ class ContestProblemMakePublic(LoginRequiredMixin, ContestMixin, SingleObjectMix
         if not contest.is_editable_by(request.user):
             raise PermissionDenied(_('You do not have permission to edit this contest.'))
 
-        now = timezone.now()
-        problems = Problem.objects.select_for_update().filter(contests__contest=contest).order_by('pk')
-        for problem in problems:
-            # Editability is decided before publishing, so a user who may only edit
-            # public problems cannot promote a private one by publishing it first.
-            is_editable = problem.is_editable_by(request.user)
+        contest_org_ids = list(contest.organizations.values_list('pk', flat=True)[:2])
+        contest_org_id = contest_org_ids[0] if contest.is_organization_private and len(contest_org_ids) == 1 else None
 
-            # Write permissions are only required for **private** problems. This is
-            # not a bug: it improves the UX since a lot of users include public
-            # problems in their contests.
-            if not problem.is_public:
-                if not is_editable:
-                    raise PermissionDenied(_('You do not have permission to edit this problem.'))
+        now = timezone.now()
+        problems = list(Problem.objects.select_for_update().filter(contests__contest=contest).order_by('pk'))
+
+        # Decide editability and publishability on initial state for the entire batch
+        # before mutating anything or registering any on_commit callbacks.
+        plan = []
+        for problem in problems:
+            is_editable = problem.is_editable_by(request.user)
+            needs_publish = not problem.is_public
+            if needs_publish and not self._can_publish_private_problem(
+                request.user, contest, contest_org_id, problem,
+            ):
+                raise PermissionDenied(_('You do not have permission to publish this problem.'))
+            plan.append((problem, is_editable, needs_publish))
+
+        for problem, is_editable, needs_publish in plan:
+            if needs_publish:
                 problem.is_public = True
                 problem.date = now
                 problem.save(update_fields=['is_public', 'date'])
@@ -1733,7 +1773,7 @@ class ContestProblemMakePublic(LoginRequiredMixin, ContestMixin, SingleObjectMix
 
             # Editorials are published even when the problem was already public, but
             # only for problems this user may edit, and only if still unpublished so
-            # that an existing publish_on is never pushed forward.
+            # that an existing publish_on (past or future scheduled) is preserved.
             if is_editable:
                 Solution.objects.filter(problem=problem, is_public=False).update(
                     is_public=True,

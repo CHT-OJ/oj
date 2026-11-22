@@ -127,15 +127,16 @@
     <tr>
         <td>{{ form.id }} {{ form.problem.errors }}
             {% if contest_org %}
+            {% set chosen_problem = form.selected_problem %}
             <div class="tab-bar" role="group" aria-label="{{ _('Problem source') }}">
                 <button class="tab-bar-btn" type="button" value="org">{{ _('Organization problems') }}</button>
                 <button class="tab-bar-btn" type="button" value="public">{{ _('Public problems') }}</button>
             </div>
             <select name="{{ form.problem.html_name }}" id="{{ form.problem.auto_id }}" style="width:100%"
-                    data-problem-src="{{ 'public' if form.instance.problem_id and not form.instance.problem.is_organization_private else 'org' }}">
-                {% if form.instance.problem_id %}
-                <option value="{{ form.instance.problem_id }}" selected>
-                    [{{ form.instance.problem.code }}] {{ form.instance.problem.name }}
+                    data-problem-src="{{ form.selected_problem_source }}">
+                {% if chosen_problem %}
+                <option value="{{ chosen_problem.pk }}" selected>
+                    [{{ chosen_problem.code }}] {{ chosen_problem.name }}
                 </option>
                 {% endif %}
             </select>
@@ -172,6 +173,7 @@
         {% if contest_problem_formset.non_form_errors() %}
             {{ contest_problem_formset.non_form_errors() }}
         {% endif %}
+        <div style="overflow-x: auto;">
         <table class="table">
             <thead>
                 <tr>
@@ -196,6 +198,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
         <div style="display: flex; justify-content: flex-end;"><button class="submit-bar" type="submit">
             {% if request.resolver_match.url_name == 'contest_edit' %}
                 {{ _('Update') }}

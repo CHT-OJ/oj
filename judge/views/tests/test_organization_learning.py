@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.test import TestCase
 from django.urls import reverse
 
@@ -7,6 +8,14 @@ from judge.models.tests.util import create_organization, create_problem, create_
 
 class OrganizationLearningTest(TestCase):
     fixtures = ['language_all.json', 'navbar.json']
+
+    def setUp(self):
+        super().setUp()
+        cache.clear()
+
+    def tearDown(self):
+        cache.clear()
+        super().tearDown()
 
     @classmethod
     def setUpTestData(cls):

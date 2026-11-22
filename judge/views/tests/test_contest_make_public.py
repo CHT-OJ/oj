@@ -5,7 +5,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from judge.models import Solution
-from judge.models.tests.util import create_contest, create_contest_problem, create_problem, create_solution, create_user
+from judge.models.tests.util import create_contest, create_contest_problem, create_organization, create_problem, \
+    create_solution, create_user
 
 
 class ContestProblemMakePublicTestCase(TestCase):
@@ -231,7 +232,9 @@ class ContestProblemMakePublicTestCase(TestCase):
 
 @override_settings(MOSS_API_KEY=None)
 class ContestProblemMakePublicNonStaffTestCase(TestCase):
-    """A legitimate contest editor does not need `is_staff` to publish."""
+    """Publishing global private problems requires judge.change_public_visibility;
+    non-staff editors with that permission (or org-scoped editors for single-org
+    private problems) do not need is_staff."""
 
     fixtures = ['language_all.json', 'navbar.json']
 
@@ -242,6 +245,16 @@ class ContestProblemMakePublicNonStaffTestCase(TestCase):
         cls.editor = create_user(
             username='nonstaff_editor',
             is_staff=False,
+            user_permissions=('edit_own_contest', 'edit_own_problem', 'change_public_visibility'),
+        )
+        cls.limited_editor = create_user(
+            username='limited_editor',
+            is_staff=False,
+            user_permissions=('edit_own_contest', 'edit_own_problem'),
+        )
+        cls.staff_no_perm = create_user(
+            username='staff_no_perm',
+            is_staff=True,
             user_permissions=('edit_own_contest', 'edit_own_problem'),
         )
         cls.stranger = create_user(username='problem_stranger')
@@ -251,14 +264,14 @@ class ContestProblemMakePublicNonStaffTestCase(TestCase):
             start_time=cls._now - timezone.timedelta(days=10),
             end_time=cls._now - timezone.timedelta(days=1),
             is_visible=True,
-            authors=('nonstaff_editor',),
+            authors=('nonstaff_editor', 'limited_editor', 'staff_no_perm'),
         )
 
         # The editor's own private problem, with an unpublished editorial.
         cls.own_problem = create_problem(
             code='nonstaff_own',
             is_public=False,
-            authors=('nonstaff_editor',),
+            authors=('nonstaff_editor', 'limited_editor', 'staff_no_perm'),
         )
         cls.own_solution = create_solution(
             problem=cls.own_problem,
@@ -282,8 +295,8 @@ class ContestProblemMakePublicNonStaffTestCase(TestCase):
         )
         create_contest_problem(contest=cls.contest, problem=cls.foreign_problem, order=2)
 
-    def _get_url(self):
-        return reverse('contest_problems_make_public', args=[self.contest.key])
+    def _get_url(self, contest=None):
+        return reverse('contest_problems_make_public', args=[(contest or self.contest).key])
 
     @patch('judge.views.contests.rescore_problem')
     def test_non_staff_editor_can_publish(self, mock_rescore):
@@ -298,6 +311,149 @@ class ContestProblemMakePublicNonStaffTestCase(TestCase):
         self.assertTrue(self.own_problem.is_public)
         self.assertTrue(self.own_solution.is_public)
         mock_rescore.delay.assert_any_call(self.own_problem.id, True)
+
+    @patch('judge.views.contests.rescore_problem')
+    def test_editor_without_global_perm_cannot_publish_global_private_problem(self, mock_rescore):
+        self.client.force_login(self.limited_editor)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self._get_url())
+
+        self.assertNotEqual(response.status_code, 302)
+        self.assertContains(response, 'You do not have permission to publish this problem.')
+        self.own_problem.refresh_from_db()
+        self.own_solution.refresh_from_db()
+        self.assertFalse(self.own_problem.is_public)
+        self.assertFalse(self.own_solution.is_public)
+        mock_rescore.delay.assert_not_called()
+
+    @patch('judge.views.contests.rescore_problem')
+    def test_is_staff_alone_does_not_grant_global_publish(self, mock_rescore):
+        self.client.force_login(self.staff_no_perm)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self._get_url())
+
+        self.assertNotEqual(response.status_code, 302)
+        self.assertContains(response, 'You do not have permission to publish this problem.')
+        self.own_problem.refresh_from_db()
+        self.assertFalse(self.own_problem.is_public)
+        mock_rescore.delay.assert_not_called()
+
+    @patch('judge.views.contests.rescore_problem')
+    def test_scheduled_future_editorial_keeps_scheduled_date(self, mock_rescore):
+        future_date = self._now + timezone.timedelta(days=14)
+        scheduled_problem = create_problem(
+            code='prob_scheduled_ed',
+            is_public=True,
+            authors=('nonstaff_editor',),
+        )
+        scheduled_solution = create_solution(
+            problem=scheduled_problem,
+            is_public=True,
+            publish_on=future_date,
+            content='Scheduled editorial',
+        )
+        create_contest_problem(contest=self.contest, problem=scheduled_problem, order=3)
+
+        self.client.force_login(self.editor)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self._get_url())
+
+        self.assertEqual(response.status_code, 302)
+        scheduled_solution.refresh_from_db()
+        self.assertTrue(scheduled_solution.is_public)
+        self.assertEqual(scheduled_solution.publish_on, future_date)
+
+    @patch('judge.views.contests.rescore_problem')
+    def test_org_editor_can_publish_single_org_private_problem_only(self, mock_rescore):
+        org_a = create_organization(name='PubOrgA', admins=('limited_editor',))
+        org_b = create_organization(name='PubOrgB', admins=('limited_editor',))
+        org_contest = create_contest(
+            key='org_a_publish',
+            start_time=self._now - timezone.timedelta(days=10),
+            end_time=self._now - timezone.timedelta(days=1),
+            is_visible=True,
+            is_organization_private=True,
+            organizations=('PubOrgA',),
+            authors=('limited_editor',),
+        )
+        org_only_prob = create_problem(
+            code='org_a_only_prob',
+            is_public=False,
+            is_organization_private=True,
+            organizations=('PubOrgA',),
+            authors=('limited_editor',),
+        )
+        create_contest_problem(contest=org_contest, problem=org_only_prob, order=1)
+
+        # Single-org private problem in single-org private contest -> allowed
+        self.client.force_login(self.limited_editor)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self._get_url(org_contest))
+        self.assertEqual(response.status_code, 302)
+        org_only_prob.refresh_from_db()
+        self.assertTrue(org_only_prob.is_public)
+        mock_rescore.delay.assert_called_once_with(org_only_prob.id, True)
+
+        # Multi-org private problem (Org A + Org B) -> denied & rolls back whole batch
+        mock_rescore.reset_mock()
+        org_only_prob_2 = create_problem(
+            code='org_a_only_prob2',
+            is_public=False,
+            is_organization_private=True,
+            organizations=('PubOrgA',),
+            authors=('limited_editor',),
+        )
+        shared_prob = create_problem(
+            code='org_ab_shared_prob',
+            is_public=False,
+            is_organization_private=True,
+            organizations=(org_a.name, org_b.name),
+            authors=('limited_editor',),
+        )
+        create_contest_problem(contest=org_contest, problem=org_only_prob_2, order=2)
+        create_contest_problem(contest=org_contest, problem=shared_prob, order=3)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self._get_url(org_contest))
+        self.assertNotEqual(response.status_code, 302)
+        self.assertContains(response, 'You do not have permission to publish this problem.')
+        org_only_prob_2.refresh_from_db()
+        shared_prob.refresh_from_db()
+        self.assertFalse(org_only_prob_2.is_public)
+        self.assertFalse(shared_prob.is_public)
+        mock_rescore.delay.assert_not_called()
+
+    @patch('judge.views.contests.rescore_problem')
+    def test_org_editor_cannot_publish_suggested_problem_without_global_perm(self, mock_rescore):
+        create_organization(name='PubOrgSug', admins=('limited_editor',))
+        org_contest = create_contest(
+            key='org_sug_publish',
+            start_time=self._now - timezone.timedelta(days=10),
+            end_time=self._now - timezone.timedelta(days=1),
+            is_visible=True,
+            is_organization_private=True,
+            organizations=('PubOrgSug',),
+            authors=('limited_editor',),
+        )
+        suggested_prob = create_problem(
+            code='org_sug_prob',
+            is_public=False,
+            is_organization_private=True,
+            organizations=('PubOrgSug',),
+            authors=('limited_editor',),
+        )
+        suggested_prob.suggester = self.limited_editor.profile
+        suggested_prob.save(update_fields=['suggester'])
+        create_contest_problem(contest=org_contest, problem=suggested_prob, order=1)
+
+        self.client.force_login(self.limited_editor)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self._get_url(org_contest))
+        self.assertNotEqual(response.status_code, 302)
+        self.assertContains(response, 'You do not have permission to publish this problem.')
+        suggested_prob.refresh_from_db()
+        self.assertFalse(suggested_prob.is_public)
+        mock_rescore.delay.assert_not_called()
 
     @patch('judge.views.contests.rescore_problem')
     def test_uneditable_public_problem_is_skipped_not_fatal(self, mock_rescore):

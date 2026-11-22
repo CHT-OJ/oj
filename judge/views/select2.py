@@ -122,7 +122,7 @@ class OrganizationSelect2View(Select2View):
 
 class ProblemSelect2View(Select2View):
     def get_queryset(self):
-        return Problem.get_visible_problems(self.request.user) \
+        return Problem.get_contest_selectable_problems(self.request.user) \
                       .filter(Q(code__icontains=self.term) | Q(name__icontains=self.term)) \
                       .distinct()
 
@@ -148,8 +148,7 @@ class OrganizationProblemSelect2View(Select2View):
     def get_queryset(self):
         # CHT relates problems to organizations through a m2m, so filter across
         # the relation and de-duplicate rather than comparing an organization_id.
-        return Problem.get_visible_problems(self.request.user) \
-                      .filter(organizations=self.org_pk, is_organization_private=True) \
+        return Problem.get_organization_bank_problems(self.request.user, self.org_pk) \
                       .filter(Q(code__icontains=self.term) | Q(name__icontains=self.term)) \
                       .distinct()
 

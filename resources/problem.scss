@@ -138,6 +138,24 @@ label[for="category"], label[for="type"] {
 //     white-space: nowrap;
 // }
 
+.org-problem-tag {
+    display: inline-block;
+    margin-left: 0.4em;
+    padding: 0.05em 0.45em;
+    border-radius: 3px;
+    font-size: 0.85em;
+    border: 1px solid $color_primary25;
+    background: rgba($color_primary100, 0.08);
+    white-space: nowrap;
+}
+
+.org-edit-tags-link {
+    display: inline-block;
+    margin-left: 0.5em;
+    font-size: 0.85em;
+    white-space: nowrap;
+}
+
 ul.problem-list {
     list-style: none;
     padding-left: 1em;

@@ -190,7 +190,7 @@
             {% if can_edit %}
                 <form method="post" action="{{ url('contest_problems_make_public', contest.key) }}" style="display: inline; float:right; margin-left: 10px;">
                     {% csrf_token %}
-                    <button type="submit" class="button" onclick="return confirm('{{ _('Are you sure you want to make all problems in this contest public?') }}');">
+                    <button type="submit" class="button" onclick="return confirm('{{ _('Are you sure you want to make all problems and unpublished editorials in this contest public? Already-scheduled editorials will keep their scheduled publish date.') }}');">
                         <i class="fa fa-unlock"></i> {{ _('Make All Problems Public') }}
                     </button>
                 </form>
